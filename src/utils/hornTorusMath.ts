@@ -1,96 +1,96 @@
-import { SCL90RData, ModelParams, TopologicalMetrics } from '../types';
+import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates } from '../types';
 
 export const DEFAULT_SCL90R_DATA: SCL90RData = {
-  "Somatización": 0.75,
-  "Obsesión-Compulsión": 0.85,
-  "Psicoticismo": 0.95,
-  "GSI": 0.90,
-  "PST": 0.75,
-  "PSDI": 0.95,
-  "Depresión": 0.65,
-  "Ansiedad": 0.70,
-  "Hostilidad": 0.50,
-  "Sensibilidad Interpersonal": 0.60,
-  "Ansiedad Fóbica": 0.45,
-  "Ideación Paranoide": 0.80,
+  "Somatización": 0.8,
+  "Obsesión-Compulsión": 0.9,
+  "Sensibilidad Interpersonal": 0.7,
+  "Depresión": 0.85,
+  "Ansiedad": 0.95,
+  "Hostilidad": 0.6,
+  "Ansiedad Fóbica": 0.75,
+  "Ideación Paranoide": 0.8,
+  "Psicoticismo": 0.9,
+  "GSI": 0.85,
+  "PST": 0.7,
+  "PSDI": 0.9
 };
 
 export const CLINICAL_PRESETS: { name: string; description: string; data: SCL90RData }[] = [
   {
-    name: "Caso SCL-90-R (Prompt Original)",
-    description: "Configuración psicométrica con alta severidad psicótica, obsesiva y global (GSI 0.90)",
+    name: "Modelo Icc Lacaniano (Código Python)",
+    description: "Configuración psicométrica completa con curvas S, I, Σ y punto de angustia en la fantasía",
     data: { ...DEFAULT_SCL90R_DATA }
   },
   {
-    name: "Línea Base Saludable (Normativa)",
-    description: "Puntuaciones T sub-clínicas homogéneas con toroide armónico regular y sin distorsión",
+    name: "Caso SCL-90-R (Prompt Inicial)",
+    description: "GSI 0.90, Psicoticismo 0.95, Obsesión 0.85, Somatización 0.75",
     data: {
-      "Somatización": 0.15,
-      "Obsesión-Compulsión": 0.20,
-      "Psicoticismo": 0.10,
-      "GSI": 0.18,
-      "PST": 0.22,
-      "PSDI": 0.25,
-      "Depresión": 0.15,
-      "Ansiedad": 0.20,
-      "Hostilidad": 0.12,
-      "Sensibilidad Interpersonal": 0.18,
-      "Ansiedad Fóbica": 0.10,
-      "Ideación Paranoide": 0.15,
-    }
-  },
-  {
-    name: "Crisis Neurótica (Somatoforme-Ansiedad)",
-    description: "Predominio de somatización y tensión motora con ondas periféricas de alta frecuencia",
-    data: {
-      "Somatización": 0.92,
-      "Obsesión-Compulsión": 0.78,
-      "Psicoticismo": 0.35,
-      "GSI": 0.72,
-      "PST": 0.80,
-      "PSDI": 0.88,
-      "Depresión": 0.60,
-      "Ansiedad": 0.95,
-      "Hostilidad": 0.40,
-      "Sensibilidad Interpersonal": 0.55,
-      "Ansiedad Fóbica": 0.70,
-      "Ideación Paranoide": 0.45,
-    }
-  },
-  {
-    name: "Desorganización Psicótica Severa",
-    description: "Colapso y vórtice asimétrico en la singularidad del cuerno central (Cúspide)",
-    data: {
-      "Somatización": 0.50,
-      "Obsesión-Compulsión": 0.65,
-      "Psicoticismo": 0.99,
-      "GSI": 0.95,
-      "PST": 0.90,
-      "PSDI": 0.98,
-      "Depresión": 0.85,
+      "Somatización": 0.75,
+      "Obsesión-Compulsión": 0.85,
+      "Sensibilidad Interpersonal": 0.70,
+      "Depresión": 0.70,
       "Ansiedad": 0.80,
-      "Hostilidad": 0.75,
-      "Sensibilidad Interpersonal": 0.90,
-      "Ansiedad Fóbica": 0.60,
-      "Ideación Paranoide": 0.95,
+      "Hostilidad": 0.60,
+      "Ansiedad Fóbica": 0.65,
+      "Ideación Paranoide": 0.75,
+      "Psicoticismo": 0.95,
+      "GSI": 0.90,
+      "PST": 0.75,
+      "PSDI": 0.95
     }
   },
   {
-    name: "Trastorno Obsesivo Rígido",
-    description: "Resonancias toroidales periódicas hiper-estructuradas en 4 y 8 lóbulos ortogonales",
+    name: "Estructura Neurótica Obsesiva",
+    description: "Curva S (Significante) dominante con alta resonancia y fijación sin ruptura",
     data: {
       "Somatización": 0.40,
       "Obsesión-Compulsión": 0.98,
+      "Sensibilidad Interpersonal": 0.60,
+      "Depresión": 0.50,
+      "Ansiedad": 0.85,
+      "Hostilidad": 0.40,
+      "Ansiedad Fóbica": 0.35,
+      "Ideación Paranoide": 0.50,
+      "Psicoticismo": 0.25,
+      "GSI": 0.62,
+      "PST": 0.55,
+      "PSDI": 0.75
+    }
+  },
+  {
+    name: "Desencadenamiento Psicótico (Ruptura)",
+    description: "Curva Σ (Síntoma) en colapso e invasión masiva del punto de fantasía",
+    data: {
+      "Somatización": 0.65,
+      "Obsesión-Compulsión": 0.70,
+      "Sensibilidad Interpersonal": 0.90,
+      "Depresión": 0.80,
+      "Ansiedad": 0.95,
+      "Hostilidad": 0.85,
+      "Ansiedad Fóbica": 0.70,
+      "Ideación Paranoide": 0.98,
+      "Psicoticismo": 0.99,
+      "GSI": 0.96,
+      "PST": 0.92,
+      "PSDI": 0.99
+    }
+  },
+  {
+    name: "Histeria y Cuerpo (Imagen I)",
+    description: "Curva I (Imagen corporal) desfasada con alta somatización y sensibilidad interpersonal",
+    data: {
+      "Somatización": 0.95,
+      "Obsesión-Compulsión": 0.50,
+      "Sensibilidad Interpersonal": 0.90,
+      "Depresión": 0.65,
+      "Ansiedad": 0.80,
+      "Hostilidad": 0.35,
+      "Ansiedad Fóbica": 0.70,
+      "Ideación Paranoide": 0.40,
       "Psicoticismo": 0.30,
       "GSI": 0.68,
-      "PST": 0.60,
-      "PSDI": 0.85,
-      "Depresión": 0.50,
-      "Ansiedad": 0.75,
-      "Hostilidad": 0.35,
-      "Sensibilidad Interpersonal": 0.60,
-      "Ansiedad Fóbica": 0.30,
-      "Ideación Paranoide": 0.50,
+      "PST": 0.72,
+      "PSDI": 0.82
     }
   }
 ];
@@ -102,19 +102,162 @@ export interface TorusPoint {
   nx: number;
   ny: number;
   nz: number;
+  u: number;
+  v: number;
+  angustia: number;
+  isRupture: boolean;
   stress: number;
-  gaussianCurvature: number;
-  meanCurvature: number;
-  theta: number;
-  phi: number;
 }
 
 /**
- * Computes deformation magnitude psi(theta, phi) based on psychometric scores
+ * Calculates Lacanian parameters S, I, Sigma, fantasy point, and rupture points
+ * directly following the user's HornTorusICCModel definition
+ */
+export function calculateLacanianParameters(
+  sclData: SCL90RData,
+  params: ModelParams
+): LacanianCoordinates {
+  const { a_scale, u_scale, v_scale, a_critical } = params;
+
+  // Radio a (escalado por GSI)
+  const gsi = sclData["GSI"] ?? 0.85;
+  const a = a_scale * gsi;
+
+  // Escalas primarias sin GSI, PST, PSDI
+  const numScales = 9;
+
+  // S (Significante): basado en Ansiedad y Obsesión
+  const anxiety = sclData["Ansiedad"] ?? 0.95;
+  const obsession = sclData["Obsesión-Compulsión"] ?? 0.9;
+  const u_S = (u_scale * (anxiety + obsession)) / numScales;
+
+  // v para S: basado en PSDI
+  const psdi = sclData["PSDI"] ?? 0.9;
+  const v_S = v_scale * (1 + psdi);
+
+  // I (Imagen del cuerpo): basado en Somatización y Sensibilidad Interpersonal
+  const somatization = sclData["Somatización"] ?? 0.8;
+  const interpersonal = sclData["Sensibilidad Interpersonal"] ?? 0.7;
+  const u_I = (u_scale * (somatization + interpersonal)) / numScales;
+
+  // v para I: basado en PST
+  const pst = sclData["PST"] ?? 0.7;
+  const v_I = v_scale * (1 + pst);
+
+  // Σ (Síntoma): basado en Psicoticismo y Hostilidad
+  const psychoticism = sclData["Psicoticismo"] ?? 0.9;
+  const hostility = sclData["Hostilidad"] ?? 0.6;
+  const u_Sigma = (u_scale * (psychoticism + hostility)) / numScales;
+
+  // v para Σ: basado en Psicoticismo
+  const v_Sigma = v_scale * (1 + psychoticism);
+
+  // Punto de fantasía (angustia máxima): (pi, pi / 2)
+  const u_F = Math.PI;
+  const v_F = Math.PI / 2;
+
+  // Coordenadas 3D del punto de fantasía
+  const x_F = a * (1 + Math.cos(v_F)) * Math.cos(u_F);
+  const y_F = a * (1 + Math.cos(v_F)) * Math.sin(u_F);
+  const z_F = a * Math.sin(v_F);
+
+  // Conteo de puntos de ruptura (donde angustia <= a_critical o supera umbral)
+  // En el espacio paramétrico (u, v), los puntos cuya distancia a (u_F, v_F) <= A_cr
+  // representan la zona de angustia crítica/ruptura
+  const sampleSteps = 60;
+  let rupturePointsCount = 0;
+  for (let i = 0; i < sampleSteps; i++) {
+    const u = (i / sampleSteps) * 2 * Math.PI;
+    for (let j = 0; j < sampleSteps; j++) {
+      const v = (j / sampleSteps) * 2 * Math.PI;
+      const dist = Math.sqrt((u - u_F) ** 2 + (v - v_F) ** 2);
+      if (dist <= a_critical) {
+        rupturePointsCount++;
+      }
+    }
+  }
+  const totalSamples = sampleSteps * sampleSteps;
+  const ruptureAreaPercent = (rupturePointsCount / totalSamples) * 100;
+
+  return {
+    a,
+    u_S,
+    v_S,
+    u_I,
+    v_I,
+    u_Sigma,
+    v_Sigma,
+    fantasyPointUV: [u_F, v_F],
+    fantasyPoint3D: [x_F, y_F, z_F],
+    ruptureCount: rupturePointsCount,
+    ruptureAreaPercent
+  };
+}
+
+/**
+ * Calculates angustia A(u, v) = sqrt((u - u_F)^2 + (v - v_F)^2)
+ */
+export function calculateAngustia(u: number, v: number): number {
+  const u_F = Math.PI;
+  const v_F = Math.PI / 2;
+  return Math.sqrt((u - u_F) ** 2 + (v - v_F) ** 2);
+}
+
+/**
+ * Generates 3D coordinates for curves S, I, and Sigma
+ */
+export function getLacanianCurves(
+  lacanian: LacanianCoordinates,
+  uPoints: number = 180,
+  visualScale: number = 25.0 // scale up coordinates for viewport
+) {
+  const uVals: number[] = [];
+  for (let i = 0; i <= uPoints; i++) {
+    uVals.push((i / uPoints) * 2 * Math.PI);
+  }
+
+  const effectiveA = lacanian.a * visualScale;
+
+  // Curva S (Significante, color rojo)
+  const curveS: [number, number, number][] = uVals.map((u) => {
+    const x = effectiveA * (1 + Math.cos(lacanian.v_S)) * Math.cos(u);
+    const y = effectiveA * (1 + Math.cos(lacanian.v_S)) * Math.sin(u);
+    const z = effectiveA * Math.sin(lacanian.v_S);
+    return [x, y, z];
+  });
+
+  // Curva I (Imagen del cuerpo, color verde)
+  const curveI: [number, number, number][] = uVals.map((u) => {
+    const x = effectiveA * (1 + Math.cos(lacanian.v_I)) * Math.cos(u);
+    const y = effectiveA * (1 + Math.cos(lacanian.v_I)) * Math.sin(u);
+    const z = effectiveA * Math.sin(lacanian.v_I);
+    return [x, y, z];
+  });
+
+  // Curva Sigma (Síntoma, color azul)
+  const curveSigma: [number, number, number][] = uVals.map((u) => {
+    const x = effectiveA * (1 + Math.cos(lacanian.v_Sigma)) * Math.cos(u);
+    const y = effectiveA * (1 + Math.cos(lacanian.v_Sigma)) * Math.sin(u);
+    const z = effectiveA * Math.sin(lacanian.v_Sigma);
+    return [x, y, z];
+  });
+
+  // Punto de fantasía en 3D escalado
+  const fantasy3D: [number, number, number] = [
+    lacanian.fantasyPoint3D[0] * visualScale,
+    lacanian.fantasyPoint3D[1] * visualScale,
+    lacanian.fantasyPoint3D[2] * visualScale,
+  ];
+
+  return { curveS, curveI, curveSigma, fantasy3D };
+}
+
+/**
+ * Computes deformation magnitude psi(u, v) based on psychometric scores
  */
 export function computeSclDeformation(
-  theta: number,
-  phi: number,
+  u: number,
+  v: number,
   data: SCL90RData,
   deformationFactor: number
 ): { factor: number; stress: number } {
@@ -127,35 +270,29 @@ export function computeSclDeformation(
   const dep = data["Depresión"] || 0;
   const anx = data["Ansiedad"] || 0;
 
-  // Somatization affects equatorial poloidal ripples (physical bodily expression)
-  const wSom = som * 0.28 * Math.cos(3 * theta) * (1 + 0.35 * Math.cos(phi));
+  // Somatización: ondulación poloidal exterior
+  const wSom = som * 0.28 * Math.cos(3 * v) * (1 + 0.35 * Math.cos(u));
 
-  // Obsession-Compulsion induces periodic toroidal loop rigidity bands
-  const wOC = oc * 0.32 * Math.sin(4 * phi) * Math.cos(theta);
+  // Obsesión-Compulsión: rigidez periódica toroidal
+  const wOC = oc * 0.32 * Math.sin(4 * u) * Math.cos(v);
 
-  // Psychoticism alters the inner horn cusp singularity (theta near pi or -pi)
-  const cuspDist = Math.abs(Math.sin(theta * 0.5)); // near 1 at theta = pi
-  const wPsy = psy * 0.45 * Math.pow(cuspDist, 3) * Math.sin(2 * phi + theta);
+  // Psicoticismo: distorsión en la cúspide singular v -> +-pi
+  const cuspDist = Math.abs(Math.sin(v * 0.5));
+  const wPsy = psy * 0.45 * Math.pow(cuspDist, 3) * Math.sin(2 * u + v);
 
-  // GSI induces global radial volumetric dilation and harmonic breathing
-  const wGSI = gsi * 0.22 * (Math.cos(theta) + 0.5 * Math.sin(phi));
+  // GSI: dilatación volumétrica global
+  const wGSI = gsi * 0.22 * (Math.cos(v) + 0.5 * Math.sin(u));
 
-  // PST introduces localized high-frequency texture / modular density spikes
-  const wPST = pst * 0.15 * Math.sin(5 * theta + 3 * phi);
+  // PST y PSDI: densidad modular y gradiente focal
+  const wPST = pst * 0.15 * Math.sin(5 * v + 3 * u);
+  const wPSDI = psdi * 0.20 * Math.cos(2 * v - 2 * u);
 
-  // PSDI controls intensity / focal gradient steepness of the distress
-  const wPSDI = psdi * 0.20 * Math.cos(2 * theta - 2 * phi);
+  // Ansiedad y Depresión
+  const wDep = dep * 0.18 * Math.sin(v);
+  const wAnx = anx * 0.14 * Math.sin(8 * u) * Math.cos(2 * v);
 
-  // Secondary dimensions
-  const wDep = dep * 0.18 * Math.sin(theta); // gravitational downward sag
-  const wAnx = anx * 0.14 * Math.sin(8 * phi) * Math.cos(2 * theta); // micro-tremor
-
-  const rawDeform = (wSom + wOC + wPsy + wGSI + wPST + wPSDI + wDep + wAnx);
-  
-  // Total modulation multiplier around 1.0
+  const rawDeform = wSom + wOC + wPsy + wGSI + wPST + wPSDI + wDep + wAnx;
   const factor = 1.0 + deformationFactor * rawDeform;
-
-  // Local stress magnitude (normalized roughly 0 - 1)
   const stress = Math.min(1.0, Math.max(0.0, Math.abs(rawDeform) * (1 + psdi * 0.5)));
 
   return { factor, stress };
@@ -167,67 +304,65 @@ export function computeSclDeformation(
 export function generateHornTorusGeometry(
   params: ModelParams,
   sclData: SCL90RData,
-  isDeformed: boolean
+  isDeformed: boolean,
+  colorMode: 'angustia' | 'stress' | 'curvature' | 'elevation' = 'angustia'
 ) {
-  const { a_scale, deformation_factor, gridResolution } = params;
-  // In Horn Torus, R == r. Scale base radius to reasonable 3D coordinates (e.g. 2.0 * a_scale * 10 = 2.0)
-  const baseR = 2.0; 
-  const effectiveR = baseR * (a_scale / 0.1); 
+  const { a_scale, deformation_factor, gridResolution, a_critical } = params;
+  const lacanian = calculateLacanianParameters(sclData, params);
+
+  // Base radius a = a_scale * GSI scaled for standard 3D viewport (e.g. ~2.0)
+  const visualScale = 25.0;
+  const effectiveA = lacanian.a * visualScale;
   const effectiveDeform = isDeformed ? deformation_factor : 0.0;
 
-  const numTheta = gridResolution;
-  const numPhi = gridResolution;
+  const numU = gridResolution;
+  const numV = gridResolution;
 
   const positions: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];
   const colors: number[] = [];
-  const stresses: number[] = [];
   const indices: number[] = [];
 
-  const pointsGrid: TorusPoint[][] = [];
+  const maxAngustia = Math.sqrt((2 * Math.PI) ** 2 + (2 * Math.PI) ** 2);
 
-  // Step angles
-  for (let i = 0; i <= numTheta; i++) {
-    const theta = (i / numTheta) * 2 * Math.PI - Math.PI; // -PI to PI
-    pointsGrid[i] = [];
+  // u in [0, 2*pi], v in [0, 2*pi]
+  for (let i = 0; i <= numV; i++) {
+    const v = (i / numV) * 2 * Math.PI; // poloidal angle
 
-    for (let j = 0; j <= numPhi; j++) {
-      const phi = (j / numPhi) * 2 * Math.PI; // 0 to 2PI
+    for (let j = 0; j <= numU; j++) {
+      const u = (j / numU) * 2 * Math.PI; // toroidal angle
 
-      // Standard Horn Torus coordinates:
-      // x = R * (1 + cos(theta)) * cos(phi)
-      // y = R * (1 + cos(theta)) * sin(phi)
-      // z = R * sin(theta)
-      // Note: At theta = +-PI, 1 + cos(theta) = 0, so x=0, y=0, z=0 (central cusp)
-      const baseDistFromZ = effectiveR * (1 + Math.cos(theta));
-      let x = baseDistFromZ * Math.cos(phi);
-      let y = baseDistFromZ * Math.sin(phi);
-      let z = effectiveR * Math.sin(theta);
+      // Parametric equations of Horn Torus: R = r = a
+      // x = a * (1 + cos(v)) * cos(u)
+      // y = a * (1 + cos(v)) * sin(u)
+      // z = a * sin(v)
+      let x = effectiveA * (1 + Math.cos(v)) * Math.cos(u);
+      let y = effectiveA * (1 + Math.cos(v)) * Math.sin(u);
+      let z = effectiveA * Math.sin(v);
 
-      const { factor, stress } = computeSclDeformation(theta, phi, sclData, effectiveDeform);
+      const { factor, stress } = computeSclDeformation(u, v, sclData, effectiveDeform);
 
-      // Apply radial and z perturbation
-      x *= factor;
-      y *= factor;
-      z *= (1.0 + (factor - 1.0) * 0.85);
+      if (isDeformed) {
+        x *= factor;
+        y *= factor;
+        z *= 1.0 + (factor - 1.0) * 0.85;
+      }
 
-      // Normal estimation via directional derivatives or Horn Torus analytical vector
-      const cosT = Math.cos(theta);
-      const sinT = Math.sin(theta);
-      const cosP = Math.cos(phi);
-      const sinP = Math.sin(phi);
+      // Outward normal
+      const cosV = Math.cos(v);
+      const sinV = Math.sin(v);
+      const cosU = Math.cos(u);
+      const sinU = Math.sin(u);
 
-      // Standard outward normal for torus:
-      let nx = cosT * cosP;
-      let ny = cosT * sinP;
-      let nz = sinT;
+      let nx = cosV * cosU;
+      let ny = cosV * sinU;
+      let nz = sinV;
 
       if (isDeformed && deformation_factor > 0) {
-        // Add harmonic gradient perturbation to normals for rich lighting
-        nx += (factor - 1) * 0.6 * cosP;
-        ny += (factor - 1) * 0.6 * sinP;
-        nz += (factor - 1) * 0.5 * sinT;
+        nx += (factor - 1) * 0.5 * cosU;
+        ny += (factor - 1) * 0.5 * sinU;
+        nz += (factor - 1) * 0.4 * sinV;
       }
 
       const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
@@ -235,40 +370,27 @@ export function generateHornTorusGeometry(
       ny /= nLen;
       nz /= nLen;
 
-      // Approximate Curvatures:
-      // Gaussian Curvature K for Horn Torus: K = cos(theta) / (r^2 * (1 + cos(theta)))
-      // When theta near 0 (outer equator): K > 0 (elliptic)
-      // When theta near pi (inner cusp): K < 0 (hyperbolic), diverges towards -infinity at the pinch
-      const denom = (1.0001 + cosT);
-      const gaussianCurvature = cosT / (effectiveR * effectiveR * denom);
-      const meanCurvature = (1 + 2 * cosT) / (2 * effectiveR * denom);
-
-      pointsGrid[i][j] = {
-        x, y, z, nx, ny, nz,
-        stress,
-        gaussianCurvature,
-        meanCurvature,
-        theta, phi
-      };
+      // Angustia A(u, v) and Rupture determination
+      const angustia = calculateAngustia(u, v);
+      const isRupture = angustia <= a_critical;
 
       positions.push(x, y, z);
       normals.push(nx, ny, nz);
-      uvs.push(j / numPhi, i / numTheta);
-      stresses.push(stress);
+      uvs.push(j / numU, i / numV);
 
-      // Assign vertex colors based on stress and clinical tone
-      const c = getStressColor(stress, isDeformed);
-      colors.push(c.r, c.g, c.b);
+      // Color mapping
+      const rgb = getVertexColor(angustia, isRupture, stress, v, maxAngustia, a_critical, colorMode);
+      colors.push(rgb.r, rgb.g, rgb.b);
     }
   }
 
   // Triangles
-  for (let i = 0; i < numTheta; i++) {
-    for (let j = 0; j < numPhi; j++) {
-      const a = i * (numPhi + 1) + j;
-      const b = (i + 1) * (numPhi + 1) + j;
-      const c = (i + 1) * (numPhi + 1) + (j + 1);
-      const d = i * (numPhi + 1) + (j + 1);
+  for (let i = 0; i < numV; i++) {
+    for (let j = 0; j < numU; j++) {
+      const a = i * (numU + 1) + j;
+      const b = (i + 1) * (numU + 1) + j;
+      const c = (i + 1) * (numU + 1) + (j + 1);
+      const d = i * (numU + 1) + (j + 1);
 
       indices.push(a, b, d);
       indices.push(b, c, d);
@@ -280,98 +402,113 @@ export function generateHornTorusGeometry(
     normals: new Float32Array(normals),
     uvs: new Float32Array(uvs),
     colors: new Float32Array(colors),
-    stresses: new Float32Array(stresses),
     indices: new Uint32Array(indices),
-    pointsGrid
+    lacanian
   };
 }
 
 /**
- * Color mapper helper for stress
+ * Color mapper based on Angustia A(u, v), Rupture zones, and Stress
  */
-export function getStressColor(stress: number, isDeformed: boolean) {
-  if (!isDeformed) {
-    // Elegant clinical cyan-indigo gradient for pristine Horn Torus
+function getVertexColor(
+  angustia: number,
+  isRupture: boolean,
+  stress: number,
+  v: number,
+  maxAngustia: number,
+  aCritical: number,
+  mode: 'angustia' | 'stress' | 'curvature' | 'elevation'
+) {
+  if (mode === 'angustia') {
+    // Rupture zone: Bright glowing crimson/amber
+    if (isRupture) {
+      const t = angustia / aCritical; // 0 to 1
+      return { r: 0.98, g: 0.15 + 0.5 * t, b: 0.1 };
+    }
+    // Safe / Distance to fantasy point: deep navy/indigo -> teal -> cyan
+    const norm = Math.min(1.0, (angustia - aCritical) / (maxAngustia - aCritical));
     return {
-      r: 0.15 + 0.15 * (1 - stress),
-      g: 0.55 + 0.25 * (1 - stress),
-      b: 0.85 + 0.15 * (1 - stress)
+      r: 0.1 + 0.3 * (1 - norm),
+      g: 0.35 + 0.45 * (1 - norm),
+      b: 0.85 - 0.2 * norm
     };
   }
 
-  // Thermal stress colormap: Deep blue -> Emerald -> Amber -> Crimson
-  if (stress < 0.25) {
-    const t = stress / 0.25;
-    return { r: 0.1 + 0.1 * t, g: 0.4 + 0.4 * t, b: 0.8 - 0.2 * t };
-  } else if (stress < 0.6) {
-    const t = (stress - 0.25) / 0.35;
-    return { r: 0.2 + 0.7 * t, g: 0.8 - 0.1 * t, b: 0.6 - 0.4 * t };
-  } else if (stress < 0.85) {
-    const t = (stress - 0.6) / 0.25;
-    return { r: 0.9 + 0.08 * t, g: 0.7 - 0.4 * t, b: 0.2 - 0.1 * t };
-  } else {
-    const t = (stress - 0.85) / 0.15;
-    return { r: 0.98, g: 0.3 - 0.2 * t, b: 0.1 + 0.1 * t };
+  if (mode === 'stress') {
+    // Thermal stress colormap
+    if (stress < 0.3) {
+      return { r: 0.1, g: 0.45 + stress * 0.8, b: 0.85 };
+    } else if (stress < 0.7) {
+      const t = (stress - 0.3) / 0.4;
+      return { r: 0.2 + 0.7 * t, g: 0.75 - 0.1 * t, b: 0.3 - 0.2 * t };
+    } else {
+      const t = (stress - 0.7) / 0.3;
+      return { r: 0.95, g: 0.35 - 0.2 * t, b: 0.1 };
+    }
   }
+
+  if (mode === 'elevation') {
+    const zNorm = 0.5 + 0.5 * Math.sin(v);
+    return { r: 0.1 + 0.7 * zNorm, g: 0.4 + 0.2 * zNorm, b: 0.9 - 0.6 * zNorm };
+  }
+
+  // Default: curvature / geometric
+  const cosV = Math.cos(v);
+  const curvNorm = 0.5 + 0.5 * cosV;
+  return { r: 0.2 + 0.4 * curvNorm, g: 0.5 + 0.4 * (1 - curvNorm), b: 0.8 };
 }
 
 /**
- * Computes exact mathematical & topological metrics for HornTorusICCModel
+ * Computes topological and clinical metrics for HornTorusICCModel
  */
 export function computeTopologicalMetrics(
   params: ModelParams,
   sclData: SCL90RData
 ): TopologicalMetrics {
-  const R = params.r_major * (params.a_scale / 0.1);
-  const r = params.r_minor * (params.a_scale / 0.1);
+  const lacanian = calculateLacanianParameters(sclData, params);
+  const a = lacanian.a * 25.0;
 
-  // Exact Horn Torus (R = r):
-  // Surface Area A = 4 * PI^2 * R * r = 4 * PI^2 * r^2
-  const surfaceAreaStandard = 4 * Math.PI * Math.PI * R * r;
-  // Volume V = 2 * PI^2 * R * r^2 = 2 * PI^2 * r^3
-  const volumeStandard = 2 * Math.PI * Math.PI * R * r * r;
-
-  // Numerical perturbation based on psychometric indices
-  const gsi = sclData["GSI"] || 0.5;
-  const pst = sclData["PST"] || 0.5;
-  const psdi = sclData["PSDI"] || 0.5;
-  const psy = sclData["Psicoticismo"] || 0.5;
-  const som = sclData["Somatización"] || 0.5;
-  const oc = sclData["Obsesión-Compulsión"] || 0.5;
+  // Horn Torus Area = 4 * pi^2 * a^2
+  const surfaceAreaStandard = 4 * Math.PI * Math.PI * a * a;
+  // Volume = 2 * pi^2 * a^3
+  const volumeStandard = 2 * Math.PI * Math.PI * Math.pow(a, 3);
 
   const delta = params.deformation_factor;
+  const gsi = sclData["GSI"] || 0.85;
+  const psy = sclData["Psicoticismo"] || 0.9;
+  const som = sclData["Somatización"] || 0.8;
+  const oc = sclData["Obsesión-Compulsión"] || 0.9;
+  const psdi = sclData["PSDI"] || 0.9;
+  const pst = sclData["PST"] || 0.7;
 
-  // Deformed Area and Volume estimates with integration approximation
+  // Deformed Area & Volume
   const areaExpansionFactor = 1.0 + delta * (0.28 * som + 0.35 * gsi + 0.20 * pst);
   const surfaceAreaDeformed = surfaceAreaStandard * areaExpansionFactor;
   const surfaceAreaDeltaPercent = ((surfaceAreaDeformed - surfaceAreaStandard) / surfaceAreaStandard) * 100;
 
-  const volCompressionExpansion = 1.0 + delta * (0.42 * gsi - 0.18 * psy + 0.15 * oc);
-  const volumeDeformed = volumeStandard * volCompressionExpansion;
+  const volExpansion = 1.0 + delta * (0.42 * gsi - 0.18 * psy + 0.15 * oc);
+  const volumeDeformed = volumeStandard * volExpansion;
   const volumeDeltaPercent = ((volumeDeformed - volumeStandard) / volumeStandard) * 100;
 
-  // Willmore Energy W = Integral(H^2 dA). For a standard Horn Torus, Willmore energy is known to be >= 2*pi^2.
-  const willmoreEnergyStandard = 2 * Math.PI * Math.PI; // ~19.739
+  // Willmore Energy W = Integral(H^2 dA)
+  const willmoreEnergyStandard = 2 * Math.PI * Math.PI; // ~19.74
   const willmoreEnergyDeformed = willmoreEnergyStandard * (1.0 + delta * (0.85 * psdi + 0.65 * psy));
 
-  // Gaussian Curvatures
+  // Curvatures
   const gaussianCurvatureMin = -12.45 * (1 + psy * 1.5);
-  const gaussianCurvatureMax = (1.0 / (r * r)) * (1 + oc * 0.4);
-  const meanCurvatureAvg = (1.5 / r) * (1 + delta * 0.25);
+  const gaussianCurvatureMax = (1.0 / (a * a)) * (1 + oc * 0.4);
+  const meanCurvatureAvg = (1.5 / a) * (1 + delta * 0.25);
 
-  // Shannon / Spectral Topological Entropy of the surface perturbation field
+  // Shannon entropy
   const values = [som, oc, psy, gsi, pst, psdi];
-  const sumVals = values.reduce((a, b) => a + b, 0) || 1;
+  const sumVals = values.reduce((x, y) => x + y, 0) || 1;
   let topologicalEntropy = 0;
-  values.forEach(v => {
+  values.forEach((v) => {
     const p = v / sumVals;
-    if (p > 0.001) {
-      topologicalEntropy -= p * Math.log2(p);
-    }
+    if (p > 0.001) topologicalEntropy -= p * Math.log2(p);
   });
 
-  // ICC (Índice de Coherencia de Conciencia / Topological Coherence Index)
-  // High coherence = low deformation, balanced harmonic distribution
+  // ICC Index
   const disharmony = (gsi * 0.3 + psy * 0.3 + oc * 0.2 + som * 0.2) * (1 + delta * 0.5);
   const iccIndex = Math.max(8.5, Math.min(99.0, (1.0 - disharmony * 0.65) * 100));
 
@@ -399,7 +536,8 @@ export function computeTopologicalMetrics(
     topologicalEntropy,
     iccIndex,
     clinicalSeverityTier,
-    stabilityScore
+    stabilityScore,
+    lacanian
   };
 }
 
@@ -412,221 +550,354 @@ export function generateModelSummaryText(
   metrics: TopologicalMetrics
 ): string {
   const dateStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
-  
+  const lac = metrics.lacanian;
+
   return `================================================================================
-          HORN TORUS ICC MODEL (TOPOLOGICAL PSYCHOMETRICS SUMMARY)
+          HORN TORUS ICC MODEL (TOPOLOGICAL INCONSCIENT & SCL-90-R)
 ================================================================================
 Timestamp: ${dateStr} UTC
-Geometry Manifold: Horn Torus [R = r, Inner Cusp Point (0,0,0)]
-Scale Parameter (a_scale): ${params.a_scale.toFixed(4)}
-Deformation Factor (delta): ${params.deformation_factor.toFixed(4)}
-Mesh Resolution: ${params.gridResolution} x ${params.gridResolution} (${params.gridResolution * params.gridResolution * 2} Triangles)
+Manifold: Horn Torus [R = r = a, Cusp Point (0,0,0) at v = π]
+Radio a (a_scale * GSI):           ${lac.a.toFixed(5)}  [a_scale=${params.a_scale}, GSI=${sclData["GSI"].toFixed(3)}]
+Escalas Angulares:                 u_scale=${params.u_scale.toFixed(4)} rad, v_scale=${params.v_scale.toFixed(4)} rad
+Factor de Deformación (δ):         ${params.deformation_factor.toFixed(4)}
+Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
 
-[1] SCL-90-R PSYCHOMETRIC INPUT VECTOR:
+[1] VARIABLES LACANIANAS TOPOLÓGICAS (S, I, Σ & FANTASÍA):
 --------------------------------------------------------------------------------
-  * Somatización (SOM):           ${sclData["Somatización"].toFixed(3)}  [Rizo poloidal exterior m=3]
-  * Obsesión-Compulsión (O-C):     ${sclData["Obsesión-Compulsión"].toFixed(3)}  [Bandas toroidales ortogonales n=4]
-  * Psicoticismo (PSY):           ${sclData["Psicoticismo"].toFixed(3)}  [Vórtice y cizalladura en cúspide central]
-  * Global Severity Index (GSI):   ${sclData["GSI"].toFixed(3)}  [Dilatación volumétrica y respiración radial]
-  * Positive Symptom Total (PST):  ${sclData["PST"].toFixed(3)}  [Densidad modular de perturbación]
-  * Positive Symptom Distress (PSDI): ${sclData["PSDI"].toFixed(3)}  [Pendiente y gradiente de estrés local]
-${sclData["Depresión"] !== undefined ? `  * Depresión (DEP):               ${sclData["Depresión"].toFixed(3)}  [Inflexión gravitatoria z-axis]` : ''}
-${sclData["Ansiedad"] !== undefined ? `  * Ansiedad (ANX):                ${sclData["Ansiedad"].toFixed(3)}  [Micro-temblor armónico de alta frecuencia]` : ''}
+  * S (Significante):      u_S = ${lac.u_S.toFixed(4)} rad | v_S = ${lac.v_S.toFixed(4)} rad
+    -> Función: Basado en Ansiedad (${sclData["Ansiedad"].toFixed(2)}) + Obsesión (${sclData["Obsesión-Compulsión"].toFixed(2)}) & PSDI (${sclData["PSDI"].toFixed(2)})
+    -> Color en Visualizador: ROJO (Crimson)
 
-[2] TOPOLOGICAL MANIFOLD INVARIANTS:
---------------------------------------------------------------------------------
-  * Euler Characteristic (chi):    0 (Manifold Género 1 con contacto tangencial)
-  * Horn Torus Major Radius (R):   ${(params.r_major * params.a_scale / 0.1).toFixed(3)}
-  * Horn Torus Minor Radius (r):   ${(params.r_minor * params.a_scale / 0.1).toFixed(3)} (R = r Condición Horn)
-  * Surface Area (Estándar):       ${metrics.surfaceAreaStandard.toFixed(4)} u²
-  * Surface Area (Deformado):      ${metrics.surfaceAreaDeformed.toFixed(4)} u²  (${metrics.surfaceAreaDeltaPercent >= 0 ? '+' : ''}${metrics.surfaceAreaDeltaPercent.toFixed(2)}%)
-  * Enclosed Volume (Estándar):    ${metrics.volumeStandard.toFixed(4)} u³
-  * Enclosed Volume (Deformado):   ${metrics.volumeDeformed.toFixed(4)} u³  (${metrics.volumeDeltaPercent >= 0 ? '+' : ''}${metrics.volumeDeltaPercent.toFixed(2)}%)
-  * Willmore Energy W = ∫H² dA:    ${metrics.willmoreEnergyDeformed.toFixed(4)} (Base: ${metrics.willmoreEnergyStandard.toFixed(4)})
-  * Mean Curvature Media (H):      ${metrics.meanCurvatureAvg.toFixed(4)}
-  * Gaussian Curvature (K):        Min: ${metrics.gaussianCurvatureMin.toFixed(2)} | Max: ${metrics.gaussianCurvatureMax.toFixed(2)}
+  * I (Imagen del Cuerpo): u_I = ${lac.u_I.toFixed(4)} rad | v_I = ${lac.v_I.toFixed(4)} rad
+    -> Función: Basado en Somatización (${sclData["Somatización"].toFixed(2)}) + Sensibilidad Interpersonal (${sclData["Sensibilidad Interpersonal"].toFixed(2)}) & PST (${sclData["PST"].toFixed(2)})
+    -> Color en Visualizador: VERDE (Emerald)
 
-[3] CLINICAL ICC (ÍNDICE DE CONCIENCIA / COMPLEJIDAD) METRICS:
---------------------------------------------------------------------------------
-  * ICC Index (Coherencia):        ${metrics.iccIndex.toFixed(2)} %
-  * Topological Entropy (H_top):   ${metrics.topologicalEntropy.toFixed(4)} bits
-  * Estabilidad Dinámica:          ${metrics.stabilityScore.toFixed(1)} / 100
-  * Nivel Clínico Estimado:        [ ${metrics.clinicalSeverityTier.toUpperCase()} ]
-  * Diagnóstico Topológico:
-    ${getTopologicalDiagnosticSummary(sclData, metrics)}
+  * Σ (Síntoma):           u_Σ = ${lac.u_Sigma.toFixed(4)} rad | v_Σ = ${lac.v_Sigma.toFixed(4)} rad
+    -> Función: Basado en Psicoticismo (${sclData["Psicoticismo"].toFixed(2)}) + Hostilidad (${sclData["Hostilidad"].toFixed(2)}) & Psicoticismo
+    -> Color en Visualizador: AZUL (Cobalt)
 
-[4] EXECUTED PIPELINE STATUS:
+  * Punto de Fantasía (F): (u_F, v_F) = (π, π/2) = (${lac.fantasyPointUV[0].toFixed(3)}, ${lac.fantasyPointUV[1].toFixed(3)})
+    -> Coordenadas 3D (x,y,z): (${lac.fantasyPoint3D[0].toFixed(4)}, ${lac.fantasyPoint3D[1].toFixed(4)}, ${lac.fantasyPoint3D[2].toFixed(4)})
+    -> Angustia Máxima en el Manifold y Cúspide de Torsión
+
+  * Puntos de Ruptura (A ≤ A_cr): ${lac.ruptureCount} nodos muestrales (${lac.ruptureAreaPercent.toFixed(2)}% del Manifold)
+
+[2] VECTOR PSICOMÉTRICO SCL-90-R (DEROGATIS):
 --------------------------------------------------------------------------------
-  [✓] model = HornTorusICCModel(scl90r_data=scl90r_data, a_scale=${params.a_scale})
-  [✓] model.print_model_summary() -> Generated successfully
-  [✓] model.plot_3d_model(save_path='mi_modelo.png') -> Ready for export
-  [✓] model.plot_deformed_model(deformation_factor=${params.deformation_factor}, save_path='mi_modelo_deformado.png') -> Active
+  * Somatización (SOM):                ${sclData["Somatización"].toFixed(3)}
+  * Obsesión-Compulsión (O-C):          ${sclData["Obsesión-Compulsión"].toFixed(3)}
+  * Sensibilidad Interpersonal (I-S):   ${sclData["Sensibilidad Interpersonal"].toFixed(3)}
+  * Depresión (DEP):                    ${sclData["Depresión"].toFixed(3)}
+  * Ansiedad (ANX):                     ${sclData["Ansiedad"].toFixed(3)}
+  * Hostilidad (HOS):                   ${sclData["Hostilidad"].toFixed(3)}
+  * Ansiedad Fóbica (PHOB):             ${sclData["Ansiedad Fóbica"].toFixed(3)}
+  * Ideación Paranoide (PAR):           ${sclData["Ideación Paranoide"].toFixed(3)}
+  * Psicoticismo (PSY):                 ${sclData["Psicoticismo"].toFixed(3)}
+  * Global Severity Index (GSI):        ${sclData["GSI"].toFixed(3)}
+  * Positive Symptom Total (PST):       ${sclData["PST"].toFixed(3)}
+  * Positive Symptom Distress (PSDI):   ${sclData["PSDI"].toFixed(3)}
+
+[3] INVARIANTES TOPOLÓGICOS Y ENERGÉTICOS:
+--------------------------------------------------------------------------------
+  * Característica de Euler (χ):        0 (Toro Manifold Género 1)
+  * Área Superficial Estándar:          ${metrics.surfaceAreaStandard.toFixed(4)} u²
+  * Área Superficial Deformada:         ${metrics.surfaceAreaDeformed.toFixed(4)} u² (${metrics.surfaceAreaDeltaPercent >= 0 ? '+' : ''}${metrics.surfaceAreaDeltaPercent.toFixed(2)}%)
+  * Volumen Encerrado Estándar:         ${metrics.volumeStandard.toFixed(4)} u³
+  * Volumen Encerrado Deformado:        ${metrics.volumeDeformed.toFixed(4)} u³ (${metrics.volumeDeltaPercent >= 0 ? '+' : ''}${metrics.volumeDeltaPercent.toFixed(2)}%)
+  * Energía de Willmore W = ∫H² dA:     ${metrics.willmoreEnergyDeformed.toFixed(4)} (Base: ${metrics.willmoreEnergyStandard.toFixed(4)})
+  * Índice ICC (Coherencia Icc):        ${metrics.iccIndex.toFixed(2)} %
+  * Diagnóstico Clínico Estructural:    [ ${metrics.clinicalSeverityTier.toUpperCase()} ]
+    ${lac.ruptureAreaPercent > 12.0 ? '-> ALERTA: Zona de angustia crítica expandida. Ruptura de la fantasía en cercanías de la cúspide.' : '-> Estructura compensada: Trayectorias S, I y Σ delimitadas con angustia focalizada.'}
 ================================================================================`;
-}
-
-function getTopologicalDiagnosticSummary(data: SCL90RData, metrics: TopologicalMetrics): string {
-  if (data["Psicoticismo"] > 0.85 && data["GSI"] > 0.80) {
-    return "Perturbación severa con colapso del conducto axial y disrupción en la cúspide singular.\n    Se observa dilatación asimétrica extrema y alta entropía topológica, consistente con estado psicótico agudo.";
-  } else if (data["Somatización"] > 0.80) {
-    return "Predominio de estrías poloidales periféricas y tensión somática periférica.\n    La geometría central conserva estabilidad toroidal pero presenta alta disipación superficial.";
-  } else if (data["Obsesión-Compulsión"] > 0.80) {
-    return "Hiper-estructuración lamelar con 4 lóbulos ortogonales de gran rigidez torsional.\n    Poco gradiente entrópico, sugiriendo patrones de repetición y fijación obsesiva.";
-  } else if (metrics.clinicalSeverityTier === 'Normal') {
-    return "Morfología armónica uniforme. Flujo de vórtice suave a través del centro sin estrangulamientos.";
-  }
-  return "Compensación adaptativa moderada con estrés heterogéneo en los cuadrantes superiores.";
 }
 
 /**
  * Returns exact standalone Python code for horn_torus_icc_model.py
+ * complete with all classes, methods, curves, and plotting functions
  */
 export function generatePythonScript(sclData: SCL90RData, params: ModelParams): string {
-  return `"""
-horn_torus_icc_model.py
-Topological psychometric modeling of SCL-90-R data on a Horn Torus manifold.
-Compatible with numpy>=1.21.0, matplotlib>=3.5.0, scipy>=1.7.0
+  return `#!/usr/bin/env python3
+"""
+Modelo 3D del Horn Torus para el Icc (Inconsciente)
+Integra resultados del test psicométrico SCL-90-R de Derogatis
+con variables S (Significante), I (Imagen del cuerpo), Σ (Síntoma)
+y la fantasía como punto de angustia.
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
 
 class HornTorusICCModel:
-    def __init__(self, scl90r_data: dict, a_scale: float = 0.1, r_major: float = 1.0, r_minor: float = 1.0):
-        self.scl90r_data = scl90r_data
-        self.a_scale = a_scale
-        # In a Horn Torus, R == r
-        self.r_major = r_major * (a_scale / 0.1)
-        self.r_minor = r_minor * (a_scale / 0.1)
-        self.R = self.r_major
-        self.r = self.r_minor
-        
-        # Grid parameters
-        self.n_theta = 72
-        self.n_phi = 72
-        self._generate_base_manifold()
-        
-    def _generate_base_manifold(self):
-        self.theta = np.linspace(-np.pi, np.pi, self.n_theta)
-        self.phi = np.linspace(0, 2 * np.pi, self.n_phi)
-        self.THETA, self.PHI = np.meshgrid(self.theta, self.phi)
-        
-        # Horn Torus equations: R = r
-        # At theta = +-pi: 1 + cos(theta) = 0, self-tangent cusp at (0, 0, 0)
-        self.X0 = self.R * (1 + np.cos(self.THETA)) * np.cos(self.PHI)
-        self.Y0 = self.R * (1 + np.cos(self.THETA)) * np.sin(self.PHI)
-        self.Z0 = self.r * np.sin(self.THETA)
+    """
+    Clase principal para modelar y visualizar el Horn Torus del Icc
+    con datos del SCL-90-R.
+    """
 
-    def _compute_deformation_field(self, deformation_factor: float):
-        som = self.scl90r_data.get("Somatización", 0.0)
-        oc = self.scl90r_data.get("Obsesión-Compulsión", 0.0)
-        psy = self.scl90r_data.get("Psicoticismo", 0.0)
-        gsi = self.scl90r_data.get("GSI", 0.0)
-        pst = self.scl90r_data.get("PST", 0.0)
-        psdi = self.scl90r_data.get("PSDI", 0.0)
+    def __init__(self, scl90r_data=None, a_scale=0.1, u_scale=2*np.pi, v_scale=np.pi):
+        # Datos por defecto del SCL-90-R (valores normalizados entre 0 y 1)
+        self.default_scl90r_data = {
+            "Somatización": 0.8,
+            "Obsesión-Compulsión": 0.9,
+            "Sensibilidad Interpersonal": 0.7,
+            "Depresión": 0.85,
+            "Ansiedad": 0.95,
+            "Hostilidad": 0.6,
+            "Ansiedad Fóbica": 0.75,
+            "Ideación Paranoide": 0.8,
+            "Psicoticismo": 0.9,
+            "GSI": 0.85,
+            "PST": 0.7,
+            "PSDI": 0.9
+        }
+
+        self.scl90r_data = scl90r_data if scl90r_data else self.default_scl90r_data
+        self.a_scale = a_scale
+        self.u_scale = u_scale
+        self.v_scale = v_scale
+
+        # Parámetros del modelo
+        self.a = None
+        self.u_S = None
+        self.v_S = None
+        self.u_I = None
+        self.v_I = None
+        self.u_Sigma = None
+        self.v_Sigma = None
+        self.fantasy_point = None
+
+        # Umbral de angustia
+        self.A_cr = np.pi / 4
+
+        # Calcular parámetros
+        self._calculate_parameters()
+
+    def _calculate_parameters(self):
+        """Calcula todos los parámetros del modelo a partir de los datos del SCL-90-R."""
+        # Radio a (escalado por GSI)
+        self.a = self.a_scale * self.scl90r_data.get("GSI", 0.85)
+
+        # Parámetro u para S (Significante): basado en Ansiedad y Obsesión
+        anxiety = self.scl90r_data.get("Ansiedad", 0.95)
+        obsession = self.scl90r_data.get("Obsesión-Compulsión", 0.9)
+        num_scales = len([k for k in self.scl90r_data.keys() if k not in ["GSI", "PST", "PSDI"]])
+        self.u_S = self.u_scale * (anxiety + obsession) / num_scales
+
+        # Parámetro v para S: basado en PSDI
+        psdi = self.scl90r_data.get("PSDI", 0.9)
+        self.v_S = self.v_scale * (1 + psdi)
+
+        # Parámetro u para I (Imagen del cuerpo): basado en Somatización y Sensibilidad Interpersonal
+        somatization = self.scl90r_data.get("Somatización", 0.8)
+        interpersonal = self.scl90r_data.get("Sensibilidad Interpersonal", 0.7)
+        self.u_I = self.u_scale * (somatization + interpersonal) / num_scales
+
+        # Parámetro v para I: basado en PST
+        pst = self.scl90r_data.get("PST", 0.7)
+        self.v_I = self.v_scale * (1 + pst)
+
+        # Parámetro u para Σ (Síntoma): basado en Psicoticismo y Hostilidad
+        psychoticism = self.scl90r_data.get("Psicoticismo", 0.9)
+        hostility = self.scl90r_data.get("Hostilidad", 0.6)
+        self.u_Sigma = self.u_scale * (psychoticism + hostility) / num_scales
+
+        # Parámetro v para Σ: basado en Psicoticismo
+        self.v_Sigma = self.v_scale * (1 + psychoticism)
+
+        # Punto de fantasía (angustia máxima)
+        self.fantasy_point = (np.pi, np.pi / 2)
+
+    def horn_torus_surface(self, u_resolution=100, v_resolution=100):
+        """Genera la superficie paramétrica del horn torus."""
+        u = np.linspace(0, 2 * np.pi, u_resolution)
+        v = np.linspace(0, 2 * np.pi, v_resolution)
+        u, v = np.meshgrid(u, v)
+
+        # Ecuaciones paramétricas del horn torus (R = r = a)
+        x = self.a * (1 + np.cos(v)) * np.cos(u)
+        y = self.a * (1 + np.cos(v)) * np.sin(u)
+        z = self.a * np.sin(v)
+
+        return x, y, z, u, v
+
+    def calculate_angustia(self, u, v):
+        """Calcula la función de angustia A(u, v) como distancia al punto de fantasía."""
+        u_F, v_F = self.fantasy_point
+        return np.sqrt((u - u_F)**2 + (v - v_F)**2)
+
+    def get_curves(self, u_points=100):
+        """Genera las curvas S, I, Σ sobre la superficie del horn torus."""
+        u_vals = np.linspace(0, 2 * np.pi, u_points)
+
+        # Curva S (Significante)
+        v_vals_S = np.full_like(u_vals, self.v_S)
+        x_S = self.a * (1 + np.cos(v_vals_S)) * np.cos(u_vals)
+        y_S = self.a * (1 + np.cos(v_vals_S)) * np.sin(u_vals)
+        z_S = self.a * np.sin(v_vals_S)
+
+        # Curva I (Imagen del cuerpo)
+        v_vals_I = np.full_like(u_vals, self.v_I)
+        x_I = self.a * (1 + np.cos(v_vals_I)) * np.cos(u_vals)
+        y_I = self.a * (1 + np.cos(v_vals_I)) * np.sin(u_vals)
+        z_I = self.a * np.sin(v_vals_I)
+
+        # Curva Σ (Síntoma)
+        v_vals_Sigma = np.full_like(u_vals, self.v_Sigma)
+        x_Sigma = self.a * (1 + np.cos(v_vals_Sigma)) * np.cos(u_vals)
+        y_Sigma = self.a * (1 + np.cos(v_vals_Sigma)) * np.sin(u_vals)
+        z_Sigma = self.a * np.sin(v_vals_Sigma)
+
+        return {
+            'S': {'x': x_S, 'y': y_S, 'z': z_S, 'color': 'red', 'label': 'S (Significante)'},
+            'I': {'x': x_I, 'y': y_I, 'z': z_I, 'color': 'green', 'label': 'I (Imagen del cuerpo)'},
+            'Σ': {'x': x_Sigma, 'y': y_Sigma, 'z': z_Sigma, 'color': 'blue', 'label': 'Σ (Síntoma)'}
+        }
+
+    def get_fantasy_point_3d(self):
+        """Obtiene las coordenadas 3D del punto de fantasía."""
+        u_F, v_F = self.fantasy_point
+        x = self.a * (1 + np.cos(v_F)) * np.cos(u_F)
+        y = self.a * (1 + np.cos(v_F)) * np.sin(u_F)
+        z = self.a * np.sin(v_F)
+        return x, y, z
+
+    def find_rupture_points(self, u_resolution=50, v_resolution=50):
+        """Encuentra los puntos donde la angustia supera el umbral crítico (rupturas)."""
+        u = np.linspace(0, 2 * np.pi, u_resolution)
+        v = np.linspace(0, 2 * np.pi, v_resolution)
+        u_grid, v_grid = np.meshgrid(u, v)
         
-        # Harmonic perturbation functions
-        w_som = som * 0.28 * np.cos(3 * self.THETA) * (1 + 0.35 * np.cos(self.PHI))
-        w_oc = oc * 0.32 * np.sin(4 * self.PHI) * np.cos(self.THETA)
-        cusp_dist = np.abs(np.sin(self.THETA * 0.5))
-        w_psy = psy * 0.45 * (cusp_dist ** 3) * np.sin(2 * self.PHI + self.THETA)
-        w_gsi = gsi * 0.22 * (np.cos(self.THETA) + 0.5 * np.sin(self.PHI))
-        w_pst = pst * 0.15 * np.sin(5 * self.THETA + 3 * self.PHI)
-        w_psdi = psdi * 0.20 * np.cos(2 * self.THETA - 2 * self.PHI)
+        angustia = self.calculate_angustia(u_grid, v_grid)
+        rupture_mask = angustia <= self.A_cr
         
-        psi = w_som + w_oc + w_psy + w_gsi + w_pst + w_psdi
-        factor = 1.0 + deformation_factor * psi
-        stress = np.abs(psi) * (1 + psdi * 0.5)
-        return factor, stress
+        x = self.a * (1 + np.cos(v_grid)) * np.cos(u_grid)
+        y = self.a * (1 + np.cos(v_grid)) * np.sin(u_grid)
+        z = self.a * np.sin(v_grid)
+        
+        return x[rupture_mask], y[rupture_mask], z[rupture_mask], angustia[rupture_mask]
 
     def print_model_summary(self):
-        # Surface area and volume integrals
-        area_std = 4 * (np.pi ** 2) * self.R * self.r
-        vol_std = 2 * (np.pi ** 2) * self.R * (self.r ** 2)
-        gsi = self.scl90r_data.get("GSI", 0.5)
-        psy = self.scl90r_data.get("Psicoticismo", 0.5)
-        
-        icc_index = max(10.0, min(99.0, (1.0 - (gsi * 0.35 + psy * 0.35)) * 100))
-        
-        print("=" * 76)
-        print("           HORN TORUS ICC MODEL SUMMARY (SCL-90-R)")
-        print("=" * 76)
-        print(f"Scale (a_scale):          {self.a_scale:.4f}")
-        print(f"Major Radius (R):         {self.R:.4f}")
-        print(f"Minor Radius (r):         {self.r:.4f} (Horn Torus R=r Condition)")
-        print(f"Standard Surface Area:    {area_std:.4f} u²")
-        print(f"Standard Volume:          {vol_std:.4f} u³")
-        print(f"Euler Characteristic:     0 (Torus Manifold)")
-        print(f"ICC Coherence Score:      {icc_index:.2f} %")
-        print("-" * 76)
-        print("SCL-90-R Profile:")
-        for k, v in self.scl90r_data.items():
-            print(f"  * {k:<24}: {v:.3f}")
-        print("=" * 76)
+        """Imprime un resumen completo de las variables del modelo."""
+        print("=" * 72)
+        print("          HORN TORUS ICC MODEL SUMMARY (SCL-90-R & LACAN)")
+        print("=" * 72)
+        print(f"Radio a (a_scale * GSI): {self.a:.5f}")
+        print(f"Curva S (Significante):      u_S={self.u_S:.4f}, v_S={self.v_S:.4f}")
+        print(f"Curva I (Imagen del cuerpo): u_I={self.u_I:.4f}, v_I={self.v_I:.4f}")
+        print(f"Curva Σ (Síntoma):           u_Σ={self.u_Sigma:.4f}, v_Σ={self.v_Sigma:.4f}")
+        x_f, y_f, z_f = self.get_fantasy_point_3d()
+        print(f"Punto Fantasía 3D:           ({x_f:.4f}, {y_f:.4f}, {z_f:.4f})")
+        print(f"Umbral Crítico de Angustia:  {self.A_cr:.4f} rad")
+        print("-" * 72)
+        print("Datos SCL-90-R:")
+        for k, val in self.scl90r_data.items():
+            print(f"  * {k:<26}: {val:.3f}")
+        print("=" * 72)
 
-    def plot_3d_model(self, save_path: str = 'mi_modelo.png'):
-        fig = plt.figure(figsize=(10, 8), dpi=150)
+    def plot_3d_model(self, save_path='mi_modelo.png'):
+        """Visualiza y guarda el modelo 3D del Horn Torus con curvas S, I, Σ."""
+        fig = plt.figure(figsize=(12, 9), dpi=150)
         ax = fig.add_subplot(111, projection='3d')
-        
+
+        x, y, z, u, v = self.horn_torus_surface()
+        angustia = self.calculate_angustia(u, v)
+
+        # Superficie coloreada por angustia
+        norm = Normalize(vmin=angustia.min(), vmax=angustia.max())
         surf = ax.plot_surface(
-            self.X0, self.Y0, self.Z0,
-            cmap='coolwarm',
+            x, y, z,
+            facecolors=plt.cm.viridis(norm(angustia)),
+            alpha=0.65,
             edgecolor='none',
-            alpha=0.92,
             antialiased=True
         )
-        ax.set_title(f"Standard Horn Torus (a_scale={self.a_scale})", fontsize=14, pad=15)
+
+        # Curvas S, I, Σ
+        curves = self.get_curves()
+        for name, data in curves.items():
+            ax.plot(data['x'], data['y'], data['z'], color=data['color'], linewidth=2.5, label=data['label'])
+
+        # Punto de Fantasía
+        xf, yf, zf = self.get_fantasy_point_3d()
+        ax.scatter([xf], [yf], [zf], color='magenta', s=120, edgecolors='black', label='Fantasía (Angustia Máx)')
+
+        ax.set_title("Horn Torus del Icc: Curvas S, I, Σ y Fantasía", fontsize=14, pad=12)
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
-        fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label='Elevation')
+        ax.legend(loc='upper right')
+
+        plt.colorbar(ScalarMappable(norm=norm, cmap='viridis'), ax=ax, shrink=0.5, aspect=10, label='Angustia A(u, v)')
         plt.tight_layout()
         plt.savefig(save_path, bbox_inches='tight')
-        print(f"[✓] Saved 3D model to '{save_path}'")
+        print(f"[✓] Guardado en '{save_path}'")
         plt.close()
 
-    def plot_deformed_model(self, deformation_factor: float = 0.3, save_path: str = 'mi_modelo_deformado.png'):
-        factor, stress = self._compute_deformation_field(deformation_factor)
-        
-        X = self.X0 * factor
-        Y = self.Y0 * factor
-        Z = self.Z0 * (1.0 + (factor - 1.0) * 0.85)
-        
-        fig = plt.figure(figsize=(10, 8), dpi=150)
+    def plot_deformed_model(self, deformation_factor=0.3, save_path='mi_modelo_deformado.png'):
+        """Visualiza y guarda el modelo con perturbación sintomática psicométrica."""
+        fig = plt.figure(figsize=(12, 9), dpi=150)
         ax = fig.add_subplot(111, projection='3d')
-        
-        # Color map based on psychometric stress
-        norm_stress = (stress - stress.min()) / (stress.max() - stress.min() + 1e-8)
-        colors = plt.cm.inferno(norm_stress)
-        
-        surf = ax.plot_surface(
-            X, Y, Z,
-            facecolors=colors,
+
+        x, y, z, u, v = self.horn_torus_surface()
+        angustia = self.calculate_angustia(u, v)
+
+        # Deformación armónica basada en SCL-90-R
+        som = self.scl90r_data.get("Somatización", 0.8)
+        psy = self.scl90r_data.get("Psicoticismo", 0.9)
+        oc = self.scl90r_data.get("Obsesión-Compulsión", 0.9)
+        deform = 1.0 + deformation_factor * (som * 0.25 * np.cos(3*v) + oc * 0.25 * np.sin(4*u) + psy * 0.35 * np.sin(u + v))
+
+        xd = x * deform
+        yd = y * deform
+        zd = z * (1.0 + (deform - 1.0) * 0.8)
+
+        norm = Normalize(vmin=angustia.min(), vmax=angustia.max())
+        ax.plot_surface(
+            xd, yd, zd,
+            facecolors=plt.cm.plasma(norm(angustia)),
+            alpha=0.75,
             edgecolor='k',
             linewidth=0.1,
-            alpha=0.95,
             antialiased=True
         )
-        ax.set_title(f"Deformed Horn Torus ICC Model (delta={deformation_factor})", fontsize=14, pad=15)
+
+        curves = self.get_curves()
+        for name, data in curves.items():
+            ax.plot(data['x'], data['y'], data['z'], color=data['color'], linewidth=3.0, label=data['label'])
+
+        xf, yf, zf = self.get_fantasy_point_3d()
+        ax.scatter([xf], [yf], [zf], color='yellow', s=140, edgecolors='black', label='Fantasía (Angustia)')
+
+        ax.set_title(f"Horn Torus Deformado por Síntoma (Factor δ={deformation_factor})", fontsize=14, pad=12)
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
-        fig.colorbar(plt.cm.ScalarMappable(cmap='inferno'), ax=ax, shrink=0.5, aspect=10, label='SCL-90-R Stress')
+        ax.legend(loc='upper right')
+
+        plt.colorbar(ScalarMappable(norm=norm, cmap='plasma'), ax=ax, shrink=0.5, aspect=10, label='Angustia A(u, v)')
         plt.tight_layout()
         plt.savefig(save_path, bbox_inches='tight')
-        print(f"[✓] Saved deformed model to '{save_path}'")
+        print(f"[✓] Guardado en '{save_path}'")
         plt.close()
 
 if __name__ == '__main__':
     scl90r_data = {
         "Somatización": ${sclData["Somatización"]},
         "Obsesión-Compulsión": ${sclData["Obsesión-Compulsión"]},
+        "Sensibilidad Interpersonal": ${sclData["Sensibilidad Interpersonal"]},
+        "Depresión": ${sclData["Depresión"]},
+        "Ansiedad": ${sclData["Ansiedad"]},
+        "Hostilidad": ${sclData["Hostilidad"]},
+        "Ansiedad Fóbica": ${sclData["Ansiedad Fóbica"]},
+        "Ideación Paranoide": ${sclData["Ideación Paranoide"]},
         "Psicoticismo": ${sclData["Psicoticismo"]},
         "GSI": ${sclData["GSI"]},
         "PST": ${sclData["PST"]},
         "PSDI": ${sclData["PSDI"]}
     }
-    
+
     model = HornTorusICCModel(scl90r_data=scl90r_data, a_scale=${params.a_scale})
     model.print_model_summary()
     model.plot_3d_model(save_path='mi_modelo.png')

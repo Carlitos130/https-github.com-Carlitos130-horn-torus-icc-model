@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ModelParams, SCL90RData, ViewMode, ColorMapMode } from '../types';
-import { generateHornTorusGeometry } from '../utils/hornTorusMath';
-import { Camera, RotateCcw, Eye, Play, Pause, Scissors, Layers, Sparkles, Download, Info } from 'lucide-react';
+import { generateHornTorusGeometry, getLacanianCurves, calculateLacanianParameters } from '../utils/hornTorusMath';
+import { RotateCcw, Play, Pause, Download, Sparkles, AlertCircle, CircleDot } from 'lucide-react';
 
 interface HornTorusCanvasProps {
   sclData: SCL90RData;
@@ -10,8 +10,11 @@ interface HornTorusCanvasProps {
   viewMode: ViewMode;
   colorMap: ColorMapMode;
   showWireframe: boolean;
-  showNormals: boolean;
   showVortexFlow: boolean;
+  showCurveS: boolean;
+  showCurveI: boolean;
+  showCurveSigma: boolean;
+  showFantasyPoint: boolean;
   onCapturePng: (type: 'standard' | 'deformed', dataUrl: string) => void;
 }
 
@@ -21,8 +24,11 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   viewMode,
   colorMap,
   showWireframe,
-  showNormals,
   showVortexFlow,
+  showCurveS,
+  showCurveI,
+  showCurveSigma,
+  showFantasyPoint,
   onCapturePng
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,28 +40,26 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   // Mesh refs
   const standardMeshRef = useRef<THREE.Mesh | null>(null);
   const deformedMeshRef = useRef<THREE.Mesh | null>(null);
-  const wireframeStandardRef = useRef<THREE.LineSegments | null>(null);
-  const wireframeDeformedRef = useRef<THREE.LineSegments | null>(null);
+  const wireframeRef = useRef<THREE.LineSegments | null>(null);
   const particlesRef = useRef<THREE.Points | null>(null);
   const clippingPlaneRef = useRef<THREE.Plane | null>(null);
 
+  // Lacanian curves & Fantasy point refs
+  const curveSRef = useRef<THREE.Line | null>(null);
+  const curveIRef = useRef<THREE.Line | null>(null);
+  const curveSigmaRef = useRef<THREE.Line | null>(null);
+  const fantasyMeshRef = useRef<THREE.Group | null>(null);
+
   // Interaction state
   const [isRotating, setIsRotating] = useState<boolean>(true);
-  const [activeCrossSection, setActiveCrossSection] = useState<boolean>(viewMode === 'cross_section');
-  const [pointInfo, setPointInfo] = useState<{ x: number; y: number; z: number; stress?: number } | null>(null);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
 
-  // Orbit rotation angles
-  const rotationAngles = useRef({ theta: 0.5, phi: 0.6, radius: 8.5 });
+  // Camera spherical angles
+  const rotationAngles = useRef({ theta: 0.65, phi: 0.75, radius: 9.0 });
   const isDragging = useRef(false);
   const previousMousePosition = useRef({ x: 0, y: 0 });
 
-  // Update clipping plane when viewMode changes
-  useEffect(() => {
-    setActiveCrossSection(viewMode === 'cross_section');
-  }, [viewMode]);
-
-  // Setup Three.js scene
+  // Scene initialization
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -63,65 +67,60 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     const width = container.clientWidth || 800;
     const height = container.clientHeight || 600;
 
-    // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0d14);
+    scene.background = new THREE.Color(0x07090e);
     sceneRef.current = scene;
 
-    // Camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
     cameraRef.current = camera;
     updateCameraPosition();
 
-    // Renderer with high quality & preserved buffer for screenshot exports
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       preserveDrawingBuffer: true,
-      powerPreference: "high-performance"
+      powerPreference: 'high-performance'
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.localClippingEnabled = true;
-    renderer.shadowMap.enabled = true;
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Clipping plane along Y=0 to expose the central self-touching cusp point
     const clipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     clippingPlaneRef.current = clipPlane;
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    // Ambient and Directional Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
 
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight1.position.set(10, 15, 12);
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight1.position.set(12, 16, 14);
     scene.add(dirLight1);
 
-    const dirLight2 = new THREE.DirectionalLight(0x60a5fa, 0.8);
-    dirLight2.position.set(-10, -10, -8);
+    const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.9);
+    dirLight2.position.set(-12, -10, -10);
     scene.add(dirLight2);
 
-    const pointLightCenter = new THREE.PointLight(0xf59e0b, 1.5, 6);
-    pointLightCenter.position.set(0, 0, 0); // illuminates the inner cusp
-    scene.add(pointLightCenter);
+    const pointLight = new THREE.PointLight(0xf43f5e, 2.0, 8);
+    pointLight.position.set(0, 0, 0); // Inner cusp illumination
+    scene.add(pointLight);
 
-    // Subtle helper grid floor
-    const grid = new THREE.GridHelper(14, 28, 0x1e293b, 0x0f172a);
+    // Grid Floor
+    const grid = new THREE.GridHelper(16, 32, 0x1e293b, 0x0f172a);
     grid.position.y = -3.2;
     scene.add(grid);
 
-    // Dynamic Horn Torus Particle Flow (Vortex streamlines through the cusp)
-    const particleCount = 1800;
+    // Streamline particles (geodesic flow through the horn cusp)
+    const particleCount = 1400;
     const particleGeo = new THREE.BufferGeometry();
     const particlePositions = new Float32Array(particleCount * 3);
+    const particleAngles = new Float32Array(particleCount * 2);
     const particleSpeed = new Float32Array(particleCount);
-    const particleAngles = new Float32Array(particleCount * 2); // theta, phi
 
     for (let i = 0; i < particleCount; i++) {
-      particleAngles[i * 2] = (Math.random() * 2 - 1) * Math.PI; // theta
-      particleAngles[i * 2 + 1] = Math.random() * 2 * Math.PI; // phi
+      particleAngles[i * 2] = (Math.random() * 2 - 1) * Math.PI;
+      particleAngles[i * 2 + 1] = Math.random() * 2 * Math.PI;
       particleSpeed[i] = 0.008 + Math.random() * 0.015;
     }
 
@@ -137,7 +136,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     scene.add(particles);
     particlesRef.current = particles;
 
-    // Window Resize Observer
+    // Resize Observer
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width: w, height: h } = entry.contentRect;
@@ -158,37 +157,36 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       const delta = (currentTime - lastTime) / 1000;
       lastTime = currentTime;
 
-      // Auto rotation
       if (isRotating) {
         rotationAngles.current.phi += delta * 0.35;
         updateCameraPosition();
       }
 
-      // Update particle stream circulating along the Horn Torus
+      // Update particle vortex flow
       if (particlesRef.current && showVortexFlow) {
         particlesRef.current.visible = true;
         const posAttr = particlesRef.current.geometry.attributes.position as THREE.BufferAttribute;
         const positionsArr = posAttr.array as Float32Array;
-        const R = 2.0 * (params.a_scale / 0.1);
+        const lac = calculateLacanianParameters(sclData, params);
+        const a = lac.a * 25.0;
 
         for (let i = 0; i < particleCount; i++) {
-          let theta = particleAngles[i * 2];
-          let phi = particleAngles[i * 2 + 1];
+          let v = particleAngles[i * 2];
+          let u = particleAngles[i * 2 + 1];
           const spd = particleSpeed[i];
 
-          // Geodesic flow: particles spiral through the inner cusp (theta -> pi) and outward around equator
-          theta += spd * 1.5;
-          phi += spd * 0.8;
-          if (theta > Math.PI) theta = -Math.PI;
-          if (phi > Math.PI * 2) phi = 0;
+          v += spd * 1.5;
+          u += spd * 0.8;
+          if (v > Math.PI) v = -Math.PI;
+          if (u > Math.PI * 2) u = 0;
 
-          particleAngles[i * 2] = theta;
-          particleAngles[i * 2 + 1] = phi;
+          particleAngles[i * 2] = v;
+          particleAngles[i * 2 + 1] = u;
 
-          const dist = R * (1 + Math.cos(theta));
-          positionsArr[i * 3] = dist * Math.cos(phi);
-          positionsArr[i * 3 + 1] = dist * Math.sin(phi);
-          positionsArr[i * 3 + 2] = R * Math.sin(theta);
+          const dist = a * (1 + Math.cos(v));
+          positionsArr[i * 3] = dist * Math.cos(u);
+          positionsArr[i * 3 + 1] = dist * Math.sin(u);
+          positionsArr[i * 3 + 2] = a * Math.sin(v);
         }
         posAttr.needsUpdate = true;
       } else if (particlesRef.current) {
@@ -206,7 +204,6 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     };
   }, []);
 
-  // Update camera coordinates from spherical angles
   const updateCameraPosition = () => {
     if (!cameraRef.current) return;
     const { theta, phi, radius } = rotationAngles.current;
@@ -219,22 +216,25 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     cameraRef.current.lookAt(0, 0, 0);
   };
 
-  // Re-generate Horn Torus Geometries when parameters, SCL-90-R, or view settings change
+  // Re-build Torus Meshes, Lacanian Curves (S, I, Sigma) & Fantasy Beacon
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
 
-    // Remove old meshes
+    // Clean up previous meshes
     if (standardMeshRef.current) scene.remove(standardMeshRef.current);
     if (deformedMeshRef.current) scene.remove(deformedMeshRef.current);
-    if (wireframeStandardRef.current) scene.remove(wireframeStandardRef.current);
-    if (wireframeDeformedRef.current) scene.remove(wireframeDeformedRef.current);
+    if (wireframeRef.current) scene.remove(wireframeRef.current);
+    if (curveSRef.current) scene.remove(curveSRef.current);
+    if (curveIRef.current) scene.remove(curveIRef.current);
+    if (curveSigmaRef.current) scene.remove(curveSigmaRef.current);
+    if (fantasyMeshRef.current) scene.remove(fantasyMeshRef.current);
 
-    const isCut = activeCrossSection || viewMode === 'cross_section';
+    const isCut = viewMode === 'cross_section';
     const clippingPlanes = isCut && clippingPlaneRef.current ? [clippingPlaneRef.current] : [];
 
-    // 1. Standard Horn Torus
-    const stdData = generateHornTorusGeometry(params, sclData, false);
+    // 1. Standard Horn Torus Geometry
+    const stdData = generateHornTorusGeometry(params, sclData, false, colorMap);
     const stdGeo = new THREE.BufferGeometry();
     stdGeo.setAttribute('position', new THREE.BufferAttribute(stdData.positions, 3));
     stdGeo.setAttribute('normal', new THREE.BufferAttribute(stdData.normals, 3));
@@ -244,25 +244,22 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
     const stdMat = new THREE.MeshPhysicalMaterial({
       vertexColors: true,
-      metalness: 0.15,
-      roughness: 0.35,
-      clearcoat: 0.6,
-      clearcoatRoughness: 0.2,
+      metalness: 0.18,
+      roughness: 0.32,
+      clearcoat: 0.7,
+      clearcoatRoughness: 0.15,
       side: THREE.DoubleSide,
       clippingPlanes,
       clipShadows: true,
       transparent: viewMode === 'comparison',
-      opacity: viewMode === 'comparison' ? 0.35 : 1.0,
+      opacity: viewMode === 'comparison' ? 0.35 : 0.92,
       wireframe: false
     });
-
     const stdMesh = new THREE.Mesh(stdGeo, stdMat);
-    stdMesh.castShadow = true;
-    stdMesh.receiveShadow = true;
     standardMeshRef.current = stdMesh;
 
-    // 2. Deformed Horn Torus
-    const defData = generateHornTorusGeometry(params, sclData, true);
+    // 2. Deformed Horn Torus Geometry
+    const defData = generateHornTorusGeometry(params, sclData, true, colorMap);
     const defGeo = new THREE.BufferGeometry();
     defGeo.setAttribute('position', new THREE.BufferAttribute(defData.positions, 3));
     defGeo.setAttribute('normal', new THREE.BufferAttribute(defData.normals, 3));
@@ -272,54 +269,135 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
     const defMat = new THREE.MeshPhysicalMaterial({
       vertexColors: true,
-      metalness: 0.25,
-      roughness: 0.30,
-      clearcoat: 0.85,
-      clearcoatRoughness: 0.15,
+      metalness: 0.22,
+      roughness: 0.28,
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.1,
       side: THREE.DoubleSide,
       clippingPlanes,
       clipShadows: true,
       wireframe: false
     });
-
     const defMesh = new THREE.Mesh(defGeo, defMat);
-    defMesh.castShadow = true;
-    defMesh.receiveShadow = true;
     deformedMeshRef.current = defMesh;
 
-    // 3. Wireframe Overlays
-    const wireGeo = new THREE.WireframeGeometry(defGeo);
-    const wireMat = new THREE.LineBasicMaterial({
-      color: 0x94a3b8,
-      transparent: true,
-      opacity: 0.22,
-      clippingPlanes
-    });
-    const wireMesh = new THREE.LineSegments(wireGeo, wireMat);
-    wireframeDeformedRef.current = wireMesh;
+    // 3. Wireframe Overlay
+    if (showWireframe) {
+      const targetGeo = viewMode === 'standard' ? stdGeo : defGeo;
+      const wire = new THREE.LineSegments(
+        new THREE.WireframeGeometry(targetGeo),
+        new THREE.LineBasicMaterial({
+          color: 0x94a3b8,
+          transparent: true,
+          opacity: 0.25,
+          clippingPlanes
+        })
+      );
+      wireframeRef.current = wire;
+      scene.add(wire);
+    }
 
-    // Add to scene according to view mode
+    // Add surface to scene
     if (viewMode === 'standard') {
       scene.add(stdMesh);
-      if (showWireframe) {
-        const stdWire = new THREE.LineSegments(
-          new THREE.WireframeGeometry(stdGeo),
-          new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.25, clippingPlanes })
-        );
-        wireframeStandardRef.current = stdWire;
-        scene.add(stdWire);
-      }
     } else if (viewMode === 'deformed' || viewMode === 'cross_section') {
       scene.add(defMesh);
-      if (showWireframe) scene.add(wireMesh);
     } else if (viewMode === 'comparison') {
       scene.add(stdMesh);
       scene.add(defMesh);
-      if (showWireframe) scene.add(wireMesh);
     }
-  }, [sclData, params, viewMode, showWireframe, activeCrossSection, colorMap]);
 
-  // Mouse / Touch Orbit Controls
+    // 4. Lacanian Curves S, I, Sigma
+    const lacanian = calculateLacanianParameters(sclData, params);
+    const { curveS, curveI, curveSigma, fantasy3D } = getLacanianCurves(lacanian);
+
+    // Curva S (Significante) - Red
+    if (showCurveS) {
+      const ptsS = curveS.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+      const geoS = new THREE.BufferGeometry().setFromPoints(ptsS);
+      const matS = new THREE.LineBasicMaterial({
+        color: 0xef4444, // Red
+        linewidth: 3,
+        clippingPlanes
+      });
+      const lineS = new THREE.Line(geoS, matS);
+      curveSRef.current = lineS;
+      scene.add(lineS);
+    }
+
+    // Curva I (Imagen del cuerpo) - Green
+    if (showCurveI) {
+      const ptsI = curveI.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+      const geoI = new THREE.BufferGeometry().setFromPoints(ptsI);
+      const matI = new THREE.LineBasicMaterial({
+        color: 0x10b981, // Green
+        linewidth: 3,
+        clippingPlanes
+      });
+      const lineI = new THREE.Line(geoI, matI);
+      curveIRef.current = lineI;
+      scene.add(lineI);
+    }
+
+    // Curva Sigma (Síntoma) - Blue
+    if (showCurveSigma) {
+      const ptsSigma = curveSigma.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+      const geoSigma = new THREE.BufferGeometry().setFromPoints(ptsSigma);
+      const matSigma = new THREE.LineBasicMaterial({
+        color: 0x3b82f6, // Blue
+        linewidth: 3,
+        clippingPlanes
+      });
+      const lineSigma = new THREE.Line(geoSigma, matSigma);
+      curveSigmaRef.current = lineSigma;
+      scene.add(lineSigma);
+    }
+
+    // 5. Fantasy Point (Punto de Angustia Máxima) - Magenta / Beacon
+    if (showFantasyPoint) {
+      const fantasyGroup = new THREE.Group();
+
+      // Main glowing sphere
+      const sphereGeo = new THREE.SphereGeometry(0.12, 16, 16);
+      const sphereMat = new THREE.MeshStandardMaterial({
+        color: 0xf43f5e,
+        emissive: 0xe11d48,
+        emissiveIntensity: 0.8,
+        roughness: 0.2
+      });
+      const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+      sphere.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
+      fantasyGroup.add(sphere);
+
+      // Outer pulsating ring
+      const ringGeo = new THREE.RingGeometry(0.18, 0.24, 32);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0xfb7185,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
+      ring.lookAt(0, 0, 0);
+      fantasyGroup.add(ring);
+
+      fantasyMeshRef.current = fantasyGroup;
+      scene.add(fantasyGroup);
+    }
+  }, [
+    sclData,
+    params,
+    viewMode,
+    colorMap,
+    showWireframe,
+    showCurveS,
+    showCurveI,
+    showCurveSigma,
+    showFantasyPoint
+  ]);
+
+  // Mouse Interaction handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
     previousMousePosition.current = { x: e.clientX, y: e.clientY };
@@ -348,13 +426,12 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     updateCameraPosition();
   };
 
-  // Reset Camera View
   const handleResetCamera = () => {
-    rotationAngles.current = { theta: 0.65, phi: 0.75, radius: 8.5 };
+    rotationAngles.current = { theta: 0.65, phi: 0.75, radius: 9.0 };
     updateCameraPosition();
   };
 
-  // Capture PNG function mirroring model.plot_3d_model and model.plot_deformed_model
+  // Capture PNG matching model.plot_3d_model & model.plot_deformed_model
   const handleExportPng = (type: 'standard' | 'deformed') => {
     if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
     setIsCapturing(true);
@@ -363,7 +440,6 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
 
-    // Temporarily configure visibility for exact mode
     const prevStdVis = standardMeshRef.current?.visible;
     const prevDefVis = deformedMeshRef.current?.visible;
 
@@ -378,12 +454,10 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     renderer.render(scene, camera);
     const dataUrl = renderer.domElement.toDataURL('image/png');
 
-    // Restore visibility
     if (standardMeshRef.current && prevStdVis !== undefined) standardMeshRef.current.visible = prevStdVis;
     if (deformedMeshRef.current && prevDefVis !== undefined) deformedMeshRef.current.visible = prevDefVis;
     renderer.render(scene, camera);
 
-    // Trigger download
     const filename = type === 'standard' ? 'mi_modelo.png' : 'mi_modelo_deformado.png';
     const a = document.createElement('a');
     a.href = dataUrl;
@@ -396,9 +470,11 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     setTimeout(() => setIsCapturing(false), 500);
   };
 
+  const lacanian = calculateLacanianParameters(sclData, params);
+
   return (
-    <div className="relative w-full h-full min-h-[480px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col select-none">
-      {/* 3D WebGL Canvas Viewport */}
+    <div className="relative w-full h-full min-h-[500px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col select-none">
+      {/* 3D WebGL Viewport */}
       <div
         id="horn-torus-canvas-container"
         ref={containerRef}
@@ -411,36 +487,37 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       />
 
       {/* Top Floating Action Bar */}
-      <div className="absolute top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-        {/* Manifold Identity Badge */}
-        <div className="pointer-events-auto flex items-center gap-2.5 px-3.5 py-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-lg text-xs shadow-lg">
+      <div className="absolute top-3.5 left-3.5 right-3.5 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        {/* Lacanian Identity Pill */}
+        <div className="pointer-events-auto flex items-center gap-2.5 px-3 py-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-lg text-xs shadow-lg">
           <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
           <span className="font-mono font-semibold text-slate-100">
-            {viewMode === 'standard' ? 'Horn Torus [R = r]' : 'Deformed ICC Horn Torus'}
+            {viewMode === 'standard' ? 'Horn Torus Icc' : 'Horn Torus Deformado'}
           </span>
-          <span className="text-slate-400">|</span>
+          <span className="text-slate-500">|</span>
           <span className="text-cyan-300 font-mono">
-            a_scale={params.a_scale.toFixed(2)}
+            a={(params.a_scale * sclData["GSI"]).toFixed(4)}
           </span>
-          {viewMode !== 'standard' && (
-            <span className="text-amber-300 font-mono">
-              δ={params.deformation_factor.toFixed(2)}
-            </span>
-          )}
+          <span className="text-slate-500">|</span>
+          <span className="text-amber-300 font-mono">
+            A_cr=π/4
+          </span>
         </div>
 
-        {/* Quick Camera & Export Controls */}
+        {/* Action Controls & PNG Export */}
         <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-lg shadow-lg">
           <button
             id="toggle-rotation-btn"
             onClick={() => setIsRotating(!isRotating)}
             className={`px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
-              isRotating ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50' : 'text-slate-400 hover:text-slate-200'
+              isRotating
+                ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
-            title={isRotating ? 'Pausar rotación' : 'Reanudar rotación automática'}
+            title={isRotating ? 'Pausar rotación' : 'Rotar automáticamente'}
           >
             {isRotating ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            <span>{isRotating ? 'Auto' : 'Fijo'}</span>
+            <span>{isRotating ? 'Auto' : 'Pausa'}</span>
           </button>
 
           <button
@@ -452,7 +529,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
-          <div className="w-[1px] h-4 bg-slate-700 mx-1" />
+          <div className="w-[1px] h-4 bg-slate-700 mx-0.5" />
 
           {/* Direct PNG Export Buttons matching the Python method calls */}
           <button
@@ -479,34 +556,52 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         </div>
       </div>
 
-      {/* Bottom Floating Visual Diagnostics Legend */}
-      <div className="absolute bottom-4 left-4 pointer-events-none flex flex-col gap-2">
-        <div className="pointer-events-auto bg-slate-900/85 backdrop-blur-md border border-slate-800 rounded-lg p-2.5 text-[11px] font-mono text-slate-300 shadow-xl max-w-xs space-y-1">
-          <div className="flex items-center justify-between font-semibold text-slate-200 border-b border-slate-800 pb-1">
+      {/* Bottom Floating Lacanian Legend */}
+      <div className="absolute bottom-3.5 left-3.5 pointer-events-none flex flex-col gap-2">
+        <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 text-xs font-mono text-slate-300 shadow-2xl max-w-sm space-y-2">
+          <div className="flex items-center justify-between font-semibold text-slate-200 border-b border-slate-800 pb-1.5">
             <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-cyan-400" />
-              <span>Singularidad Cúspide Horn</span>
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Estructura del Icc (Inconsciente)</span>
             </span>
-            <span className="text-cyan-400">θ = ±π → (0, 0, 0)</span>
+            <span className="text-[10px] text-cyan-400">R = r = a</span>
           </div>
-          <p className="text-slate-400 leading-tight text-[10px]">
-            El radio mayor R coincide exactamente con el radio menor r (R = r). El conducto interior se cierra tangencialmente en un punto único.
-          </p>
-          <div className="flex items-center justify-between pt-1 text-[10px]">
-            <span className="text-slate-400">Estrés Psicométrico:</span>
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-blue-500" title="Bajo" />
-              <span className="w-2 h-2 rounded-sm bg-emerald-500" title="Moderado" />
-              <span className="w-2 h-2 rounded-sm bg-amber-500" title="Elevado" />
-              <span className="w-2 h-2 rounded-sm bg-rose-600" title="Severo / Psicótico" />
+
+          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+            <div className="flex items-center gap-1.5 text-red-400">
+              <span className="w-2.5 h-1 rounded-full bg-red-500" />
+              <span>S: Significante</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-emerald-400">
+              <span className="w-2.5 h-1 rounded-full bg-emerald-500" />
+              <span>I: Imagen Cuerpo</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-blue-400">
+              <span className="w-2.5 h-1 rounded-full bg-blue-500" />
+              <span>Σ: Síntoma</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-rose-400">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              <span>Fantasía (Angustia)</span>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-800/80 pt-1.5 text-[10px] text-slate-400 space-y-1">
+            <div className="flex justify-between">
+              <span>Punto Fantasía (u, v):</span>
+              <span className="text-rose-300 font-bold">(π, π/2)</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Zona Ruptura (A ≤ A_cr):</span>
+              <span className="text-amber-400 font-bold">{lacanian.ruptureAreaPercent.toFixed(1)}% del Manifold</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Canvas Interaction Guide Hint */}
-      <div className="absolute bottom-4 right-4 pointer-events-none">
-        <div className="bg-slate-900/75 backdrop-blur-sm border border-slate-800/80 px-2.5 py-1 rounded text-[10px] text-slate-400 font-mono">
+      {/* Interaction Hint */}
+      <div className="absolute bottom-3.5 right-3.5 pointer-events-none">
+        <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 px-2.5 py-1 rounded text-[10px] text-slate-400 font-mono">
           Arrastrar: rotar | Rueda: zoom | Clic derecho: paneo
         </div>
       </div>

@@ -2,5 +2,7 @@
   "name": "Horn Torus ICC Model",
   "description": "Interactive 3D topological simulation and psychometric analysis of SCL-90-R data on a Horn Torus geometry with dynamic deformation, energy curvature metrics, and clinical reporting.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -16,28 +16,36 @@ import {
   Layers,
   Sparkles,
   CheckCircle2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Flame,
+  Palette
 } from 'lucide-react';
 
 export default function App() {
   // SCL-90-R Psychometric Data from user prompt
   const [sclData, setSclData] = useState<SCL90RData>(DEFAULT_SCL90R_DATA);
 
-  // Model Parameters: a_scale=0.1, deformation_factor=0.3
+  // Model Parameters: a_scale=0.1, u_scale=2*pi, v_scale=pi, A_cr=pi/4, deformation_factor=0.3
   const [params, setParams] = useState<ModelParams>({
     a_scale: 0.1,
+    u_scale: 2 * Math.PI,
+    v_scale: Math.PI,
     deformation_factor: 0.3,
-    gridResolution: 72,
-    r_major: 1.0,
-    r_minor: 1.0,
+    gridResolution: 80,
+    a_critical: Math.PI / 4,
   });
 
   // Visualization options
   const [viewMode, setViewMode] = useState<ViewMode>('deformed');
-  const [colorMap, setColorMap] = useState<ColorMapMode>('stress');
+  const [colorMap, setColorMap] = useState<ColorMapMode>('angustia');
   const [showWireframe, setShowWireframe] = useState<boolean>(false);
-  const [showNormals, setShowNormals] = useState<boolean>(false);
   const [showVortexFlow, setShowVortexFlow] = useState<boolean>(true);
+
+  // Lacanian Curves & Point toggles
+  const [showCurveS, setShowCurveS] = useState<boolean>(true);
+  const [showCurveI, setShowCurveI] = useState<boolean>(true);
+  const [showCurveSigma, setShowCurveSigma] = useState<boolean>(true);
+  const [showFantasyPoint, setShowFantasyPoint] = useState<boolean>(true);
 
   // UI Active Sidebar Tab
   const [activeTab, setActiveTab] = useState<'parameters' | 'summary' | 'python' | 'gallery'>('parameters');
@@ -78,7 +86,7 @@ export default function App() {
       )}
 
       {/* Navigation Header */}
-      <header className="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40 px-4 py-3">
+      <header className="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md sticky top-0 z-40 px-4 py-2.5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Logo and Identity */}
           <div className="flex items-center gap-3">
@@ -91,11 +99,11 @@ export default function App() {
                   Horn Torus ICC Model
                 </h1>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">
-                  SCL-90-R v1.0
+                  SCL-90-R & Lacan
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Simulación Topológica 3D & Análisis Cuántico de Conciencia
+                Topología del Inconsciente: Curvas S, I, Σ, Fantasía & Angustia A(u, v)
               </p>
             </div>
           </div>
@@ -159,31 +167,126 @@ export default function App() {
             </button>
           </div>
 
-          {/* Visualization Toggles */}
+          {/* ColorMap Mode Switcher */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              id="btn-colormap-angustia"
+              onClick={() => setColorMap('angustia')}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${
+                colorMap === 'angustia'
+                  ? 'bg-rose-950 text-rose-300 border border-rose-700 font-semibold'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Campo de Angustia A(u, v) y Umbral Crítico A_cr=π/4"
+            >
+              <Flame className="w-3 h-3 text-rose-400" />
+              <span>Angustia</span>
+            </button>
+
+            <button
+              id="btn-colormap-stress"
+              onClick={() => setColorMap('stress')}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${
+                colorMap === 'stress'
+                  ? 'bg-amber-950 text-amber-300 border border-amber-700 font-semibold'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Estrés por deformación psicométrica"
+            >
+              <Palette className="w-3 h-3 text-amber-400" />
+              <span>Estrés</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Lacanian Curves & Visual Layers Quick Strip */}
+        <div className="max-w-7xl mx-auto mt-2 pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 text-[11px]">Capas Lacanianas:</span>
+            
+            {/* Curve S toggle */}
+            <button
+              id="toggle-curve-s-btn"
+              onClick={() => setShowCurveS(!showCurveS)}
+              className={`px-2 py-0.5 rounded border transition-colors flex items-center gap-1.5 ${
+                showCurveS
+                  ? 'bg-red-950/80 text-red-300 border-red-700'
+                  : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
+              }`}
+              title="Curva S (Significante): basada en Ansiedad + Obsesión y PSDI"
+            >
+              <span className="w-2 h-2 rounded-full bg-red-500" />
+              <span>S (Significante)</span>
+            </button>
+
+            {/* Curve I toggle */}
+            <button
+              id="toggle-curve-i-btn"
+              onClick={() => setShowCurveI(!showCurveI)}
+              className={`px-2 py-0.5 rounded border transition-colors flex items-center gap-1.5 ${
+                showCurveI
+                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
+                  : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
+              }`}
+              title="Curva I (Imagen del cuerpo): basada en Somatización + Sensibilidad y PST"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>I (Cuerpo)</span>
+            </button>
+
+            {/* Curve Sigma toggle */}
+            <button
+              id="toggle-curve-sigma-btn"
+              onClick={() => setShowCurveSigma(!showCurveSigma)}
+              className={`px-2 py-0.5 rounded border transition-colors flex items-center gap-1.5 ${
+                showCurveSigma
+                  ? 'bg-blue-950/80 text-blue-300 border-blue-700'
+                  : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
+              }`}
+              title="Curva Σ (Síntoma): basada en Psicoticismo + Hostilidad"
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              <span>Σ (Síntoma)</span>
+            </button>
+
+            {/* Fantasy Point toggle */}
+            <button
+              id="toggle-fantasy-point-btn"
+              onClick={() => setShowFantasyPoint(!showFantasyPoint)}
+              className={`px-2 py-0.5 rounded border transition-colors flex items-center gap-1.5 ${
+                showFantasyPoint
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-700'
+                  : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
+              }`}
+              title="Punto de Fantasía (π, π/2) - Foco de Angustia Máxima"
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-400" />
+              <span>Fantasía</span>
+            </button>
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               id="toggle-vortex-flow-btn"
               onClick={() => setShowVortexFlow(!showVortexFlow)}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 border transition-colors ${
+              className={`px-2 py-0.5 rounded text-xs font-mono flex items-center gap-1 border transition-colors ${
                 showVortexFlow
                   ? 'bg-cyan-950 text-cyan-300 border-cyan-800'
-                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-300'
+                  : 'bg-slate-900 text-slate-500 border-slate-800'
               }`}
-              title="Visualizar flujo de líneas de campo y vórtice a través del cuerno"
             >
-              <span className={`w-2 h-2 rounded-full ${showVortexFlow ? 'bg-cyan-400 animate-ping' : 'bg-slate-600'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${showVortexFlow ? 'bg-cyan-400' : 'bg-slate-600'}`} />
               <span>Vórtice</span>
             </button>
 
             <button
               id="toggle-wireframe-btn"
               onClick={() => setShowWireframe(!showWireframe)}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono border transition-colors ${
+              className={`px-2 py-0.5 rounded text-xs font-mono border transition-colors ${
                 showWireframe
                   ? 'bg-slate-800 text-cyan-300 border-slate-700'
-                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-300'
+                  : 'bg-slate-900 text-slate-500 border-slate-800'
               }`}
-              title="Malla de alambre poligonal"
             >
               Malla
             </button>
@@ -201,8 +304,11 @@ export default function App() {
             viewMode={viewMode}
             colorMap={colorMap}
             showWireframe={showWireframe}
-            showNormals={showNormals}
             showVortexFlow={showVortexFlow}
+            showCurveS={showCurveS}
+            showCurveI={showCurveI}
+            showCurveSigma={showCurveSigma}
+            showFantasyPoint={showFantasyPoint}
             onCapturePng={handleCapturePng}
           />
         </section>
@@ -340,18 +446,20 @@ export default function App() {
       </main>
 
       {/* Footer Info */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 text-slate-400 text-xs py-2.5 px-4 font-mono">
+      <footer className="border-t border-slate-800/80 bg-slate-950 text-slate-400 text-xs py-2 px-4 font-mono">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div>
-            <span>Horn Torus Manifold: </span>
-            <span className="text-cyan-400">x(θ,φ) = R(1+cos θ)cos φ</span>
+            <span>Horn Torus Icc: </span>
+            <span className="text-cyan-400">R = r = a = a_scale · GSI</span>
             <span className="text-slate-600"> | </span>
-            <span className="text-cyan-400">y(θ,φ) = R(1+cos θ)sin φ</span>
+            <span className="text-rose-400">Fantasía: (π, π/2)</span>
             <span className="text-slate-600"> | </span>
-            <span className="text-cyan-400">z(θ,φ) = R sin θ</span>
+            <span className="text-amber-400">A_cr = π/4</span>
           </div>
           <div className="flex items-center gap-3">
-            <span>Willmore Energy W: <span className="text-amber-400 font-bold">{metrics.willmoreEnergyDeformed.toFixed(2)}</span></span>
+            <span>Ruptura: <span className="text-rose-400 font-bold">{metrics.lacanian.ruptureAreaPercent.toFixed(1)}%</span></span>
+            <span className="text-slate-600">•</span>
+            <span>Willmore W: <span className="text-amber-400 font-bold">{metrics.willmoreEnergyDeformed.toFixed(2)}</span></span>
             <span className="text-slate-600">•</span>
             <span>ICC Coherencia: <span className="text-cyan-400 font-bold">{metrics.iccIndex.toFixed(1)}%</span></span>
           </div>
