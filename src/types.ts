@@ -39,7 +39,7 @@ export interface LacanianCoordinates {
   ruptureAreaPercent: number;
 }
 
-export type ViewMode = 'standard' | 'deformed' | 'comparison' | 'cross_section' | 'interior_icc';
+export type ViewMode = 'standard' | 'deformed' | 'comparison' | 'cross_section' | 'interior_icc' | 'xray_icc';
 
 export type ColorMapMode = 'angustia' | 'stress' | 'differential_stress' | 'curvature' | 'elevation';
 

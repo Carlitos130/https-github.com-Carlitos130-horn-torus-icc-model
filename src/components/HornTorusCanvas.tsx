@@ -21,7 +21,9 @@ import {
   Activity,
   Eye,
   Waves,
-  ArrowRight
+  ArrowRight,
+  Radio,
+  Scan
 } from 'lucide-react';
 
 /**
@@ -127,6 +129,12 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   const particlesRef = useRef<THREE.Points | null>(null);
   const clippingPlaneRef = useRef<THREE.Plane | null>(null);
   const interiorLightRef = useRef<THREE.PointLight | null>(null);
+
+  // X-Ray Mode refs (Cc semitransparent outer envelope & Icc interior core)
+  const xrayCcMeshRef = useRef<THREE.Mesh | null>(null);
+  const xrayIccMeshRef = useRef<THREE.Mesh | null>(null);
+  const xrayWireframeRef = useRef<THREE.LineSegments | null>(null);
+  const xrayCcMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
 
   // Lacanian curves / ribbons & Fantasy point refs
   const curveSRef = useRef<THREE.Object3D | null>(null);
@@ -498,6 +506,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     if (standardMeshRef.current) scene.remove(standardMeshRef.current);
     if (deformedMeshRef.current) scene.remove(deformedMeshRef.current);
     if (wireframeRef.current) scene.remove(wireframeRef.current);
+    if (xrayCcMeshRef.current) scene.remove(xrayCcMeshRef.current);
+    if (xrayIccMeshRef.current) scene.remove(xrayIccMeshRef.current);
+    if (xrayWireframeRef.current) scene.remove(xrayWireframeRef.current);
     if (curveSRef.current) scene.remove(curveSRef.current);
     if (curveIRef.current) scene.remove(curveIRef.current);
     if (curvePulsionRef.current) scene.remove(curvePulsionRef.current);
@@ -509,13 +520,16 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     const isCut = viewMode === 'cross_section';
     const clippingPlanes = isCut && clippingPlaneRef.current ? [clippingPlaneRef.current] : [];
 
-    // Interior mode config: peel Cc exterior to reveal Icc core
+    // Mode configurations
+    const isXRayMode = viewMode === 'xray_icc';
     const isInteriorMode = viewMode === 'interior_icc';
-    const effectiveCcOpacity = isInteriorMode ? Math.min(ccOpacity, 0.22) : ccOpacity;
-    const isTranslucent = isInteriorMode || viewMode === 'comparison' || effectiveCcOpacity < 0.92;
+    const effectiveCcOpacity = isXRayMode
+      ? Math.max(0.04, Math.min(1.0, ccOpacity))
+      : (isInteriorMode ? Math.min(ccOpacity, 0.22) : ccOpacity);
+    const isTranslucent = isXRayMode || isInteriorMode || viewMode === 'comparison' || effectiveCcOpacity < 0.92;
 
-    if (isInteriorMode) {
-      const glow = new THREE.PointLight(0x38bdf8, 2.2, 10);
+    if (isInteriorMode || isXRayMode) {
+      const glow = new THREE.PointLight(0x38bdf8, isXRayMode ? 3.0 : 2.2, 12);
       glow.position.set(0, 0, 0);
       interiorLightRef.current = glow;
       scene.add(glow);
@@ -573,30 +587,102 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     const defMesh = new THREE.Mesh(defGeo, defMat);
     deformedMeshRef.current = defMesh;
 
-    // 3. Wireframe Overlay
-    if (showWireframe) {
-      const targetGeo = (viewMode === 'standard' || isInteriorMode) ? stdGeo : defGeo;
-      const wire = new THREE.LineSegments(
-        new THREE.WireframeGeometry(targetGeo),
-        new THREE.LineBasicMaterial({
-          color: 0x94a3b8,
-          transparent: true,
-          opacity: isInteriorMode ? 0.18 : 0.25,
-          clippingPlanes
-        })
-      );
-      wireframeRef.current = wire;
-      scene.add(wire);
-    }
+    // Surface and X-Ray Configuration
+    if (isXRayMode) {
+      // Vista de Rayos X del Icc:
+      // Envolvente Cc externa (v in [0, pi/2) U (3pi/2, 2pi]) con transparencia dinámica y sutil carcasa holográfica
+      const targetData = (params.deformation_factor > 0 ? defData : stdData);
+      const xrayCcGeo = new THREE.BufferGeometry();
+      xrayCcGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
+      xrayCcGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
+      xrayCcGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
+      xrayCcGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
+      xrayCcGeo.setIndex(new THREE.BufferAttribute(targetData.ccIndices, 1));
 
-    // Add surface to scene
-    if (viewMode === 'standard' || isInteriorMode) {
-      scene.add(stdMesh);
-    } else if (viewMode === 'deformed' || viewMode === 'cross_section') {
-      scene.add(defMesh);
-    } else if (viewMode === 'comparison') {
-      scene.add(stdMesh);
-      scene.add(defMesh);
+      const xrayCcMat = new THREE.MeshPhysicalMaterial({
+        vertexColors: true,
+        color: 0x38bdf8,
+        metalness: 0.12,
+        roughness: 0.20,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.1,
+        transparent: true,
+        opacity: effectiveCcOpacity,
+        depthWrite: false, // Fundamental: evita oclusión Z de las cintas interiores
+        side: THREE.DoubleSide,
+        clippingPlanes,
+        clipShadows: true
+      });
+      xrayCcMaterialRef.current = xrayCcMat;
+
+      const xrayCcMesh = new THREE.Mesh(xrayCcGeo, xrayCcMat);
+      xrayCcMesh.renderOrder = 10;
+      xrayCcMeshRef.current = xrayCcMesh;
+      scene.add(xrayCcMesh);
+
+      // Crystalline structural wireframe outlining the conscious outer shell
+      const wireCcGeo = new THREE.WireframeGeometry(xrayCcGeo);
+      const wireCcMat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: Math.max(0.06, Math.min(0.40, effectiveCcOpacity * 0.45 + 0.08)),
+        clippingPlanes
+      });
+      const xrayWire = new THREE.LineSegments(wireCcGeo, wireCcMat);
+      xrayWire.renderOrder = 11;
+      xrayWireframeRef.current = xrayWire;
+      scene.add(xrayWire);
+
+      // Núcleo interior Icc (v in [pi/2, 3pi/2]) convergiendo a la cúspide singular v=pi
+      const xrayIccGeo = new THREE.BufferGeometry();
+      xrayIccGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
+      xrayIccGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
+      xrayIccGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
+      xrayIccGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
+      xrayIccGeo.setIndex(new THREE.BufferAttribute(targetData.iccIndices, 1));
+
+      const xrayIccMat = new THREE.MeshPhysicalMaterial({
+        vertexColors: true,
+        metalness: 0.25,
+        roughness: 0.35,
+        clearcoat: 0.5,
+        transparent: true,
+        opacity: 0.36,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        clippingPlanes,
+        clipShadows: true
+      });
+      const xrayIccMesh = new THREE.Mesh(xrayIccGeo, xrayIccMat);
+      xrayIccMesh.renderOrder = 1;
+      xrayIccMeshRef.current = xrayIccMesh;
+      scene.add(xrayIccMesh);
+    } else {
+      // 3. Wireframe Overlay
+      if (showWireframe) {
+        const targetGeo = (viewMode === 'standard' || isInteriorMode) ? stdGeo : defGeo;
+        const wire = new THREE.LineSegments(
+          new THREE.WireframeGeometry(targetGeo),
+          new THREE.LineBasicMaterial({
+            color: 0x94a3b8,
+            transparent: true,
+            opacity: isInteriorMode ? 0.18 : 0.25,
+            clippingPlanes
+          })
+        );
+        wireframeRef.current = wire;
+        scene.add(wire);
+      }
+
+      // Add surface to scene
+      if (viewMode === 'standard' || isInteriorMode) {
+        scene.add(stdMesh);
+      } else if (viewMode === 'deformed' || viewMode === 'cross_section') {
+        scene.add(defMesh);
+      } else if (viewMode === 'comparison') {
+        scene.add(stdMesh);
+        scene.add(defMesh);
+      }
     }
 
     // 4. Lacanian Ribbons & Curves: S, I, Hilo Pulsional, Sigma (entrecruzadas en el interior)
@@ -621,14 +707,17 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         const mat = new THREE.MeshPhysicalMaterial({
           color: colorHex,
           emissive: emissiveHex,
-          emissiveIntensity: isPulsion ? 0.65 : 0.4,
+          emissiveIntensity: isXRayMode ? (isPulsion ? 1.25 : 0.90) : (isPulsion ? 0.65 : 0.4),
           roughness: 0.25,
           metalness: isPulsion ? 0.5 : 0.2,
           clearcoat: 0.95,
           side: THREE.DoubleSide,
-          clippingPlanes
+          clippingPlanes,
+          depthWrite: !isXRayMode
         });
-        return new THREE.Mesh(geo, mat);
+        const mesh = new THREE.Mesh(geo, mat);
+        if (isXRayMode) mesh.renderOrder = 6;
+        return mesh;
       } else {
         const pts = points.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
         const geo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -637,7 +726,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
           linewidth: 3,
           clippingPlanes
         });
-        return new THREE.Line(geo, mat);
+        const line = new THREE.Line(geo, mat);
+        if (isXRayMode) line.renderOrder = 6;
+        return line;
       }
     };
 
@@ -756,6 +847,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       pulsionTracersPointsRef.current = tracersPoints;
 
       pulsionGroup.visible = showPulsion;
+      if (isXRayMode) pulsionGroup.renderOrder = 6;
       pulsionGroupRef.current = pulsionGroup;
       scene.add(pulsionGroup);
     }
@@ -777,7 +869,8 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         color: 0xf43f5e,
         emissive: 0xe11d48,
         emissiveIntensity: 0.95,
-        roughness: 0.15
+        roughness: 0.15,
+        depthWrite: !isXRayMode
       });
       const sphere = new THREE.Mesh(sphereGeo, sphereMat);
       sphere.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
@@ -789,7 +882,8 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         color: 0xfb7185,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.85
+        opacity: 0.85,
+        depthWrite: !isXRayMode
       });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
@@ -802,12 +896,14 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         color: 0xf43f5e,
         transparent: true,
         opacity: 0.16,
-        wireframe: true
+        wireframe: true,
+        depthWrite: !isXRayMode
       });
       const halo = new THREE.Mesh(haloGeo, haloMat);
       halo.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
       fantasyGroup.add(halo);
 
+      if (isXRayMode) fantasyGroup.renderOrder = 7;
       fantasyMeshRef.current = fantasyGroup;
       scene.add(fantasyGroup);
     }
@@ -825,6 +921,19 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     showRibbons,
     ccOpacity
   ]);
+
+  // Real-time dynamic opacity adjustment for Cc conscious shell in X-Ray mode
+  useEffect(() => {
+    if (viewMode === 'xray_icc' && xrayCcMaterialRef.current) {
+      xrayCcMaterialRef.current.opacity = Math.max(0.04, Math.min(1.0, ccOpacity));
+      xrayCcMaterialRef.current.needsUpdate = true;
+    }
+    if (viewMode === 'xray_icc' && xrayWireframeRef.current) {
+      const wireMat = xrayWireframeRef.current.material as THREE.LineBasicMaterial;
+      wireMat.opacity = Math.max(0.06, Math.min(0.40, ccOpacity * 0.45 + 0.08));
+      wireMat.needsUpdate = true;
+    }
+  }, [ccOpacity, viewMode]);
 
   // Mouse Interaction handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -921,25 +1030,46 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         <div className="pointer-events-auto flex items-center gap-2.5 px-3 py-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-lg text-xs shadow-lg">
           <span
             className={`w-2.5 h-2.5 rounded-full ${
-              viewMode === 'interior_icc'
+              viewMode === 'xray_icc'
+                ? 'bg-cyan-400 ring-2 ring-cyan-400/40'
+                : viewMode === 'interior_icc'
                 ? 'bg-amber-400'
                 : colorMap === 'differential_stress'
                 ? 'bg-fuchsia-400'
                 : 'bg-cyan-400'
             } animate-pulse`}
           />
-          <span className="font-mono font-semibold text-slate-100">
-            {viewMode === 'interior_icc'
-              ? 'Interior (Icc): Cintas Entrecruzadas'
-              : viewMode === 'standard'
-              ? 'Horn Torus Cc (Exterior)'
-              : 'Horn Torus Deformado'}
+          <span className="font-mono font-semibold text-slate-100 flex items-center gap-1.5">
+            {viewMode === 'xray_icc' ? (
+              <>
+                <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span className="text-cyan-300 font-bold">Vista Rayos X del Icc</span>
+              </>
+            ) : viewMode === 'interior_icc' ? (
+              'Interior (Icc): Cintas Entrecruzadas'
+            ) : viewMode === 'standard' ? (
+              'Horn Torus Cc (Exterior)'
+            ) : (
+              'Horn Torus Deformado'
+            )}
           </span>
           <span className="text-slate-500">|</span>
           <span className="text-cyan-300 font-mono">
             a={(params.a_scale * sclData["GSI"]).toFixed(4)}
           </span>
-          {viewMode === 'interior_icc' ? (
+          {viewMode === 'xray_icc' ? (
+            <>
+              <span className="text-slate-500">|</span>
+              <span className="text-cyan-300 font-mono flex items-center gap-1 font-semibold">
+                <Scan className="w-3 h-3 text-cyan-400" />
+                <span>Cc Translúcido: {(ccOpacity * 100).toFixed(0)}%</span>
+              </span>
+              <span className="text-slate-500">|</span>
+              <span className="text-emerald-300 font-mono">
+                Interior Icc Revelado
+              </span>
+            </>
+          ) : viewMode === 'interior_icc' ? (
             <>
               <span className="text-slate-500">|</span>
               <span className="text-amber-300 font-mono flex items-center gap-1">
@@ -976,6 +1106,32 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
         {/* Action Controls & PNG Export */}
         <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-lg shadow-lg">
+          {/* Quick Toggle for X-Ray of Icc */}
+          {onViewModeChange && (
+            <button
+              id="quick-toggle-xray-btn"
+              onClick={() => {
+                if (viewMode === 'xray_icc') {
+                  onViewModeChange('standard');
+                } else {
+                  onViewModeChange('xray_icc');
+                  if (onCcOpacityChange && (ccOpacity > 0.45 || ccOpacity < 0.1)) {
+                    onCcOpacityChange(0.20);
+                  }
+                }
+              }}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                viewMode === 'xray_icc'
+                  ? 'bg-cyan-950 text-cyan-200 border border-cyan-400 shadow-sm font-semibold ring-1 ring-cyan-500/40'
+                  : 'text-slate-300 hover:text-white bg-slate-800 border border-slate-700'
+              }`}
+              title="Alternar Vista de Rayos X del Icc: envolvente semitransparente que revela las cintas interiores"
+            >
+              <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span>{viewMode === 'xray_icc' ? 'Salir Rayos X' : 'Rayos X Icc'}</span>
+            </button>
+          )}
+
           {/* Direct Quick Interior View Toggle Button */}
           {onViewModeChange && (
             <button
@@ -989,7 +1145,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               title="Alternar entre ver el exterior Cc o inspeccionar el interior Icc con las cintas"
             >
               <Eye className="w-3.5 h-3.5 text-amber-400" />
-              <span>{viewMode === 'interior_icc' ? 'Ver Exterior (Cc)' : 'Ver Interior (Icc)'}</span>
+              <span>{viewMode === 'interior_icc' ? 'Ver Exterior (Cc)' : 'Interior (Icc)'}</span>
             </button>
           )}
 
@@ -1074,6 +1230,39 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
           </div>
         )}
 
+        {viewMode === 'xray_icc' && (
+          <div className="pointer-events-auto bg-slate-900/95 backdrop-blur-md border border-cyan-500/70 rounded-xl p-3 text-xs font-mono text-slate-300 shadow-2xl max-w-sm space-y-2">
+            <div className="flex items-center justify-between font-semibold text-cyan-300 border-b border-cyan-900/60 pb-1.5">
+              <span className="flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span>Vista de Rayos X del Icc</span>
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/80 font-bold">
+                Cc Semitransparente
+              </span>
+            </div>
+
+            <p className="text-[10px] text-slate-300 leading-relaxed">
+              La envolvente exterior <span className="text-cyan-300 font-semibold">Consciente (Cc)</span> se atenúa mediante transparencia dinámica (<span className="text-cyan-400 font-bold">{(ccOpacity * 100).toFixed(0)}%</span>) como carcasa de contención, revelando con nitidez las cintas interiores del <span className="text-amber-300 font-semibold">Inconsciente (Icc)</span>: <span className="text-red-400 font-bold">S</span>, <span className="text-emerald-400 font-bold">I</span>, el <span className="text-amber-300 font-bold">Hilo Pulsional</span> y el síntoma <span className="text-blue-400 font-bold">Σ</span>.
+            </p>
+
+            <div className="grid grid-cols-2 gap-1.5 text-[9.5px] bg-slate-950/80 p-2 rounded-lg border border-slate-800">
+              <div className="text-slate-300">
+                <span className="text-cyan-400 font-bold">Cc:</span> cos(v) &gt; 0 (Exterior)
+              </div>
+              <div className="text-slate-300">
+                <span className="text-amber-400 font-bold">Icc:</span> cos(v) ≤ 0 (Interior)
+              </div>
+              <div className="text-slate-300">
+                <span className="text-fuchsia-400 font-bold">Singularidad:</span> v = π (objeto a)
+              </div>
+              <div className="text-slate-300">
+                <span className="text-rose-400 font-bold">Fantasía:</span> (u=π, v=π/2)
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 text-xs font-mono text-slate-300 shadow-2xl max-w-sm space-y-2">
           <div className="flex items-center justify-between font-semibold text-slate-200 border-b border-slate-800 pb-1.5">
             <span className="flex items-center gap-1.5">
@@ -1144,18 +1333,20 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       <div className="absolute bottom-3.5 right-3.5 pointer-events-none flex flex-col items-end gap-1.5">
         {onCcOpacityChange && (
           <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-mono shadow-xl">
-            <span className="text-slate-400 text-[11px]">Opacidad Cc:</span>
+            <span className="text-slate-400 text-[11px]">
+              {viewMode === 'xray_icc' ? 'Transparencia Cc:' : 'Opacidad Cc:'}
+            </span>
             <input
               type="range"
-              min="0.05"
+              min="0.04"
               max="1.0"
-              step="0.05"
+              step="0.02"
               value={ccOpacity}
               onChange={(e) => onCcOpacityChange(parseFloat(e.target.value))}
               className="w-20 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
               title="Ajusta la opacidad de la piel exterior (Cc) para revelar el interior (Icc)"
             />
-            <span className="text-cyan-300 font-bold w-7 text-right">{(ccOpacity * 100).toFixed(0)}%</span>
+            <span className="text-cyan-300 font-bold w-8 text-right">{(ccOpacity * 100).toFixed(0)}%</span>
           </div>
         )}
 

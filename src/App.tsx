@@ -19,7 +19,9 @@ import {
   Image as ImageIcon,
   Flame,
   Palette,
-  Activity
+  Activity,
+  Radio,
+  Scan
 } from 'lucide-react';
 
 export default function App() {
@@ -129,6 +131,29 @@ export default function App() {
             >
               <Eye className="w-3.5 h-3.5 text-cyan-400" />
               <span>Exterior (Cc)</span>
+            </button>
+
+            <button
+              id="btn-view-xray-icc"
+              onClick={() => {
+                setViewMode('xray_icc');
+                if (ccOpacity > 0.45 || ccOpacity < 0.08) setCcOpacity(0.20);
+                setShowCurveS(true);
+                setShowCurveI(true);
+                setShowPulsion(true);
+                setShowCurveSigma(true);
+                setShowFantasyPoint(true);
+                setShowRibbons(true);
+              }}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+                viewMode === 'xray_icc'
+                  ? 'bg-cyan-950/90 text-cyan-200 shadow-md border border-cyan-400 font-semibold ring-2 ring-cyan-500/40'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Vista de Rayos X del Icc: Transparencia dinámica a las porciones Cc manteniendo la envolvente semitransparente"
+            >
+              <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span>Rayos X Icc</span>
             </button>
 
             <button
@@ -333,20 +358,53 @@ export default function App() {
               {showRibbons ? 'Cintas 3D' : 'Líneas 1D'}
             </button>
 
-            {/* Opacity Cc slider */}
-            <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-[11px]">
-              <span className="text-slate-400">Opacidad Cc:</span>
+            {/* Opacity Cc slider with Dynamic Presets for X-Ray mode */}
+            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded border text-[11px] transition-colors ${
+              viewMode === 'xray_icc'
+                ? 'bg-cyan-950/80 border-cyan-500/70 shadow-sm'
+                : 'bg-slate-950 border-slate-800'
+            }`}>
+              <span className={viewMode === 'xray_icc' ? 'text-cyan-200 font-semibold' : 'text-slate-400'}>
+                {viewMode === 'xray_icc' ? 'Transparencia Cc:' : 'Opacidad Cc:'}
+              </span>
               <input
+                id="slider-cc-opacity"
                 type="range"
-                min="0.05"
+                min="0.04"
                 max="1.0"
-                step="0.05"
+                step="0.02"
                 value={ccOpacity}
                 onChange={(e) => setCcOpacity(parseFloat(e.target.value))}
-                className="w-16 accent-cyan-400 h-1 cursor-pointer"
-                title="Opacidad de la piel exterior (Cc / Consciente)"
+                className="w-18 accent-cyan-400 h-1 cursor-pointer"
+                title="Opacidad dinámica de la piel exterior (Cc / Consciente)"
               />
-              <span className="text-cyan-300 font-mono">{(ccOpacity * 100).toFixed(0)}%</span>
+              <span className="text-cyan-300 font-mono font-bold w-8 text-right">{(ccOpacity * 100).toFixed(0)}%</span>
+
+              {viewMode === 'xray_icc' && (
+                <div className="flex items-center gap-1 ml-1 border-l border-cyan-800/80 pl-1.5 text-[9px] font-mono">
+                  <button
+                    onClick={() => setCcOpacity(0.08)}
+                    className="px-1.5 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 border border-cyan-700/60"
+                    title="Envolvente fantasma ultra translúcida (8%)"
+                  >
+                    Fantasma
+                  </button>
+                  <button
+                    onClick={() => setCcOpacity(0.20)}
+                    className="px-1.5 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 border border-cyan-700/60"
+                    title="Radiografía óptima (20%)"
+                  >
+                    Rayos X
+                  </button>
+                  <button
+                    onClick={() => setCcOpacity(0.40)}
+                    className="px-1.5 py-0.5 rounded bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 border border-cyan-700/60"
+                    title="Carcasa cristalina (40%)"
+                  >
+                    Cristal
+                  </button>
+                </div>
+              )}
             </div>
 
             <button

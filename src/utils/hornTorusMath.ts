@@ -730,8 +730,16 @@ export function generateHornTorusGeometry(
     }
   }
 
-  // Triangles
+  // Triangles: partitioned into full indices, Cc outer envelope indices, and Icc interior funnel indices
+  const ccIndices: number[] = [];
+  const iccIndices: number[] = [];
+
   for (let i = 0; i < numV; i++) {
+    const vMid = ((i + 0.5) / numV) * 2 * Math.PI;
+    // Conscious (Cc) outer envelope: cos(v) > 0, i.e. v in [0, pi/2) U (3pi/2, 2pi]
+    // Unconscious (Icc) inner funnel: cos(v) <= 0, i.e. v in [pi/2, 3pi/2]
+    const isCcZone = Math.cos(vMid) > 0;
+
     for (let j = 0; j < numU; j++) {
       const a = i * (numU + 1) + j;
       const b = (i + 1) * (numU + 1) + j;
@@ -740,6 +748,14 @@ export function generateHornTorusGeometry(
 
       indices.push(a, b, d);
       indices.push(b, c, d);
+
+      if (isCcZone) {
+        ccIndices.push(a, b, d);
+        ccIndices.push(b, c, d);
+      } else {
+        iccIndices.push(a, b, d);
+        iccIndices.push(b, c, d);
+      }
     }
   }
 
@@ -749,6 +765,8 @@ export function generateHornTorusGeometry(
     uvs: new Float32Array(uvs),
     colors: new Float32Array(colors),
     indices: new Uint32Array(indices),
+    ccIndices: new Uint32Array(ccIndices),
+    iccIndices: new Uint32Array(iccIndices),
     lacanian
   };
 }
