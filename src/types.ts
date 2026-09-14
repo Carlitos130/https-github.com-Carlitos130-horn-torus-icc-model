@@ -28,17 +28,20 @@ export interface LacanianCoordinates {
   v_S: number;
   u_I: number;
   v_I: number;
+  u_Pulsion: number; // Hilo Pulsional (Trieb / Vorstellungrepräsentanz) pegado a I
+  v_Pulsion: number;
+  pulsionAttachmentStrength: number;
   u_Sigma: number;
   v_Sigma: number;
-  fantasyPointUV: [number, number]; // (pi, pi / 2)
+  fantasyPointUV: [number, number]; // (pi, pi / 2) - La fantasía es angustia
   fantasyPoint3D: [number, number, number];
   ruptureCount: number;
   ruptureAreaPercent: number;
 }
 
-export type ViewMode = 'standard' | 'deformed' | 'comparison' | 'cross_section';
+export type ViewMode = 'standard' | 'deformed' | 'comparison' | 'cross_section' | 'interior_icc';
 
-export type ColorMapMode = 'angustia' | 'stress' | 'curvature' | 'elevation';
+export type ColorMapMode = 'angustia' | 'stress' | 'differential_stress' | 'curvature' | 'elevation';
 
 export interface TopologicalMetrics {
   surfaceAreaStandard: number;
@@ -56,6 +59,9 @@ export interface TopologicalMetrics {
   iccIndex: number; // 0 - 100%
   clinicalSeverityTier: 'Normal' | 'Leve' | 'Moderado' | 'Severo' | 'Crítico';
   stabilityScore: number;
+  maxDifferentialTension: number;
+  avgDifferentialTension: number;
+  highTensionAreaPercent: number;
   lacanian: LacanianCoordinates;
 }
 

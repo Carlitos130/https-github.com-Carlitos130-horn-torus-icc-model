@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   Image as ImageIcon,
   Flame,
-  Palette
+  Palette,
+  Activity
 } from 'lucide-react';
 
 export default function App() {
@@ -41,11 +42,14 @@ export default function App() {
   const [showWireframe, setShowWireframe] = useState<boolean>(false);
   const [showVortexFlow, setShowVortexFlow] = useState<boolean>(true);
 
-  // Lacanian Curves & Point toggles
+  // Lacanian Ribbons & Point toggles
   const [showCurveS, setShowCurveS] = useState<boolean>(true);
   const [showCurveI, setShowCurveI] = useState<boolean>(true);
+  const [showPulsion, setShowPulsion] = useState<boolean>(true);
   const [showCurveSigma, setShowCurveSigma] = useState<boolean>(true);
   const [showFantasyPoint, setShowFantasyPoint] = useState<boolean>(true);
+  const [showRibbons, setShowRibbons] = useState<boolean>(true);
+  const [ccOpacity, setCcOpacity] = useState<number>(0.92);
 
   // UI Active Sidebar Tab
   const [activeTab, setActiveTab] = useState<'parameters' | 'summary' | 'python' | 'gallery'>('parameters');
@@ -103,7 +107,7 @@ export default function App() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Topología del Inconsciente: Curvas S, I, Σ, Fantasía & Angustia A(u, v)
+                Exterior Cc vs Interior Icc: S, I, Hilo Pulsional (pegado a I), Σ y Fantasía=Angustia
               </p>
             </div>
           </div>
@@ -112,16 +116,36 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-medium">
             <button
               id="btn-view-standard"
-              onClick={() => setViewMode('standard')}
+              onClick={() => {
+                setViewMode('standard');
+                if (ccOpacity < 0.5) setCcOpacity(0.92);
+              }}
               className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
                 viewMode === 'standard'
                   ? 'bg-cyan-900/80 text-cyan-200 shadow-sm border border-cyan-700/60 font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="model.plot_3d_model()"
+              title="Exterior Cc: Vista exterior estándar del Horn Torus"
             >
               <Eye className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Estándar (3D)</span>
+              <span>Exterior (Cc)</span>
+            </button>
+
+            <button
+              id="btn-view-interior-icc"
+              onClick={() => {
+                setViewMode('interior_icc');
+                if (ccOpacity > 0.3) setCcOpacity(0.20);
+              }}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+                viewMode === 'interior_icc'
+                  ? 'bg-amber-950/90 text-amber-200 shadow-sm border border-amber-600 font-semibold ring-1 ring-amber-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Ver el interior del Horn Torus (Icc): Cintas entrecruzadas, pulsión pegada a I y fantasía"
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-400" />
+              <span>Interior (Icc)</span>
             </button>
 
             <button
@@ -184,6 +208,20 @@ export default function App() {
             </button>
 
             <button
+              id="btn-colormap-diff-stress"
+              onClick={() => setColorMap('differential_stress')}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${
+                colorMap === 'differential_stress'
+                  ? 'bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-700 font-semibold shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Differential Stress: Compara la superficie de energía del toro estándar vs. deformado"
+            >
+              <Activity className="w-3 h-3 text-fuchsia-400" />
+              <span>Diff Stress</span>
+            </button>
+
+            <button
               id="btn-colormap-stress"
               onClick={() => setColorMap('stress')}
               className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${
@@ -199,10 +237,10 @@ export default function App() {
           </div>
         </div>
 
-        {/* Lacanian Curves & Visual Layers Quick Strip */}
+        {/* Lacanian Curves, Hilo Pulsional & Visual Layers Quick Strip */}
         <div className="max-w-7xl mx-auto mt-2 pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-[11px]">Capas Lacanianas:</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-slate-500 text-[11px]">Cintas Interiores (Icc):</span>
             
             {/* Curve S toggle */}
             <button
@@ -213,7 +251,7 @@ export default function App() {
                   ? 'bg-red-950/80 text-red-300 border-red-700'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Curva S (Significante): basada en Ansiedad + Obsesión y PSDI"
+              title="Curva/Cinta S (Significante / Simbólico): basada en Ansiedad + Obsesión y PSDI"
             >
               <span className="w-2 h-2 rounded-full bg-red-500" />
               <span>S (Significante)</span>
@@ -228,10 +266,25 @@ export default function App() {
                   ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Curva I (Imagen del cuerpo): basada en Somatización + Sensibilidad y PST"
+              title="Curva/Cinta I (Imagen del cuerpo): basada en Somatización + Sensibilidad y PST"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               <span>I (Cuerpo)</span>
+            </button>
+
+            {/* Hilo Pulsional toggle - Pegado a I & Campo Vectorial de Flujo Animado */}
+            <button
+              id="toggle-curve-pulsion-btn"
+              onClick={() => setShowPulsion(!showPulsion)}
+              className={`px-2 py-0.5 rounded border transition-colors flex items-center gap-1.5 ${
+                showPulsion
+                  ? 'bg-amber-950/90 text-amber-300 border-amber-600 font-semibold shadow-sm'
+                  : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
+              }`}
+              title="Hilo Pulsional (Trieb / Vorstellungrepräsentanz): Visualiza el campo vectorial animado de flujo interior (Drang) anclado a I"
+            >
+              <span className={`w-2 h-2 rounded-full ${showPulsion ? 'bg-amber-400 animate-ping' : 'bg-slate-600'}`} />
+              <span>Pulsión (Campo Vectorial)</span>
             </button>
 
             {/* Curve Sigma toggle */}
@@ -243,7 +296,7 @@ export default function App() {
                   ? 'bg-blue-950/80 text-blue-300 border-blue-700'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Curva Σ (Síntoma): basada en Psicoticismo + Hostilidad"
+              title="Curva/Cinta Σ (Síntoma / Sinthome): basada en Psicoticismo + Hostilidad"
             >
               <span className="w-2 h-2 rounded-full bg-blue-500" />
               <span>Σ (Síntoma)</span>
@@ -261,11 +314,41 @@ export default function App() {
               title="Punto de Fantasía (π, π/2) - Foco de Angustia Máxima"
             >
               <span className="w-2 h-2 rounded-full bg-rose-400" />
-              <span>Fantasía</span>
+              <span>Fantasía=Angustia</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Ribbons 3D vs Lines */}
+            <button
+              id="toggle-ribbons-btn"
+              onClick={() => setShowRibbons(!showRibbons)}
+              className={`px-2 py-0.5 rounded text-xs font-mono border transition-colors ${
+                showRibbons
+                  ? 'bg-purple-950/80 text-purple-300 border-purple-700'
+                  : 'bg-slate-900 text-slate-500 border-slate-800'
+              }`}
+              title="Alternar entre cintas entrelazadas 3D y líneas vectoriales"
+            >
+              {showRibbons ? 'Cintas 3D' : 'Líneas 1D'}
+            </button>
+
+            {/* Opacity Cc slider */}
+            <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-[11px]">
+              <span className="text-slate-400">Opacidad Cc:</span>
+              <input
+                type="range"
+                min="0.05"
+                max="1.0"
+                step="0.05"
+                value={ccOpacity}
+                onChange={(e) => setCcOpacity(parseFloat(e.target.value))}
+                className="w-16 accent-cyan-400 h-1 cursor-pointer"
+                title="Opacidad de la piel exterior (Cc / Consciente)"
+              />
+              <span className="text-cyan-300 font-mono">{(ccOpacity * 100).toFixed(0)}%</span>
+            </div>
+
             <button
               id="toggle-vortex-flow-btn"
               onClick={() => setShowVortexFlow(!showVortexFlow)}
@@ -307,8 +390,17 @@ export default function App() {
             showVortexFlow={showVortexFlow}
             showCurveS={showCurveS}
             showCurveI={showCurveI}
+            showPulsion={showPulsion}
             showCurveSigma={showCurveSigma}
             showFantasyPoint={showFantasyPoint}
+            showRibbons={showRibbons}
+            ccOpacity={ccOpacity}
+            onCcOpacityChange={setCcOpacity}
+            onViewModeChange={(m) => {
+              setViewMode(m);
+              if (m === 'interior_icc' && ccOpacity > 0.3) setCcOpacity(0.20);
+              if (m === 'standard' && ccOpacity < 0.5) setCcOpacity(0.92);
+            }}
             onCapturePng={handleCapturePng}
           />
         </section>
@@ -458,6 +550,8 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             <span>Ruptura: <span className="text-rose-400 font-bold">{metrics.lacanian.ruptureAreaPercent.toFixed(1)}%</span></span>
+            <span className="text-slate-600">•</span>
+            <span>ΔE Tensión: <span className="text-fuchsia-400 font-bold">{(metrics.avgDifferentialTension * 100).toFixed(1)}%</span></span>
             <span className="text-slate-600">•</span>
             <span>Willmore W: <span className="text-amber-400 font-bold">{metrics.willmoreEnergyDeformed.toFixed(2)}</span></span>
             <span className="text-slate-600">•</span>

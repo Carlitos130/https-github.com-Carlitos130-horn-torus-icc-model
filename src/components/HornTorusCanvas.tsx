@@ -1,8 +1,81 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { ModelParams, SCL90RData, ViewMode, ColorMapMode } from '../types';
-import { generateHornTorusGeometry, getLacanianCurves, calculateLacanianParameters } from '../utils/hornTorusMath';
-import { RotateCcw, Play, Pause, Download, Sparkles, AlertCircle, CircleDot } from 'lucide-react';
+import {
+  generateHornTorusGeometry,
+  getLacanianCurves,
+  calculateLacanianParameters,
+  generateRibbonGeometryData,
+  generatePulsionVectorFieldData,
+  PulsionVectorItem,
+  computeSclDeformation
+} from '../utils/hornTorusMath';
+import {
+  RotateCcw,
+  Play,
+  Pause,
+  Download,
+  Sparkles,
+  AlertCircle,
+  CircleDot,
+  Activity,
+  Eye,
+  Waves,
+  ArrowRight
+} from 'lucide-react';
+
+/**
+ * Creates a single combined BufferGeometry for a 3D directional arrow (shaft + conical head)
+ * aligned along the +Y axis. Zero external dependencies.
+ */
+function createDirectionalArrowGeometry(): THREE.BufferGeometry {
+  const shaftRadius = 0.013;
+  const shaftHeight = 0.17;
+  const headRadius = 0.044;
+  const headHeight = 0.095;
+  const radialSegments = 10;
+
+  const cyl = new THREE.CylinderGeometry(shaftRadius, shaftRadius, shaftHeight, radialSegments);
+  cyl.translate(0, shaftHeight * 0.5, 0);
+
+  const cone = new THREE.ConeGeometry(headRadius, headHeight, radialSegments);
+  cone.translate(0, shaftHeight + headHeight * 0.5, 0);
+
+  const cylPos = cyl.getAttribute('position').array as Float32Array;
+  const cylNorm = cyl.getAttribute('normal').array as Float32Array;
+  const cylIdx = cyl.getIndex()!.array;
+
+  const conePos = cone.getAttribute('position').array as Float32Array;
+  const coneNorm = cone.getAttribute('normal').array as Float32Array;
+  const coneIdx = cone.getIndex()!.array;
+
+  const totalVerts = cylPos.length / 3 + conePos.length / 3;
+  const totalIndices = cylIdx.length + coneIdx.length;
+
+  const mergedPos = new Float32Array(totalVerts * 3);
+  mergedPos.set(cylPos, 0);
+  mergedPos.set(conePos, cylPos.length);
+
+  const mergedNorm = new Float32Array(totalVerts * 3);
+  mergedNorm.set(cylNorm, 0);
+  mergedNorm.set(coneNorm, cylNorm.length);
+
+  const mergedIdx = totalVerts > 65535 ? new Uint32Array(totalIndices) : new Uint16Array(totalIndices);
+  mergedIdx.set(cylIdx, 0);
+  const offset = cylPos.length / 3;
+  for (let i = 0; i < coneIdx.length; i++) {
+    mergedIdx[cylIdx.length + i] = coneIdx[i] + offset;
+  }
+
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.BufferAttribute(mergedPos, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(mergedNorm, 3));
+  merged.setIndex(new THREE.BufferAttribute(mergedIdx, 1));
+
+  cyl.dispose();
+  cone.dispose();
+  return merged;
+}
 
 interface HornTorusCanvasProps {
   sclData: SCL90RData;
@@ -13,8 +86,13 @@ interface HornTorusCanvasProps {
   showVortexFlow: boolean;
   showCurveS: boolean;
   showCurveI: boolean;
+  showPulsion: boolean;
   showCurveSigma: boolean;
   showFantasyPoint: boolean;
+  showRibbons: boolean;
+  ccOpacity: number;
+  onCcOpacityChange?: (opacity: number) => void;
+  onViewModeChange?: (mode: ViewMode) => void;
   onCapturePng: (type: 'standard' | 'deformed', dataUrl: string) => void;
 }
 
@@ -27,8 +105,13 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   showVortexFlow,
   showCurveS,
   showCurveI,
+  showPulsion = true,
   showCurveSigma,
   showFantasyPoint,
+  showRibbons = true,
+  ccOpacity = 0.95,
+  onCcOpacityChange,
+  onViewModeChange,
   onCapturePng
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,21 +126,82 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   const wireframeRef = useRef<THREE.LineSegments | null>(null);
   const particlesRef = useRef<THREE.Points | null>(null);
   const clippingPlaneRef = useRef<THREE.Plane | null>(null);
+  const interiorLightRef = useRef<THREE.PointLight | null>(null);
 
-  // Lacanian curves & Fantasy point refs
-  const curveSRef = useRef<THREE.Line | null>(null);
-  const curveIRef = useRef<THREE.Line | null>(null);
-  const curveSigmaRef = useRef<THREE.Line | null>(null);
+  // Lacanian curves / ribbons & Fantasy point refs
+  const curveSRef = useRef<THREE.Object3D | null>(null);
+  const curveIRef = useRef<THREE.Object3D | null>(null);
+  const curvePulsionRef = useRef<THREE.Object3D | null>(null);
+  const curveSigmaRef = useRef<THREE.Object3D | null>(null);
   const fantasyMeshRef = useRef<THREE.Group | null>(null);
+
+  // Hilo Pulsional Directional Flow Vector Field & Dynamic Tracers refs
+  const pulsionGroupRef = useRef<THREE.Group | null>(null);
+  const pulsionVectorFieldRef = useRef<THREE.InstancedMesh | null>(null);
+  const pulsionTracersLinesRef = useRef<THREE.LineSegments | null>(null);
+  const pulsionTracersPointsRef = useRef<THREE.Points | null>(null);
+  const pulsionVectorsDataRef = useRef<PulsionVectorItem[]>([]);
+  const pulsionTracersStateRef = useRef<{
+    u: Float32Array;
+    v: Float32Array;
+    speeds: Float32Array;
+    count: number;
+  } | null>(null);
+
+  // Temp vectors and matrices for zero-GC 60fps instance updates
+  const dummyObjRef = useRef(new THREE.Object3D());
+  const unitYVectorRef = useRef(new THREE.Vector3(0, 1, 0));
+  const targetDirVectorRef = useRef(new THREE.Vector3());
+  const quaternionRef = useRef(new THREE.Quaternion());
 
   // Interaction state
   const [isRotating, setIsRotating] = useState<boolean>(true);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
 
+  // Reactive Prop Synchronizers for the Animation Frame Loop
+  const showPulsionRef = useRef(showPulsion);
+  const showVortexFlowRef = useRef(showVortexFlow);
+  const isRotatingRef = useRef(isRotating);
+  const sclDataRef = useRef(sclData);
+  const paramsRef = useRef(params);
+  const viewModeRef = useRef(viewMode);
+
+  useEffect(() => {
+    showPulsionRef.current = showPulsion;
+    if (pulsionGroupRef.current) {
+      pulsionGroupRef.current.visible = showPulsion;
+    }
+  }, [showPulsion]);
+
+  useEffect(() => {
+    showVortexFlowRef.current = showVortexFlow;
+    if (particlesRef.current) {
+      particlesRef.current.visible = showVortexFlow;
+    }
+  }, [showVortexFlow]);
+
+  useEffect(() => {
+    isRotatingRef.current = isRotating;
+  }, [isRotating]);
+
+  useEffect(() => {
+    sclDataRef.current = sclData;
+    paramsRef.current = params;
+    viewModeRef.current = viewMode;
+  }, [sclData, params, viewMode]);
+
   // Camera spherical angles
   const rotationAngles = useRef({ theta: 0.65, phi: 0.75, radius: 9.0 });
   const isDragging = useRef(false);
   const previousMousePosition = useRef({ x: 0, y: 0 });
+
+  // Camera adjustment for interior mode
+  useEffect(() => {
+    if (viewMode === 'interior_icc') {
+      rotationAngles.current = { theta: 0.38, phi: 0.55, radius: 7.5 };
+      updateCameraPosition();
+    }
+  }, [viewMode]);
 
   // Scene initialization
   useEffect(() => {
@@ -157,17 +301,17 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       const delta = (currentTime - lastTime) / 1000;
       lastTime = currentTime;
 
-      if (isRotating) {
+      if (isRotatingRef.current) {
         rotationAngles.current.phi += delta * 0.35;
         updateCameraPosition();
       }
 
       // Update particle vortex flow
-      if (particlesRef.current && showVortexFlow) {
+      if (particlesRef.current && showVortexFlowRef.current) {
         particlesRef.current.visible = true;
         const posAttr = particlesRef.current.geometry.attributes.position as THREE.BufferAttribute;
         const positionsArr = posAttr.array as Float32Array;
-        const lac = calculateLacanianParameters(sclData, params);
+        const lac = calculateLacanianParameters(sclDataRef.current, paramsRef.current);
         const a = lac.a * 25.0;
 
         for (let i = 0; i < particleCount; i++) {
@@ -193,6 +337,135 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         particlesRef.current.visible = false;
       }
 
+      // Update Hilo Pulsional (Trieb) Directional Flow Vector Field & Tracers
+      if (pulsionGroupRef.current) {
+        if (showPulsionRef.current) {
+          pulsionGroupRef.current.visible = true;
+          const timeSec = currentTime * 0.001;
+
+          // 1. Pulsate and orient directional vector field arrows across the interior surface
+          if (pulsionVectorFieldRef.current && pulsionVectorsDataRef.current.length > 0) {
+            const inst = pulsionVectorFieldRef.current;
+            const vectors = pulsionVectorsDataRef.current;
+            const dummy = dummyObjRef.current;
+            const up = unitYVectorRef.current;
+            const q = quaternionRef.current;
+            const dirVec = targetDirVectorRef.current;
+
+            for (let i = 0; i < vectors.length; i++) {
+              const item = vectors[i];
+              // Rhythmic Drang wave surge
+              const pulse = 0.85 + 0.30 * Math.sin(timeSec * 3.4 - item.phase);
+              const s = item.magnitude * pulse * 0.95;
+
+              dummy.position.set(item.origin[0], item.origin[1], item.origin[2]);
+              dirVec.set(item.direction[0], item.direction[1], item.direction[2]);
+              q.setFromUnitVectors(up, dirVec);
+              dummy.quaternion.copy(q);
+              dummy.scale.set(s, s * 1.15, s);
+              dummy.updateMatrix();
+              inst.setMatrixAt(i, dummy.matrix);
+            }
+            inst.instanceMatrix.needsUpdate = true;
+          }
+
+          // 2. Animate Dynamic Directional Flow Tracers (moving across the interior surface)
+          if (
+            pulsionTracersStateRef.current &&
+            pulsionTracersLinesRef.current &&
+            pulsionTracersPointsRef.current
+          ) {
+            const { u, v, speeds, count } = pulsionTracersStateRef.current;
+            const linesAttr = pulsionTracersLinesRef.current.geometry.attributes.position as THREE.BufferAttribute;
+            const linesArr = linesAttr.array as Float32Array;
+            const pointsAttr = pulsionTracersPointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
+            const pointsArr = pointsAttr.array as Float32Array;
+
+            const lac = calculateLacanianParameters(sclDataRef.current, paramsRef.current);
+            const visualScale = 25.0;
+            const effectiveA = lac.a * visualScale;
+            const isDeform = (viewModeRef.current === 'deformed' || viewModeRef.current === 'comparison');
+            const effectiveDeform = isDeform ? paramsRef.current.deformation_factor : 0.0;
+            const phi_I = lac.v_I % (2 * Math.PI);
+
+            for (let i = 0; i < count; i++) {
+              const spd = speeds[i];
+              // Accelerates near the cusp throat v ~ pi
+              const throatFactor = 1.0 + 0.55 * Math.sin(v[i]);
+              v[i] += delta * spd * 1.65 * throatFactor;
+              u[i] += delta * spd * 1.15;
+
+              // Constrained to the interior surface v in [pi/2, 3*pi/2]
+              if (v[i] > Math.PI * 1.5) {
+                v[i] = Math.PI * 0.5 + Math.random() * 0.25;
+                u[i] = Math.random() * 2 * Math.PI;
+              }
+              if (u[i] > Math.PI * 2) {
+                u[i] -= Math.PI * 2;
+              }
+
+              const ui = u[i];
+              const vi = v[i];
+              const cosV = Math.cos(vi);
+              const sinV = Math.sin(vi);
+              const cosU = Math.cos(ui);
+              const sinU = Math.sin(ui);
+
+              const r0 = effectiveA * (1 + cosV);
+              let px = r0 * cosU;
+              let py = r0 * sinU;
+              let pz = effectiveA * sinV;
+
+              if (effectiveDeform > 0) {
+                const { factor } = computeSclDeformation(ui, vi, sclDataRef.current, effectiveDeform);
+                px *= factor;
+                py *= factor;
+                pz *= 1.0 + (factor - 1.0) * 0.85;
+              }
+
+              // Local tangent velocity vector
+              const tu_x = -sinU;
+              const tu_y = cosU;
+              const tu_z = 0;
+              const tv_x = -sinV * cosU;
+              const tv_y = -sinV * sinU;
+              const tv_z = cosV;
+
+              const v_I_at_u = Math.PI + 0.48 * Math.sin(ui + phi_I) + 0.12 * Math.cos(2 * ui);
+              const weightI = Math.exp(-Math.pow(Math.abs(vi - v_I_at_u) / 0.55, 2));
+
+              let vx = 0.72 * tu_x + 0.68 * tv_x + 0.35 * weightI * tu_x;
+              let vy = 0.72 * tu_y + 0.68 * tv_y + 0.35 * weightI * tu_y;
+              let vz = 0.68 * tv_z;
+              const vLen = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1.0;
+              vx /= vLen;
+              vy /= vLen;
+              vz /= vLen;
+
+              // Glowing head position
+              pointsArr[i * 3] = px;
+              pointsArr[i * 3 + 1] = py;
+              pointsArr[i * 3 + 2] = pz;
+
+              // Directional stream tail
+              const tailLen = 0.26 * (1.0 + weightI * 0.35);
+              linesArr[i * 6] = px - vx * tailLen;
+              linesArr[i * 6 + 1] = py - vy * tailLen;
+              linesArr[i * 6 + 2] = pz - vz * tailLen;
+
+              linesArr[i * 6 + 3] = px;
+              linesArr[i * 6 + 4] = py;
+              linesArr[i * 6 + 5] = pz;
+            }
+
+            pointsAttr.needsUpdate = true;
+            linesAttr.needsUpdate = true;
+          }
+        } else {
+          pulsionGroupRef.current.visible = false;
+        }
+      }
+
       renderer.render(scene, camera);
     };
     animate();
@@ -216,7 +489,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     cameraRef.current.lookAt(0, 0, 0);
   };
 
-  // Re-build Torus Meshes, Lacanian Curves (S, I, Sigma) & Fantasy Beacon
+  // Re-build Torus Meshes, Lacanian Ribbons (S, I, Pulsión, Sigma) & Fantasy Beacon
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
@@ -227,13 +500,28 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     if (wireframeRef.current) scene.remove(wireframeRef.current);
     if (curveSRef.current) scene.remove(curveSRef.current);
     if (curveIRef.current) scene.remove(curveIRef.current);
+    if (curvePulsionRef.current) scene.remove(curvePulsionRef.current);
+    if (pulsionGroupRef.current) scene.remove(pulsionGroupRef.current);
     if (curveSigmaRef.current) scene.remove(curveSigmaRef.current);
     if (fantasyMeshRef.current) scene.remove(fantasyMeshRef.current);
+    if (interiorLightRef.current) scene.remove(interiorLightRef.current);
 
     const isCut = viewMode === 'cross_section';
     const clippingPlanes = isCut && clippingPlaneRef.current ? [clippingPlaneRef.current] : [];
 
-    // 1. Standard Horn Torus Geometry
+    // Interior mode config: peel Cc exterior to reveal Icc core
+    const isInteriorMode = viewMode === 'interior_icc';
+    const effectiveCcOpacity = isInteriorMode ? Math.min(ccOpacity, 0.22) : ccOpacity;
+    const isTranslucent = isInteriorMode || viewMode === 'comparison' || effectiveCcOpacity < 0.92;
+
+    if (isInteriorMode) {
+      const glow = new THREE.PointLight(0x38bdf8, 2.2, 10);
+      glow.position.set(0, 0, 0);
+      interiorLightRef.current = glow;
+      scene.add(glow);
+    }
+
+    // 1. Standard Horn Torus Geometry (Cc Exterior)
     const stdData = generateHornTorusGeometry(params, sclData, false, colorMap);
     const stdGeo = new THREE.BufferGeometry();
     stdGeo.setAttribute('position', new THREE.BufferAttribute(stdData.positions, 3));
@@ -251,8 +539,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       side: THREE.DoubleSide,
       clippingPlanes,
       clipShadows: true,
-      transparent: viewMode === 'comparison',
-      opacity: viewMode === 'comparison' ? 0.35 : 0.92,
+      transparent: isTranslucent,
+      opacity: isInteriorMode ? effectiveCcOpacity : (viewMode === 'comparison' ? 0.35 : effectiveCcOpacity),
+      depthWrite: !isTranslucent,
       wireframe: false
     });
     const stdMesh = new THREE.Mesh(stdGeo, stdMat);
@@ -276,6 +565,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       side: THREE.DoubleSide,
       clippingPlanes,
       clipShadows: true,
+      transparent: isTranslucent,
+      opacity: isInteriorMode ? effectiveCcOpacity : effectiveCcOpacity,
+      depthWrite: !isTranslucent,
       wireframe: false
     });
     const defMesh = new THREE.Mesh(defGeo, defMat);
@@ -283,13 +575,13 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
     // 3. Wireframe Overlay
     if (showWireframe) {
-      const targetGeo = viewMode === 'standard' ? stdGeo : defGeo;
+      const targetGeo = (viewMode === 'standard' || isInteriorMode) ? stdGeo : defGeo;
       const wire = new THREE.LineSegments(
         new THREE.WireframeGeometry(targetGeo),
         new THREE.LineBasicMaterial({
           color: 0x94a3b8,
           transparent: true,
-          opacity: 0.25,
+          opacity: isInteriorMode ? 0.18 : 0.25,
           clippingPlanes
         })
       );
@@ -298,7 +590,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     }
 
     // Add surface to scene
-    if (viewMode === 'standard') {
+    if (viewMode === 'standard' || isInteriorMode) {
       scene.add(stdMesh);
     } else if (viewMode === 'deformed' || viewMode === 'cross_section') {
       scene.add(defMesh);
@@ -307,70 +599,192 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       scene.add(defMesh);
     }
 
-    // 4. Lacanian Curves S, I, Sigma
+    // 4. Lacanian Ribbons & Curves: S, I, Hilo Pulsional, Sigma (entrecruzadas en el interior)
     const lacanian = calculateLacanianParameters(sclData, params);
-    const { curveS, curveI, curveSigma, fantasy3D } = getLacanianCurves(lacanian);
+    const { curveS, curveI, curvePulsion, curveSigma, fantasy3D } = getLacanianCurves(lacanian);
 
-    // Curva S (Significante) - Red
+    const createRibbonOrLine = (
+      points: [number, number, number][],
+      colorHex: number,
+      emissiveHex: number,
+      ribbonWidth: number,
+      isPulsion: boolean = false
+    ): THREE.Object3D => {
+      if (showRibbons) {
+        const geoData = generateRibbonGeometryData(points, ribbonWidth);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(geoData.positions, 3));
+        geo.setAttribute('normal', new THREE.BufferAttribute(geoData.normals, 3));
+        geo.setAttribute('uv', new THREE.BufferAttribute(geoData.uvs, 2));
+        geo.setIndex(new THREE.BufferAttribute(geoData.indices, 1));
+
+        const mat = new THREE.MeshPhysicalMaterial({
+          color: colorHex,
+          emissive: emissiveHex,
+          emissiveIntensity: isPulsion ? 0.65 : 0.4,
+          roughness: 0.25,
+          metalness: isPulsion ? 0.5 : 0.2,
+          clearcoat: 0.95,
+          side: THREE.DoubleSide,
+          clippingPlanes
+        });
+        return new THREE.Mesh(geo, mat);
+      } else {
+        const pts = points.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const mat = new THREE.LineBasicMaterial({
+          color: colorHex,
+          linewidth: 3,
+          clippingPlanes
+        });
+        return new THREE.Line(geo, mat);
+      }
+    };
+
+    // Curva S (Significante / Simbólico) - Red Ribbon
     if (showCurveS) {
-      const ptsS = curveS.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
-      const geoS = new THREE.BufferGeometry().setFromPoints(ptsS);
-      const matS = new THREE.LineBasicMaterial({
-        color: 0xef4444, // Red
-        linewidth: 3,
-        clippingPlanes
-      });
-      const lineS = new THREE.Line(geoS, matS);
-      curveSRef.current = lineS;
-      scene.add(lineS);
+      const objS = createRibbonOrLine(curveS, 0xef4444, 0x500707, 0.085);
+      curveSRef.current = objS;
+      scene.add(objS);
     }
 
-    // Curva I (Imagen del cuerpo) - Green
+    // Curva I (Imagen del cuerpo) - Green Ribbon
     if (showCurveI) {
-      const ptsI = curveI.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
-      const geoI = new THREE.BufferGeometry().setFromPoints(ptsI);
-      const matI = new THREE.LineBasicMaterial({
-        color: 0x10b981, // Green
-        linewidth: 3,
-        clippingPlanes
-      });
-      const lineI = new THREE.Line(geoI, matI);
-      curveIRef.current = lineI;
-      scene.add(lineI);
+      const objI = createRibbonOrLine(curveI, 0x10b981, 0x022c22, 0.085);
+      curveIRef.current = objI;
+      scene.add(objI);
     }
 
-    // Curva Sigma (Síntoma) - Blue
+    // Hilo Pulsional (Trieb / Vorstellungrepräsentanz):
+    // Animated directional flow vector field moving across the interior surface of the torus,
+    // directly linked to the showPulsion toggle state, plus the golden ribbon anchored to I
+    if (showPulsion) {
+      const pulsionGroup = new THREE.Group();
+      pulsionGroup.name = 'pulsionGroup';
+
+      // 1. Central golden ribbon/braid pegado a I (Vorstellungsrepräsentanz)
+      const objPulsionRibbon = createRibbonOrLine(curvePulsion, 0xf59e0b, 0x78350f, 0.065, true);
+      pulsionGroup.add(objPulsionRibbon);
+      curvePulsionRef.current = objPulsionRibbon;
+
+      // 2. Interior Directional Flow Vector Field (Quiver of 3D arrows)
+      const isDeform = (viewMode === 'deformed' || viewMode === 'comparison');
+      const vfData = generatePulsionVectorFieldData(lacanian, sclData, params, isDeform);
+      pulsionVectorsDataRef.current = vfData.vectors;
+
+      const arrowGeo = createDirectionalArrowGeometry();
+      const arrowMat = new THREE.MeshStandardMaterial({
+        color: 0xf59e0b,
+        emissive: 0xd97706,
+        emissiveIntensity: 0.85,
+        roughness: 0.28,
+        metalness: 0.32,
+        side: THREE.DoubleSide,
+        clippingPlanes,
+        clipShadows: true
+      });
+
+      const instMesh = new THREE.InstancedMesh(arrowGeo, arrowMat, vfData.count);
+      const dummy = dummyObjRef.current;
+      const up = unitYVectorRef.current;
+      const q = quaternionRef.current;
+      const dirVec = targetDirVectorRef.current;
+
+      for (let i = 0; i < vfData.count; i++) {
+        const item = vfData.vectors[i];
+        dummy.position.set(item.origin[0], item.origin[1], item.origin[2]);
+        dirVec.set(item.direction[0], item.direction[1], item.direction[2]);
+        q.setFromUnitVectors(up, dirVec);
+        dummy.quaternion.copy(q);
+        const s = item.magnitude * 0.95;
+        dummy.scale.set(s, s * 1.15, s);
+        dummy.updateMatrix();
+        instMesh.setMatrixAt(i, dummy.matrix);
+      }
+      instMesh.instanceMatrix.needsUpdate = true;
+      pulsionGroup.add(instMesh);
+      pulsionVectorFieldRef.current = instMesh;
+
+      // 3. Dynamic Animated Stream Tracers (moving directional vectors across interior surface)
+      const tracerCount = 140;
+      const tracerU = new Float32Array(tracerCount);
+      const tracerV = new Float32Array(tracerCount);
+      const tracerSpeeds = new Float32Array(tracerCount);
+
+      for (let i = 0; i < tracerCount; i++) {
+        tracerU[i] = Math.random() * 2 * Math.PI;
+        // Interior surface domain: v in [pi/2, 3*pi/2]
+        tracerV[i] = Math.PI * 0.5 + Math.random() * Math.PI;
+        tracerSpeeds[i] = 0.45 + Math.random() * 0.55;
+      }
+      pulsionTracersStateRef.current = {
+        u: tracerU,
+        v: tracerV,
+        speeds: tracerSpeeds,
+        count: tracerCount
+      };
+
+      // Tracers line segments (streamline tails)
+      const linePositions = new Float32Array(tracerCount * 2 * 3);
+      const linesGeo = new THREE.BufferGeometry();
+      linesGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+      const linesMat = new THREE.LineBasicMaterial({
+        color: 0xfbbf24,
+        transparent: true,
+        opacity: 0.9,
+        linewidth: 2,
+        clippingPlanes
+      });
+      const tracersLines = new THREE.LineSegments(linesGeo, linesMat);
+      pulsionGroup.add(tracersLines);
+      pulsionTracersLinesRef.current = tracersLines;
+
+      // Tracers points (glowing forward heads)
+      const pointPositions = new Float32Array(tracerCount * 3);
+      const pointsGeo = new THREE.BufferGeometry();
+      pointsGeo.setAttribute('position', new THREE.BufferAttribute(pointPositions, 3));
+      const pointsMat = new THREE.PointsMaterial({
+        color: 0xfffbeb,
+        size: 0.085,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        clippingPlanes
+      });
+      const tracersPoints = new THREE.Points(pointsGeo, pointsMat);
+      pulsionGroup.add(tracersPoints);
+      pulsionTracersPointsRef.current = tracersPoints;
+
+      pulsionGroup.visible = showPulsion;
+      pulsionGroupRef.current = pulsionGroup;
+      scene.add(pulsionGroup);
+    }
+
+    // Curva Sigma (Síntoma / Sinthome) - Blue Ribbon
     if (showCurveSigma) {
-      const ptsSigma = curveSigma.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
-      const geoSigma = new THREE.BufferGeometry().setFromPoints(ptsSigma);
-      const matSigma = new THREE.LineBasicMaterial({
-        color: 0x3b82f6, // Blue
-        linewidth: 3,
-        clippingPlanes
-      });
-      const lineSigma = new THREE.Line(geoSigma, matSigma);
-      curveSigmaRef.current = lineSigma;
-      scene.add(lineSigma);
+      const objSigma = createRibbonOrLine(curveSigma, 0x3b82f6, 0x172554, 0.085);
+      curveSigmaRef.current = objSigma;
+      scene.add(objSigma);
     }
 
-    // 5. Fantasy Point (Punto de Angustia Máxima) - Magenta / Beacon
+    // 5. Fantasy Point [La Fantasía es Angustia] (Punto de Angustia Máxima)
     if (showFantasyPoint) {
       const fantasyGroup = new THREE.Group();
 
       // Main glowing sphere
-      const sphereGeo = new THREE.SphereGeometry(0.12, 16, 16);
+      const sphereGeo = new THREE.SphereGeometry(0.13, 20, 20);
       const sphereMat = new THREE.MeshStandardMaterial({
         color: 0xf43f5e,
         emissive: 0xe11d48,
-        emissiveIntensity: 0.8,
-        roughness: 0.2
+        emissiveIntensity: 0.95,
+        roughness: 0.15
       });
       const sphere = new THREE.Mesh(sphereGeo, sphereMat);
       sphere.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
       fantasyGroup.add(sphere);
 
       // Outer pulsating ring
-      const ringGeo = new THREE.RingGeometry(0.18, 0.24, 32);
+      const ringGeo = new THREE.RingGeometry(0.18, 0.26, 32);
       const ringMat = new THREE.MeshBasicMaterial({
         color: 0xfb7185,
         side: THREE.DoubleSide,
@@ -381,6 +795,18 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       ring.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
       ring.lookAt(0, 0, 0);
       fantasyGroup.add(ring);
+
+      // Critical Anguish Boundary Halo ($ <> a - Umbral A_cr = π/4)
+      const haloGeo = new THREE.SphereGeometry(0.38, 16, 16);
+      const haloMat = new THREE.MeshBasicMaterial({
+        color: 0xf43f5e,
+        transparent: true,
+        opacity: 0.16,
+        wireframe: true
+      });
+      const halo = new THREE.Mesh(haloGeo, haloMat);
+      halo.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
+      fantasyGroup.add(halo);
 
       fantasyMeshRef.current = fantasyGroup;
       scene.add(fantasyGroup);
@@ -393,8 +819,11 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     showWireframe,
     showCurveS,
     showCurveI,
+    showPulsion,
     showCurveSigma,
-    showFantasyPoint
+    showFantasyPoint,
+    showRibbons,
+    ccOpacity
   ]);
 
   // Mouse Interaction handlers
@@ -490,22 +919,80 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       <div className="absolute top-3.5 left-3.5 right-3.5 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
         {/* Lacanian Identity Pill */}
         <div className="pointer-events-auto flex items-center gap-2.5 px-3 py-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-lg text-xs shadow-lg">
-          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+          <span
+            className={`w-2.5 h-2.5 rounded-full ${
+              viewMode === 'interior_icc'
+                ? 'bg-amber-400'
+                : colorMap === 'differential_stress'
+                ? 'bg-fuchsia-400'
+                : 'bg-cyan-400'
+            } animate-pulse`}
+          />
           <span className="font-mono font-semibold text-slate-100">
-            {viewMode === 'standard' ? 'Horn Torus Icc' : 'Horn Torus Deformado'}
+            {viewMode === 'interior_icc'
+              ? 'Interior (Icc): Cintas Entrecruzadas'
+              : viewMode === 'standard'
+              ? 'Horn Torus Cc (Exterior)'
+              : 'Horn Torus Deformado'}
           </span>
           <span className="text-slate-500">|</span>
           <span className="text-cyan-300 font-mono">
             a={(params.a_scale * sclData["GSI"]).toFixed(4)}
           </span>
-          <span className="text-slate-500">|</span>
-          <span className="text-amber-300 font-mono">
-            A_cr=π/4
-          </span>
+          {viewMode === 'interior_icc' ? (
+            <>
+              <span className="text-slate-500">|</span>
+              <span className="text-amber-300 font-mono flex items-center gap-1">
+                <Eye className="w-3 h-3 text-amber-400" />
+                <span>Cc Translúcido</span>
+              </span>
+            </>
+          ) : colorMap === 'differential_stress' ? (
+            <>
+              <span className="text-slate-500">|</span>
+              <span className="text-fuchsia-300 font-mono flex items-center gap-1 font-semibold">
+                <Activity className="w-3 h-3 text-fuchsia-400" />
+                <span>ΔE Tensión</span>
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-slate-500">|</span>
+              <span className="text-rose-300 font-mono">
+                Fantasía=Angustia
+              </span>
+            </>
+          )}
+          {showPulsion && (
+            <>
+              <span className="text-slate-500">|</span>
+              <span className="text-amber-300 font-mono flex items-center gap-1 font-semibold">
+                <Waves className="w-3 h-3 text-amber-400 animate-pulse" />
+                <span>Flujo Pulsional (Drang)</span>
+              </span>
+            </>
+          )}
         </div>
 
         {/* Action Controls & PNG Export */}
         <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-lg shadow-lg">
+          {/* Direct Quick Interior View Toggle Button */}
+          {onViewModeChange && (
+            <button
+              id="quick-toggle-interior-btn"
+              onClick={() => onViewModeChange(viewMode === 'interior_icc' ? 'standard' : 'interior_icc')}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                viewMode === 'interior_icc'
+                  ? 'bg-amber-950 text-amber-300 border border-amber-700 shadow-sm font-semibold'
+                  : 'text-slate-300 hover:text-white bg-slate-800 border border-slate-700'
+              }`}
+              title="Alternar entre ver el exterior Cc o inspeccionar el interior Icc con las cintas"
+            >
+              <Eye className="w-3.5 h-3.5 text-amber-400" />
+              <span>{viewMode === 'interior_icc' ? 'Ver Exterior (Cc)' : 'Ver Interior (Icc)'}</span>
+            </button>
+          )}
+
           <button
             id="toggle-rotation-btn"
             onClick={() => setIsRotating(!isRotating)}
@@ -556,40 +1043,94 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         </div>
       </div>
 
-      {/* Bottom Floating Lacanian Legend */}
+      {/* Bottom Floating Lacanian & Differential Stress Legend */}
       <div className="absolute bottom-3.5 left-3.5 pointer-events-none flex flex-col gap-2">
+        {colorMap === 'differential_stress' && (
+          <div className="pointer-events-auto bg-slate-900/95 backdrop-blur-md border border-fuchsia-800/80 rounded-xl p-3 text-xs font-mono text-slate-300 shadow-2xl max-w-sm space-y-2">
+            <div className="flex items-center justify-between font-semibold text-fuchsia-300 border-b border-fuchsia-950 pb-1.5">
+              <span className="flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-fuchsia-400" />
+                <span>Tensión Topológica Diferencial (ΔE)</span>
+              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-800">
+                E_def vs E_0
+              </span>
+            </div>
+
+            {/* Gradient Bar */}
+            <div className="space-y-1">
+              <div className="h-2.5 w-full rounded-full bg-gradient-to-r from-blue-900 via-cyan-400 via-amber-400 via-fuchsia-500 to-rose-400 shadow-inner" />
+              <div className="flex justify-between text-[9px] text-slate-400">
+                <span>Equilibrio (0.0)</span>
+                <span>Moderada</span>
+                <span>Elevada</span>
+                <span className="text-fuchsia-300 font-bold">Cúspide / Singular (1.0)</span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Compara la densidad energética de la superficie del toro estándar vs. deformado. Resalta zonas de alta cizalladura concentradas en la singularidad <span className="text-cyan-300">v=π</span>.
+            </p>
+          </div>
+        )}
+
         <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-3 text-xs font-mono text-slate-300 shadow-2xl max-w-sm space-y-2">
           <div className="flex items-center justify-between font-semibold text-slate-200 border-b border-slate-800 pb-1.5">
             <span className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Estructura del Icc (Inconsciente)</span>
+              <span>Interior Icc: Cintas Entrecruzadas</span>
             </span>
-            <span className="text-[10px] text-cyan-400">R = r = a</span>
+            <span className="text-[10px] text-amber-400 font-semibold">Exterior = Cc</span>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 text-[11px]">
             <div className="flex items-center gap-1.5 text-red-400">
-              <span className="w-2.5 h-1 rounded-full bg-red-500" />
+              <span className="w-2.5 h-1.5 rounded-sm bg-red-500 shadow-sm" />
               <span>S: Significante</span>
             </div>
             <div className="flex items-center gap-1.5 text-emerald-400">
-              <span className="w-2.5 h-1 rounded-full bg-emerald-500" />
+              <span className="w-2.5 h-1.5 rounded-sm bg-emerald-500 shadow-sm" />
               <span>I: Imagen Cuerpo</span>
             </div>
-            <div className="flex items-center gap-1.5 text-blue-400">
-              <span className="w-2.5 h-1 rounded-full bg-blue-500" />
-              <span>Σ: Síntoma</span>
+            <div className={`flex items-center gap-1.5 ${showPulsion ? 'text-amber-300 font-semibold' : 'text-slate-500 line-through'}`}>
+              <span className={`w-2.5 h-1.5 rounded-sm ${showPulsion ? 'bg-amber-400 shadow-sm animate-pulse' : 'bg-slate-700'}`} />
+              <span>Pulsión (Flujo Vectorial)</span>
             </div>
-            <div className="flex items-center gap-1.5 text-rose-400">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-              <span>Fantasía (Angustia)</span>
+            <div className="flex items-center gap-1.5 text-blue-400">
+              <span className="w-2.5 h-1.5 rounded-sm bg-blue-500 shadow-sm" />
+              <span>Σ: Síntoma</span>
             </div>
           </div>
 
+          {showPulsion && (
+            <div className="bg-amber-950/40 border border-amber-800/60 rounded-lg p-2 space-y-1">
+              <div className="flex items-center justify-between text-amber-300 font-semibold text-[10.5px]">
+                <span className="flex items-center gap-1">
+                  <Waves className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Campo Vectorial Trieb (Drang)</span>
+                </span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-200 border border-amber-700/60">
+                  Flujo Animado Interior
+                </span>
+              </div>
+              <p className="text-[9.5px] text-slate-300 leading-tight">
+                Vectores de flujo direccional en el interior <span className="text-amber-400 font-mono">v ∈ [π/2, 3π/2]</span> convergiendo helicoidalmente hacia la cúspide <span className="text-cyan-300 font-mono">v=π</span> (objeto a), anclados a la imagen del cuerpo <span className="text-emerald-400 font-mono">I</span> (Vorstellungsrepräsentanz).
+              </p>
+              <div className="flex justify-between text-[9px] text-slate-400 pt-0.5">
+                <span>Fijación a I: <span className="text-amber-300 font-bold">{(lacanian.pulsionAttachmentStrength * 100).toFixed(0)}%</span></span>
+                <span>Empuje: <span className="text-rose-300 font-medium">Wiederholungszwang</span></span>
+              </div>
+            </div>
+          )}
+
           <div className="border-t border-slate-800/80 pt-1.5 text-[10px] text-slate-400 space-y-1">
-            <div className="flex justify-between">
-              <span>Punto Fantasía (u, v):</span>
+            <div className="flex items-center justify-between">
+              <span className="text-rose-400 font-medium">La Fantasía es Angustia:</span>
               <span className="text-rose-300 font-bold">(π, π/2)</span>
+            </div>
+            <div className="flex justify-between text-slate-400">
+              <span>Fijación Somática a I:</span>
+              <span className="text-amber-300 font-bold">{(lacanian.pulsionAttachmentStrength * 100).toFixed(0)}%</span>
             </div>
             <div className="flex justify-between">
               <span>Zona Ruptura (A ≤ A_cr):</span>
@@ -599,10 +1140,27 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         </div>
       </div>
 
-      {/* Interaction Hint */}
-      <div className="absolute bottom-3.5 right-3.5 pointer-events-none">
+      {/* Interaction & Consciente/Inconsciente hint */}
+      <div className="absolute bottom-3.5 right-3.5 pointer-events-none flex flex-col items-end gap-1.5">
+        {onCcOpacityChange && (
+          <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-mono shadow-xl">
+            <span className="text-slate-400 text-[11px]">Opacidad Cc:</span>
+            <input
+              type="range"
+              min="0.05"
+              max="1.0"
+              step="0.05"
+              value={ccOpacity}
+              onChange={(e) => onCcOpacityChange(parseFloat(e.target.value))}
+              className="w-20 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
+              title="Ajusta la opacidad de la piel exterior (Cc) para revelar el interior (Icc)"
+            />
+            <span className="text-cyan-300 font-bold w-7 text-right">{(ccOpacity * 100).toFixed(0)}%</span>
+          </div>
+        )}
+
         <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 px-2.5 py-1 rounded text-[10px] text-slate-400 font-mono">
-          Arrastrar: rotar | Rueda: zoom | Clic derecho: paneo
+          Exterior = Cc | Interior = Icc | Arrastrar: rotar | Rueda: zoom
         </div>
       </div>
     </div>

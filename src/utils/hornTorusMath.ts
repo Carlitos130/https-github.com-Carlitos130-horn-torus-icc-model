@@ -1,4 +1,4 @@
-import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates } from '../types';
+import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates, ColorMapMode } from '../types';
 
 export const DEFAULT_SCL90R_DATA: SCL90RData = {
   "Somatización": 0.8,
@@ -144,6 +144,16 @@ export function calculateLacanianParameters(
   const pst = sclData["PST"] ?? 0.7;
   const v_I = v_scale * (1 + pst);
 
+  // Hilo Pulsional (Trieb / Vorstellungrepräsentanz):
+  // Pegado a I (apuntalamiento somático de la pulsión en la imagen del cuerpo)
+  const depression = sclData["Depresión"] ?? 0.8;
+  const pulsionAttachmentStrength = Math.min(
+    1.0,
+    Math.max(0.3, 0.88 + somatization * 0.12 - depression * 0.15)
+  );
+  const u_Pulsion = u_I;
+  const v_Pulsion = v_I;
+
   // Σ (Síntoma): basado en Psicoticismo y Hostilidad
   const psychoticism = sclData["Psicoticismo"] ?? 0.9;
   const hostility = sclData["Hostilidad"] ?? 0.6;
@@ -185,6 +195,9 @@ export function calculateLacanianParameters(
     v_S,
     u_I,
     v_I,
+    u_Pulsion,
+    v_Pulsion,
+    pulsionAttachmentStrength,
     u_Sigma,
     v_Sigma,
     fantasyPointUV: [u_F, v_F],
@@ -196,6 +209,7 @@ export function calculateLacanianParameters(
 
 /**
  * Calculates angustia A(u, v) = sqrt((u - u_F)^2 + (v - v_F)^2)
+ * La fantasía ($ <> a) bordea la angustia máxima en el foco (pi, pi/2)
  */
 export function calculateAngustia(u: number, v: number): number {
   const u_F = Math.PI;
@@ -204,11 +218,13 @@ export function calculateAngustia(u: number, v: number): number {
 }
 
 /**
- * Generates 3D coordinates for curves S, I, and Sigma
+ * Generates 3D coordinates for curves/ribbons S, I, Hilo Pulsional, and Sigma.
+ * Las cintas están dispuestas y entrecruzadas en el interior del horn torus (Icc),
+ * donde el Hilo Pulsional está íntimamente pegado y trenzado a la cinta I.
  */
 export function getLacanianCurves(
   lacanian: LacanianCoordinates,
-  uPoints: number = 180,
+  uPoints: number = 220,
   visualScale: number = 25.0 // scale up coordinates for viewport
 ) {
   const uVals: number[] = [];
@@ -217,39 +233,279 @@ export function getLacanianCurves(
   }
 
   const effectiveA = lacanian.a * visualScale;
+  const phi_I = (lacanian.v_I % (2 * Math.PI));
+  const phi_S = (lacanian.v_S % (2 * Math.PI));
+  const phi_Sigma = (lacanian.v_Sigma % (2 * Math.PI));
 
-  // Curva S (Significante, color rojo)
-  const curveS: [number, number, number][] = uVals.map((u) => {
-    const x = effectiveA * (1 + Math.cos(lacanian.v_S)) * Math.cos(u);
-    const y = effectiveA * (1 + Math.cos(lacanian.v_S)) * Math.sin(u);
-    const z = effectiveA * Math.sin(lacanian.v_S);
-    return [x, y, z];
-  });
-
-  // Curva I (Imagen del cuerpo, color verde)
+  // 1. Curva I (Imagen del cuerpo, color verde esmeralda):
+  // Recorre el interior del toro oscilando a través de la garganta/cúspide
   const curveI: [number, number, number][] = uVals.map((u) => {
-    const x = effectiveA * (1 + Math.cos(lacanian.v_I)) * Math.cos(u);
-    const y = effectiveA * (1 + Math.cos(lacanian.v_I)) * Math.sin(u);
-    const z = effectiveA * Math.sin(lacanian.v_I);
+    const v = Math.PI + 0.48 * Math.sin(u + phi_I) + 0.12 * Math.cos(2 * u);
+    const r = effectiveA * (1 + Math.cos(v));
+    const x = r * Math.cos(u);
+    const y = r * Math.sin(u);
+    const z = effectiveA * Math.sin(v);
     return [x, y, z];
   });
 
-  // Curva Sigma (Síntoma, color azul)
+  // 2. Hilo Pulsional (Trieb / Vorstellungrepräsentanz, color dorado/ámbar):
+  // ESTÁ PEGADO A I: Se acopla de manera estrecha a la cinta I, entrelazándose
+  // helicoidalmente como la investidura pulsional de las zonas erógenas corporales.
+  const curvePulsion: [number, number, number][] = uVals.map((u, idx) => {
+    const basePt = curveI[idx];
+    const vBase = Math.PI + 0.48 * Math.sin(u + phi_I) + 0.12 * Math.cos(2 * u);
+    // Micro-desplazamiento pulsional entrelazado con I
+    const pulsionFreq = 6;
+    const vOffset = 0.14 * Math.sin(pulsionFreq * u) * lacanian.pulsionAttachmentStrength;
+    const vP = vBase + vOffset;
+    const rOffset = 0.08 * Math.cos(pulsionFreq * u) * effectiveA * lacanian.pulsionAttachmentStrength;
+    const r = effectiveA * (1 + Math.cos(vP)) + rOffset;
+    const x = r * Math.cos(u);
+    const y = r * Math.sin(u);
+    const z = effectiveA * Math.sin(vP) + 0.06 * Math.sin(pulsionFreq * u) * effectiveA;
+    return [x, y, z];
+  });
+
+  // 3. Curva S (Significante / Simbólico, color rojo carmesí):
+  // Trayectoria meridional que intersecta y corta transversalmente a I y al Hilo Pulsional
+  const curveS: [number, number, number][] = uVals.map((u) => {
+    const v = Math.PI + 0.48 * Math.cos(u + phi_S) - 0.16 * Math.sin(2 * u);
+    const r = effectiveA * (1 + Math.cos(v));
+    const x = r * Math.cos(u);
+    const y = r * Math.sin(u);
+    const z = effectiveA * Math.sin(v);
+    return [x, y, z];
+  });
+
+  // 4. Curva Sigma (Síntoma / Sinthome, color azul cobalto):
+  // El cuarto lazo que anuda la estructura en el interior, cruzando la singularidad
   const curveSigma: [number, number, number][] = uVals.map((u) => {
-    const x = effectiveA * (1 + Math.cos(lacanian.v_Sigma)) * Math.cos(u);
-    const y = effectiveA * (1 + Math.cos(lacanian.v_Sigma)) * Math.sin(u);
-    const z = effectiveA * Math.sin(lacanian.v_Sigma);
+    const v = Math.PI + 0.58 * Math.sin(2 * u + phi_Sigma);
+    const r = effectiveA * (1 + Math.cos(v));
+    const x = r * Math.cos(u);
+    const y = r * Math.sin(u);
+    const z = effectiveA * Math.sin(v);
     return [x, y, z];
   });
 
-  // Punto de fantasía en 3D escalado
+  // Punto de fantasía en 3D escalado: foco de Angustia máxima
   const fantasy3D: [number, number, number] = [
     lacanian.fantasyPoint3D[0] * visualScale,
     lacanian.fantasyPoint3D[1] * visualScale,
     lacanian.fantasyPoint3D[2] * visualScale,
   ];
 
-  return { curveS, curveI, curveSigma, fantasy3D };
+  return { curveS, curveI, curvePulsion, curveSigma, fantasy3D };
+}
+
+/**
+ * Builds 3D Ribbon geometry data (positions, normals, uvs, indices)
+ * to render curves as genuine physical ribbons weaving through the interior.
+ */
+export function generateRibbonGeometryData(
+  points: [number, number, number][],
+  ribbonWidth: number = 0.09
+): {
+  positions: Float32Array;
+  normals: Float32Array;
+  uvs: Float32Array;
+  indices: Uint16Array | Uint32Array;
+} {
+  const n = points.length;
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const p = points[i];
+    const prev = points[(i - 1 + n) % n];
+    const next = points[(i + 1) % n];
+
+    // Tangente de la curva
+    const tx = next[0] - prev[0];
+    const ty = next[1] - prev[1];
+    const tz = next[2] - prev[2];
+    const tLen = Math.sqrt(tx * tx + ty * ty + tz * tz) || 1;
+    const tHat = [tx / tLen, ty / tLen, tz / tLen];
+
+    // Vector hacia el origen (aproximación radial de la superficie)
+    const rx = p[0];
+    const ry = p[1];
+    const rz = p[2];
+    const rLen = Math.sqrt(rx * rx + ry * ry + rz * rz) || 1;
+    const rHat = [rx / rLen, ry / rLen, rz / rLen];
+
+    // Binormal: perpendicular a la tangente y a la dirección radial
+    let bx = tHat[1] * rHat[2] - tHat[2] * rHat[1];
+    let by = tHat[2] * rHat[0] - tHat[0] * rHat[2];
+    let bz = tHat[0] * rHat[1] - tHat[1] * rHat[0];
+    const bLen = Math.sqrt(bx * bx + by * by + bz * bz) || 1;
+    bx /= bLen;
+    by /= bLen;
+    bz /= bLen;
+
+    // Normal de la cinta (apunta hacia la cara de la cinta)
+    let nx = by * tHat[2] - bz * tHat[1];
+    let ny = bz * tHat[0] - bx * tHat[2];
+    let nz = bx * tHat[1] - by * tHat[0];
+    const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    nx /= nLen;
+    ny /= nLen;
+    nz /= nLen;
+
+    const halfW = ribbonWidth * 0.5;
+
+    // Vértice Izquierdo
+    positions.push(p[0] - bx * halfW, p[1] - by * halfW, p[2] - bz * halfW);
+    normals.push(nx, ny, nz);
+    uvs.push(0, i / n);
+
+    // Vértice Derecho
+    positions.push(p[0] + bx * halfW, p[1] + by * halfW, p[2] + bz * halfW);
+    normals.push(nx, ny, nz);
+    uvs.push(1, i / n);
+  }
+
+  // Generar triángulos entre segmentos sucesivos
+  for (let i = 0; i < n - 1; i++) {
+    const v0 = i * 2;
+    const v1 = i * 2 + 1;
+    const v2 = (i + 1) * 2;
+    const v3 = (i + 1) * 2 + 1;
+
+    indices.push(v0, v1, v2);
+    indices.push(v1, v3, v2);
+  }
+
+  // Cerrar el bucle
+  const last0 = (n - 1) * 2;
+  const last1 = (n - 1) * 2 + 1;
+  indices.push(last0, last1, 0);
+  indices.push(last1, 1, 0);
+
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
+    indices: positions.length / 3 > 65535 ? new Uint32Array(indices) : new Uint16Array(indices)
+  };
+}
+
+export interface PulsionVectorItem {
+  origin: [number, number, number];
+  direction: [number, number, number];
+  magnitude: number;
+  u: number;
+  v: number;
+  phase: number;
+}
+
+export interface PulsionVectorFieldData {
+  vectors: PulsionVectorItem[];
+  uSteps: number;
+  vSteps: number;
+  count: number;
+}
+
+/**
+ * Generates the directional flow vector field for the Hilo Pulsional (Trieb)
+ * moving across the interior surface of the Horn Torus (v in [pi/2, 3*pi/2]).
+ * Directly connected to the Vorstellungsrepräsentanz anchored to curve I,
+ * Freud's Drang (constant push), and helical circulation around the cusp/central void.
+ */
+export function generatePulsionVectorFieldData(
+  lacanian: LacanianCoordinates,
+  sclData: SCL90RData,
+  params: ModelParams,
+  isDeformed: boolean,
+  uSteps: number = 24,
+  vSteps: number = 14,
+  visualScale: number = 25.0
+): PulsionVectorFieldData {
+  const effectiveA = lacanian.a * visualScale;
+  const effectiveDeform = isDeformed ? params.deformation_factor : 0.0;
+  const phi_I = lacanian.v_I % (2 * Math.PI);
+  const attachment = lacanian.pulsionAttachmentStrength;
+
+  const vectors: PulsionVectorItem[] = [];
+
+  // Interior manifold domain: v in [pi/2, 3*pi/2] (concave interior facing the cusp at v = pi)
+  for (let iv = 0; iv < vSteps; iv++) {
+    const tV = (iv + 0.5) / vSteps;
+    const v = Math.PI * 0.5 + tV * Math.PI; // in (pi/2, 3*pi/2)
+
+    for (let iu = 0; iu < uSteps; iu++) {
+      const u = (iu / uSteps) * 2 * Math.PI;
+
+      const cosV = Math.cos(v);
+      const sinV = Math.sin(v);
+      const cosU = Math.cos(u);
+      const sinU = Math.sin(u);
+
+      const r0 = effectiveA * (1 + cosV);
+      let x = r0 * cosU;
+      let y = r0 * sinU;
+      let z = effectiveA * sinV;
+
+      // Deformation if deformed mode
+      const { factor } = computeSclDeformation(u, v, sclData, effectiveDeform);
+      if (isDeformed && effectiveDeform > 0) {
+        x *= factor;
+        y *= factor;
+        z *= 1.0 + (factor - 1.0) * 0.85;
+      }
+
+      // Unit tangents along u and v
+      const tu_x = -sinU;
+      const tu_y = cosU;
+      const tu_z = 0;
+
+      const tv_x = -sinV * cosU;
+      const tv_y = -sinV * sinU;
+      const tv_z = cosV;
+
+      // Distance to curve I (Vorstellungsrepräsentanz / somatization anchor)
+      const v_I_at_u = Math.PI + 0.48 * Math.sin(u + phi_I) + 0.12 * Math.cos(2 * u);
+      const distToI = Math.abs(v - v_I_at_u);
+      const weightI = Math.exp(-Math.pow(distToI / 0.55, 2));
+
+      // Trieb Flow Direction (Drang):
+      // Combines toroidal circulation (cu) and poloidal push towards/through the throat (cv)
+      const cu = 0.72 + 0.38 * weightI * attachment;
+      const cv = 0.68 + 0.18 * Math.sin(u) + 0.28 * weightI;
+
+      let vx = cu * tu_x + cv * tv_x;
+      let vy = cu * tu_y + cv * tv_y;
+      let vz = cu * tu_z + cv * tv_z;
+
+      const vLen = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1.0;
+      vx /= vLen;
+      vy /= vLen;
+      vz /= vLen;
+
+      // Magnitude modulated by proximity to I and cusp throat acceleration
+      const throatProximity = 1.0 + 0.35 * Math.sin(v);
+      const magnitude = (0.75 + 0.4 * weightI * attachment) * throatProximity;
+      const phase = 3.0 * u + 2.0 * v;
+
+      vectors.push({
+        origin: [x, y, z],
+        direction: [vx, vy, vz],
+        magnitude,
+        u,
+        v,
+        phase
+      });
+    }
+  }
+
+  return {
+    vectors,
+    uSteps,
+    vSteps,
+    count: vectors.length
+  };
 }
 
 /**
@@ -299,13 +555,85 @@ export function computeSclDeformation(
 }
 
 /**
+ * Computes Differential Topological Tension between standard Horn Torus (E0)
+ * and deformed Horn Torus (E_def):
+ * ΔE(u, v) = || r_deformed(u, v) - r_standard(u, v) || + spatial shear gradient
+ * with singular cusp concentration as v -> π.
+ */
+export function computeDifferentialTension(
+  u: number,
+  v: number,
+  data: SCL90RData,
+  deformationFactor: number,
+  effectiveA: number
+): {
+  tension: number;
+  displacementNorm: number;
+  gradientMag: number;
+  cuspStrain: number;
+} {
+  const deformScale = Math.max(0.05, deformationFactor);
+
+  // Standard Horn Torus coordinates
+  const x0 = effectiveA * (1 + Math.cos(v)) * Math.cos(u);
+  const y0 = effectiveA * (1 + Math.cos(v)) * Math.sin(u);
+  const z0 = effectiveA * Math.sin(v);
+
+  // Deformed Horn Torus coordinates
+  const { factor, stress } = computeSclDeformation(u, v, data, deformationFactor);
+  const xDef = x0 * factor;
+  const yDef = y0 * factor;
+  const zDef = z0 * (1.0 + (factor - 1.0) * 0.85);
+
+  // Euclidean displacement Δr
+  const dx = xDef - x0;
+  const dy = yDef - y0;
+  const dz = zDef - z0;
+  const displacement = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  const displacementNorm = displacement / (effectiveA * deformScale + 1e-5);
+
+  // Local spatial gradient of the deformation membrane (shear strain)
+  const eps = 0.04;
+  const f_u1 = computeSclDeformation(u + eps, v, data, deformationFactor).factor;
+  const f_u0 = computeSclDeformation(u - eps, v, data, deformationFactor).factor;
+  const f_v1 = computeSclDeformation(u, v + eps, data, deformationFactor).factor;
+  const f_v0 = computeSclDeformation(u, v - eps, data, deformationFactor).factor;
+
+  const gradU = (f_u1 - f_u0) / (2 * eps);
+  const gradV = (f_v1 - f_v0) / (2 * eps);
+  const gradientMag = Math.sqrt(gradU * gradU + gradV * gradV);
+
+  // Cusp singular shear concentration:
+  // As v -> π, the throat radius a*(1 + cos v) approaches 0.
+  // Circumferential warping at the throat induces extreme geometric strain.
+  const throatRadius = 1 + Math.cos(v); // 0 at v = π
+  const cuspStrain = (Math.abs(gradU) * 1.5 + Math.abs(gradV) * 0.8) / (throatRadius + 0.18);
+
+  // Composite topological energy difference / tension metric
+  const rawTension = 0.35 * Math.min(2.5, displacementNorm) +
+                     0.35 * Math.min(3.0, gradientMag * 2.0) +
+                     0.30 * Math.min(3.5, cuspStrain * 0.45) +
+                     0.20 * stress;
+
+  // Calibrated normalized tension index [0, 1]
+  const tension = Math.min(1.0, Math.max(0.0, rawTension / 1.75));
+
+  return {
+    tension,
+    displacementNorm,
+    gradientMag,
+    cuspStrain
+  };
+}
+
+/**
  * Generates mesh vertex and index data for standard or deformed Horn Torus
  */
 export function generateHornTorusGeometry(
   params: ModelParams,
   sclData: SCL90RData,
   isDeformed: boolean,
-  colorMode: 'angustia' | 'stress' | 'curvature' | 'elevation' = 'angustia'
+  colorMode: ColorMapMode = 'angustia'
 ) {
   const { a_scale, deformation_factor, gridResolution, a_critical } = params;
   const lacanian = calculateLacanianParameters(sclData, params);
@@ -374,12 +702,30 @@ export function generateHornTorusGeometry(
       const angustia = calculateAngustia(u, v);
       const isRupture = angustia <= a_critical;
 
+      // Differential tension calculation (energy surface difference)
+      const { tension: diffTension } = computeDifferentialTension(
+        u,
+        v,
+        sclData,
+        deformation_factor,
+        effectiveA
+      );
+
       positions.push(x, y, z);
       normals.push(nx, ny, nz);
       uvs.push(j / numU, i / numV);
 
       // Color mapping
-      const rgb = getVertexColor(angustia, isRupture, stress, v, maxAngustia, a_critical, colorMode);
+      const rgb = getVertexColor(
+        angustia,
+        isRupture,
+        stress,
+        diffTension,
+        v,
+        maxAngustia,
+        a_critical,
+        colorMode
+      );
       colors.push(rgb.r, rgb.g, rgb.b);
     }
   }
@@ -408,16 +754,17 @@ export function generateHornTorusGeometry(
 }
 
 /**
- * Color mapper based on Angustia A(u, v), Rupture zones, and Stress
+ * Color mapper based on Angustia A(u, v), Rupture zones, Stress, and Differential Stress
  */
 function getVertexColor(
   angustia: number,
   isRupture: boolean,
   stress: number,
+  diffTension: number,
   v: number,
   maxAngustia: number,
   aCritical: number,
-  mode: 'angustia' | 'stress' | 'curvature' | 'elevation'
+  mode: ColorMapMode
 ) {
   if (mode === 'angustia') {
     // Rupture zone: Bright glowing crimson/amber
@@ -432,6 +779,53 @@ function getVertexColor(
       g: 0.35 + 0.45 * (1 - norm),
       b: 0.85 - 0.2 * norm
     };
+  }
+
+  if (mode === 'differential_stress') {
+    // Differential Stress colormap:
+    // Compares energy surface of standard torus vs deformed torus,
+    // highlighting high topological tension and singular shear areas:
+    // Low tension: Deep obsidian navy / sapphire (equilibrium)
+    // Moderate: Electric cyan / seafoam green
+    // High tension: Vibrant solar amber / flame orange
+    // Critical / Peak tension: Laser magenta to glowing crimson-white core
+    if (diffTension <= 0.20) {
+      const t = diffTension / 0.20;
+      return {
+        r: 0.05 + 0.08 * t,
+        g: 0.12 + 0.28 * t,
+        b: 0.45 + 0.45 * t
+      };
+    } else if (diffTension <= 0.45) {
+      const t = (diffTension - 0.20) / 0.25;
+      return {
+        r: 0.13 - 0.08 * t,
+        g: 0.40 + 0.48 * t,
+        b: 0.90 - 0.08 * t
+      };
+    } else if (diffTension <= 0.70) {
+      const t = (diffTension - 0.45) / 0.25;
+      return {
+        r: 0.05 + 0.90 * t,
+        g: 0.88 - 0.22 * t,
+        b: 0.82 - 0.72 * t
+      };
+    } else if (diffTension <= 0.88) {
+      const t = (diffTension - 0.70) / 0.18;
+      return {
+        r: 0.95 + 0.03 * t,
+        g: 0.66 - 0.48 * t,
+        b: 0.10 + 0.65 * t
+      };
+    } else {
+      // Peak critical topological singularity / rupture tension
+      const t = (diffTension - 0.88) / 0.12;
+      return {
+        r: 0.98 + 0.02 * t,
+        g: 0.18 + 0.72 * t,
+        b: 0.75 + 0.25 * t
+      };
+    }
   }
 
   if (mode === 'stress') {
@@ -521,6 +915,27 @@ export function computeTopologicalMetrics(
 
   const stabilityScore = Math.max(0, Math.min(100, 100 - (delta * 40 + gsi * 35 + psy * 25)));
 
+  // Sample Differential Stress & Topological Tension across the manifold (E_def vs E_0)
+  let sumTension = 0;
+  let maxTension = 0;
+  let highTensionCount = 0;
+  const sampleSteps = 28;
+  const totalSamples = sampleSteps * sampleSteps;
+
+  for (let i = 0; i < sampleSteps; i++) {
+    const v = (i / sampleSteps) * 2 * Math.PI;
+    for (let j = 0; j < sampleSteps; j++) {
+      const u = (j / sampleSteps) * 2 * Math.PI;
+      const { tension } = computeDifferentialTension(u, v, sclData, delta, a);
+      sumTension += tension;
+      if (tension > maxTension) maxTension = tension;
+      if (tension >= 0.65) highTensionCount++;
+    }
+  }
+
+  const avgDifferentialTension = sumTension / totalSamples;
+  const highTensionAreaPercent = (highTensionCount / totalSamples) * 100;
+
   return {
     surfaceAreaStandard,
     surfaceAreaDeformed,
@@ -537,6 +952,9 @@ export function computeTopologicalMetrics(
     iccIndex,
     clinicalSeverityTier,
     stabilityScore,
+    maxDifferentialTension: maxTension,
+    avgDifferentialTension,
+    highTensionAreaPercent,
     lacanian
   };
 }
@@ -562,25 +980,33 @@ Escalas Angulares:                 u_scale=${params.u_scale.toFixed(4)} rad, v_s
 Factor de Deformación (δ):         ${params.deformation_factor.toFixed(4)}
 Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
 
-[1] VARIABLES LACANIANAS TOPOLÓGICAS (S, I, Σ & FANTASÍA):
+[1] TOPOLOGÍA LACANIANA DEL HORN TORUS:
 --------------------------------------------------------------------------------
-  * S (Significante):      u_S = ${lac.u_S.toFixed(4)} rad | v_S = ${lac.v_S.toFixed(4)} rad
-    -> Función: Basado en Ansiedad (${sclData["Ansiedad"].toFixed(2)}) + Obsesión (${sclData["Obsesión-Compulsión"].toFixed(2)}) & PSDI (${sclData["PSDI"].toFixed(2)})
-    -> Color en Visualizador: ROJO (Crimson)
+  * Exterior: Cc (Consciente) - Superficie y horizonte visible desde afuera
+  * Interior: Icc (Inconsciente) - Cavidad interior, vórtice y cúspide de auto-tangencia
+  * Cintas Entrecruzadas en el Interior:
 
-  * I (Imagen del Cuerpo): u_I = ${lac.u_I.toFixed(4)} rad | v_I = ${lac.v_I.toFixed(4)} rad
-    -> Función: Basado en Somatización (${sclData["Somatización"].toFixed(2)}) + Sensibilidad Interpersonal (${sclData["Sensibilidad Interpersonal"].toFixed(2)}) & PST (${sclData["PST"].toFixed(2)})
-    -> Color en Visualizador: VERDE (Emerald)
+  * S (Simbólico / Significante): u_S = ${lac.u_S.toFixed(4)} rad | v_S = ${lac.v_S.toFixed(4)} rad
+    -> Función: Cadena significante. Ansiedad (${sclData["Ansiedad"].toFixed(2)}) + Obsesión (${sclData["Obsesión-Compulsión"].toFixed(2)})
+    -> Color en Visualizador: ROJO (Crimson Ribbon)
 
-  * Σ (Síntoma):           u_Σ = ${lac.u_Sigma.toFixed(4)} rad | v_Σ = ${lac.v_Sigma.toFixed(4)} rad
-    -> Función: Basado en Psicoticismo (${sclData["Psicoticismo"].toFixed(2)}) + Hostilidad (${sclData["Hostilidad"].toFixed(2)}) & Psicoticismo
-    -> Color en Visualizador: AZUL (Cobalt)
+  * I (Imaginario / Imagen del Cuerpo): u_I = ${lac.u_I.toFixed(4)} rad | v_I = ${lac.v_I.toFixed(4)} rad
+    -> Función: Especularidad y cuerpo somático. Somatización (${sclData["Somatización"].toFixed(2)}) + Sensibilidad (${sclData["Sensibilidad Interpersonal"].toFixed(2)})
+    -> Color en Visualizador: VERDE (Emerald Ribbon)
 
-  * Punto de Fantasía (F): (u_F, v_F) = (π, π/2) = (${lac.fantasyPointUV[0].toFixed(3)}, ${lac.fantasyPointUV[1].toFixed(3)})
+  * Hilo Pulsional (Trieb / Vorstellungrepräsentanz): PEGADO A I
+    -> Fijación pulsional: Fuerza de enlace somático = ${(lac.pulsionAttachmentStrength * 100).toFixed(1)}%
+    -> Función: Representante de la representación pulsional enlazado al cuerpo imaginario.
+    -> Color en Visualizador: DORADO / ÁMBAR (Golden Braid)
+
+  * Σ (Síntoma / Sinthome): u_Σ = ${lac.u_Sigma.toFixed(4)} rad | v_Σ = ${lac.v_Sigma.toFixed(4)} rad
+    -> Función: Anudamiento y sutura estructural. Psicoticismo (${sclData["Psicoticismo"].toFixed(2)}) + Hostilidad (${sclData["Hostilidad"].toFixed(2)})
+    -> Color en Visualizador: AZUL COBALTO (Cobalt Ribbon)
+
+  * Punto de Fantasía [La Fantasía es Angustia]: ($ <> a) en (u_F, v_F) = (π, π/2)
     -> Coordenadas 3D (x,y,z): (${lac.fantasyPoint3D[0].toFixed(4)}, ${lac.fantasyPoint3D[1].toFixed(4)}, ${lac.fantasyPoint3D[2].toFixed(4)})
-    -> Angustia Máxima en el Manifold y Cúspide de Torsión
-
-  * Puntos de Ruptura (A ≤ A_cr): ${lac.ruptureCount} nodos muestrales (${lac.ruptureAreaPercent.toFixed(2)}% del Manifold)
+    -> Vórtice de Angustia y límite de ruptura en el umbral A_cr = π/4
+    -> Puntos de Ruptura (A ≤ A_cr): ${lac.ruptureCount} nodos (${lac.ruptureAreaPercent.toFixed(2)}% del Manifold)
 
 [2] VECTOR PSICOMÉTRICO SCL-90-R (DEROGATIS):
 --------------------------------------------------------------------------------
@@ -605,6 +1031,8 @@ Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
   * Volumen Encerrado Estándar:         ${metrics.volumeStandard.toFixed(4)} u³
   * Volumen Encerrado Deformado:        ${metrics.volumeDeformed.toFixed(4)} u³ (${metrics.volumeDeltaPercent >= 0 ? '+' : ''}${metrics.volumeDeltaPercent.toFixed(2)}%)
   * Energía de Willmore W = ∫H² dA:     ${metrics.willmoreEnergyDeformed.toFixed(4)} (Base: ${metrics.willmoreEnergyStandard.toFixed(4)})
+  * Tensión Topológica Diferencial ΔE:  Promedio: ${(metrics.avgDifferentialTension * 100).toFixed(1)}% | Máxima: ${(metrics.maxDifferentialTension * 100).toFixed(1)}%
+  * Área de Alta Tensión (τ ≥ 0.65):    ${metrics.highTensionAreaPercent.toFixed(1)}% del Manifold
   * Índice ICC (Coherencia Icc):        ${metrics.iccIndex.toFixed(2)} %
   * Diagnóstico Clínico Estructural:    [ ${metrics.clinicalSeverityTier.toUpperCase()} ]
     ${lac.ruptureAreaPercent > 12.0 ? '-> ALERTA: Zona de angustia crítica expandida. Ruptura de la fantasía en cercanías de la cúspide.' : '-> Estructura compensada: Trayectorias S, I y Σ delimitadas con angustia focalizada.'}

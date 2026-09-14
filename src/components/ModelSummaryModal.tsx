@@ -46,29 +46,37 @@ export const ModelSummaryModal: React.FC<ModelSummaryModalProps> = ({
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl space-y-4 text-slate-200">
       {/* Top Metrics Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5">
-          <div className="text-[10px] text-slate-400 font-mono">Índice ICC (Coherencia)</div>
-          <div className="text-xl font-bold font-mono text-cyan-400 mt-0.5">
+          <div className="text-[10px] text-slate-400 font-mono">Índice ICC</div>
+          <div className="text-lg font-bold font-mono text-cyan-400 mt-0.5">
             {metrics.iccIndex.toFixed(1)}%
           </div>
-          <div className="text-[9px] text-slate-400 mt-0.5">Armonía Manifold</div>
+          <div className="text-[9px] text-slate-400 mt-0.5">Coherencia</div>
         </div>
 
         <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5">
-          <div className="text-[10px] text-slate-400 font-mono">Energía de Willmore W</div>
-          <div className="text-xl font-bold font-mono text-amber-400 mt-0.5">
+          <div className="text-[10px] text-slate-400 font-mono">Energía Willmore</div>
+          <div className="text-lg font-bold font-mono text-amber-400 mt-0.5">
             {metrics.willmoreEnergyDeformed.toFixed(2)}
           </div>
           <div className="text-[9px] text-slate-400 mt-0.5">Base: 2π² ≈ 19.74</div>
         </div>
 
         <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5">
-          <div className="text-[10px] text-slate-400 font-mono">Δ Área Superficial</div>
-          <div className={`text-xl font-bold font-mono mt-0.5 ${metrics.surfaceAreaDeltaPercent >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+          <div className="text-[10px] text-slate-400 font-mono">ΔE Tensión Dif.</div>
+          <div className="text-lg font-bold font-mono text-fuchsia-400 mt-0.5">
+            {(metrics.avgDifferentialTension * 100).toFixed(1)}%
+          </div>
+          <div className="text-[9px] text-slate-400 mt-0.5">Máx: {(metrics.maxDifferentialTension * 100).toFixed(1)}%</div>
+        </div>
+
+        <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5">
+          <div className="text-[10px] text-slate-400 font-mono">Δ Área Superficie</div>
+          <div className={`text-lg font-bold font-mono mt-0.5 ${metrics.surfaceAreaDeltaPercent >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
             {metrics.surfaceAreaDeltaPercent >= 0 ? '+' : ''}{metrics.surfaceAreaDeltaPercent.toFixed(1)}%
           </div>
-          <div className="text-[9px] text-slate-400 mt-0.5">{metrics.surfaceAreaDeformed.toFixed(2)} u²</div>
+          <div className="text-[9px] text-slate-400 mt-0.5">{metrics.surfaceAreaDeformed.toFixed(1)} u²</div>
         </div>
 
         <div className={`rounded-lg p-2.5 border ${severityColors[metrics.clinicalSeverityTier]}`}>
