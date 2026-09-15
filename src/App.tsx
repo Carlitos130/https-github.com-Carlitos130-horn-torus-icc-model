@@ -6,6 +6,7 @@ import { Scl90rForm } from './components/Scl90rForm';
 import { ModelSummaryModal } from './components/ModelSummaryModal';
 import { PythonCodeExport } from './components/PythonCodeExport';
 import { TheoreticalManual } from './components/TheoreticalManualModal';
+import { SpectralSingularityPanel } from './components/SpectralSingularityPanel';
 import {
   Boxes,
   Sliders,

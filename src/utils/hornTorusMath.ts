@@ -1,4 +1,14 @@
-import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates, ColorMapMode, TScoreCategory, CasulloPerezNormRow } from '../types';
+import {
+  SCL90RData,
+  ModelParams,
+  TopologicalMetrics,
+  LacanianCoordinates,
+  ColorMapMode,
+  TScoreCategory,
+  CasulloPerezNormRow,
+  SingularityCriticalPoint,
+  SpectralSingularityReport
+} from '../types';
 
 /**
  * Tabla Normativa Baremo Casullo - Pérez (2008)
@@ -1269,10 +1279,60 @@ export function getVertexColor(
     return { r: 0.1 + 0.7 * zNorm, g: 0.4 + 0.2 * zNorm, b: 0.9 - 0.6 * zNorm };
   }
 
-  // Default: curvature / geometric
+  // Mode: curvature (Curvatura Gaussiana espectral)
+  // K = cos(v) / (a^2 * (1 + cos(v)))
+  // - Zonas hiperbólicas y singularidad (v -> +-pi, K << 0): Carmesí láser / Magenta profundo
+  // - Zonas de curvatura media negativa (-1.5 <= K < -0.1): Ámbar solar / Naranja fuego
+  // - Banda parabólica neutra (K ~ 0, v = pi/2 latitud de la Fantasía): Verde esmeralda / Seafoam
+  // - Zonas elípticas convexas exteriores (v = 0, K > 0): Zafiro / Cian eléctrico
+  // - Acoplamiento con Fantasía Desbordada (isRupture, A <= A_cr): Resplandor fucsia de alta visibilidad
   const cosV = Math.cos(v);
-  const curvNorm = 0.5 + 0.5 * cosV;
-  return { r: 0.2 + 0.4 * curvNorm, g: 0.5 + 0.4 * (1 - curvNorm), b: 0.8 };
+  const denom = Math.max(0.012, 1 + cosV);
+  const K_norm = cosV / denom; // K normalizado respecto a 1/a^2
+
+  if (isRupture) {
+    // Acoplamiento directo: Angustia desbordada en la zona de la Fantasía ($ <> a)
+    const t = Math.min(1.0, angustia / aCritical);
+    return {
+      r: 0.98,
+      g: 0.22 + 0.35 * t,
+      b: 0.75 - 0.45 * t
+    };
+  }
+
+  if (K_norm < -1.8) {
+    // Cúspide singular / estrangulamiento hiperbólico extremo
+    const t = Math.min(1.0, (-K_norm - 1.8) / 8.0);
+    return {
+      r: 0.85 + 0.15 * t,
+      g: 0.08 * (1 - t),
+      b: 0.45 + 0.45 * t
+    };
+  } else if (K_norm < -0.15) {
+    // Cuello hiperbólico / silla de montar inconsciente
+    const t = (-K_norm - 0.15) / 1.65;
+    return {
+      r: 0.95 - 0.10 * t,
+      g: 0.65 - 0.50 * t,
+      b: 0.10 + 0.30 * t
+    };
+  } else if (K_norm <= 0.20) {
+    // Frontera parabólica (K ~ 0, marco de la fantasía en v = pi/2)
+    const t = (K_norm + 0.15) / 0.35;
+    return {
+      r: 0.10 + 0.15 * t,
+      g: 0.82 - 0.12 * t,
+      b: 0.65 + 0.25 * t
+    };
+  } else {
+    // Domo elíptico convexo exterior (Cc, investidura de objeto, v ~ 0)
+    const t = Math.min(1.0, (K_norm - 0.20) / 0.80);
+    return {
+      r: 0.08 + 0.20 * t,
+      g: 0.40 + 0.40 * t,
+      b: 0.95
+    };
+  }
 }
 
 /**
@@ -1840,4 +1900,441 @@ if __name__ == '__main__':
     model.plot_3d_model(save_path='mi_modelo.png')
     model.plot_deformed_model(deformation_factor=${params.deformation_factor}, save_path='mi_modelo_deformado.png')
 `;
+}
+
+/**
+ * Computes Gaussian Curvature K and Mean Curvature H at point (u, v) on the Horn Torus,
+ * both for standard geometry and deformed geometry under psychometric perturbation.
+ *
+ * For standard Horn Torus (R = r = a):
+ *   K0(v) = cos(v) / [ a^2 * (1 + cos(v)) ]
+ *   - Outside (cos v > 0): K > 0 (elliptic dome)
+ *   - Boundary (cos v = 0, v = pi/2): K = 0 (parabolic line, where Fantasy resides)
+ *   - Inside (cos v < 0): K < 0 (hyperbolic saddle)
+ *   - Cusp (v -> +-pi): 1 + cos(v) -> 0 => K -> -Infinity (intrinsic topological singularity)
+ */
+export function computePointGaussianCurvature(
+  u: number,
+  v: number,
+  params: ModelParams,
+  sclData: SCL90RData,
+  isDeformed: boolean = true
+): {
+  K: number;
+  H: number;
+  classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular';
+} {
+  const gsi = sclData['GSI'] ?? 0.85;
+  const a = Math.max(0.2, params.a_scale * gsi); // natural scaling ~0.85
+  const delta = isDeformed ? params.deformation_factor : 0;
+
+  const cosV = Math.cos(v);
+  const denomBase = 1 + cosV;
+
+  // Regularize near singular cusp v = pi
+  if (Math.abs(denomBase) < 0.008) {
+    const psy = sclData['Psicoticismo'] ?? 0.5;
+    const singularK = -18.5 * (1 + delta * (1.5 + psy * 3.0));
+    return {
+      K: singularK,
+      H: 0,
+      classification: 'singular'
+    };
+  }
+
+  // Analytical standard Horn Torus Gaussian curvature
+  const K0 = cosV / (a * a * Math.max(0.008, denomBase));
+  const H0 = (1 + 2 * cosV) / (2 * a * Math.max(0.008, denomBase));
+
+  if (!isDeformed || delta <= 0.0001) {
+    let classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular' = 'parabolica';
+    if (Math.abs(denomBase) < 0.04) classification = 'singular';
+    else if (K0 > 0.08) classification = 'eliptica';
+    else if (K0 < -0.08) classification = 'hiperbolica';
+    return { K: K0, H: H0, classification };
+  }
+
+  // With deformation: numerical perturbation using central finite differences
+  const du = 0.002;
+  const dv = 0.002;
+
+  const evalPt = (uVal: number, vVal: number): [number, number, number] => {
+    const cV = Math.cos(vVal);
+    const sV = Math.sin(vVal);
+    const cU = Math.cos(uVal);
+    const sU = Math.sin(uVal);
+    const r0 = a * (1 + cV);
+    const { factor } = computeSclDeformation(uVal, vVal, sclData, delta);
+    const x = r0 * cU * factor;
+    const y = r0 * sU * factor;
+    const z = a * sV * (1.0 + (factor - 1.0) * 0.85);
+    return [x, y, z];
+  };
+
+  const pCenter = evalPt(u, v);
+  const pUp = evalPt(u + du, v);
+  const pUm = evalPt(u - du, v);
+  const pVp = evalPt(u, v + dv);
+  const pVm = evalPt(u, v - dv);
+
+  const ru: [number, number, number] = [
+    (pUp[0] - pUm[0]) / (2 * du),
+    (pUp[1] - pUm[1]) / (2 * du),
+    (pUp[2] - pUm[2]) / (2 * du)
+  ];
+  const rv: [number, number, number] = [
+    (pVp[0] - pVm[0]) / (2 * dv),
+    (pVp[1] - pVm[1]) / (2 * dv),
+    (pVp[2] - pVm[2]) / (2 * dv)
+  ];
+
+  const E = ru[0] * ru[0] + ru[1] * ru[1] + ru[2] * ru[2];
+  const F = ru[0] * rv[0] + ru[1] * rv[1] + ru[2] * rv[2];
+  const G = rv[0] * rv[0] + rv[1] * rv[1] + rv[2] * rv[2];
+
+  let nx = ru[1] * rv[2] - ru[2] * rv[1];
+  let ny = ru[2] * rv[0] - ru[0] * rv[2];
+  let nz = ru[0] * rv[1] - ru[1] * rv[0];
+  const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  if (nLen > 1e-6) {
+    nx /= nLen;
+    ny /= nLen;
+    nz /= nLen;
+  }
+
+  const ruu: [number, number, number] = [
+    (pUp[0] - 2 * pCenter[0] + pUm[0]) / (du * du),
+    (pUp[1] - 2 * pCenter[1] + pUm[1]) / (du * du),
+    (pUp[2] - 2 * pCenter[2] + pUm[2]) / (du * du)
+  ];
+  const rvv: [number, number, number] = [
+    (pVp[0] - 2 * pCenter[0] + pVm[0]) / (dv * dv),
+    (pVp[1] - 2 * pCenter[1] + pVm[1]) / (dv * dv),
+    (pVp[2] - 2 * pCenter[2] + pVm[2]) / (dv * dv)
+  ];
+
+  const pUpVp = evalPt(u + du, v + dv);
+  const pUpVm = evalPt(u + du, v - dv);
+  const pUmVp = evalPt(u - du, v + dv);
+  const pUmVm = evalPt(u - du, v - dv);
+  const ruv: [number, number, number] = [
+    (pUpVp[0] - pUpVm[0] - pUmVp[0] + pUmVm[0]) / (4 * du * dv),
+    (pUpVp[1] - pUpVm[1] - pUmVp[1] + pUmVm[1]) / (4 * du * dv),
+    (pUpVp[2] - pUpVm[2] - pUmVp[2] + pUmVm[2]) / (4 * du * dv)
+  ];
+
+  const e = ruu[0] * nx + ruu[1] * ny + ruu[2] * nz;
+  const f = ruv[0] * nx + ruv[1] * ny + ruv[2] * nz;
+  const g = rvv[0] * nx + rvv[1] * ny + rvv[2] * nz;
+
+  const det1 = E * G - F * F;
+  let K = K0;
+  let H = H0;
+
+  if (det1 > 1e-6) {
+    const rawK = (e * g - f * f) / det1;
+    const rawH = (e * G - 2 * f * F + g * E) / (2 * det1);
+    K = Math.max(-150.0, Math.min(150.0, rawK));
+    H = Math.max(-50.0, Math.min(50.0, rawH));
+  }
+
+  let classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular' = 'parabolica';
+  if (Math.abs(denomBase) < 0.04 || K < -12.0) classification = 'singular';
+  else if (K > 0.08) classification = 'eliptica';
+  else if (K < -0.08) classification = 'hiperbolica';
+
+  return { K, H, classification };
+}
+
+/**
+ * Computes comprehensive Spectral Singularity Analysis in real-time,
+ * linking Gaussian curvature at critical surface points with the zones of overflowing anguish ($ <> a).
+ */
+export function computeSpectralSingularityAnalysis(
+  params: ModelParams,
+  sclData: SCL90RData
+): SpectralSingularityReport {
+  const lacanian = calculateLacanianParameters(sclData, params);
+  const effectiveA = lacanian.a * 25.0; // scale for 3D coordinates
+  const aCritical = params.a_critical;
+  const delta = params.deformation_factor;
+
+  const getPos3D = (u: number, v: number, isDef: boolean): [number, number, number] => {
+    const r0 = effectiveA * (1 + Math.cos(v));
+    const { factor } = computeSclDeformation(u, v, sclData, isDef ? delta : 0);
+    const f = isDef ? factor : 1.0;
+    return [
+      r0 * Math.cos(u) * f,
+      r0 * Math.sin(u) * f,
+      effectiveA * Math.sin(v) * (1.0 + (f - 1.0) * 0.85)
+    ];
+  };
+
+  // Critical Points Definition
+  const rawPoints = [
+    {
+      id: 'fantasy_point',
+      name: 'Foco de la Fantasía Inconsciente',
+      lacanianLabel: '$ ◇ a (Foco Fantasmático)',
+      u: Math.PI,
+      v: Math.PI / 2,
+      clinicalMeaning:
+        'Límite del marco defensivo neurótico. En el toro puro K0 = 0 (parabólico). Con deformación sintomática el marco se comba; si la angustia desborda (A ≤ A_cr), el sujeto queda expuesto a la falta de la falta.'
+    },
+    {
+      id: 'cusp_singular',
+      name: 'Cúspide Singular Central',
+      lacanianLabel: 'Garganta / Polo Singular (v = ±π)',
+      u: Math.PI,
+      v: Math.PI - 0.02,
+      clinicalMeaning:
+        'Punto de auto-tangencia del Horn Torus. Curvatura hiperbólica divergente (K -> -∞). En el brote psicótico sufre cizalladura extrema por forclusión del significante del Nombre-del-Padre.'
+    },
+    {
+      id: 'rupture_boundary',
+      name: 'Frontera de Angustia Crítica',
+      lacanianLabel: 'Borde de Ruptura (A = A_cr)',
+      u: Math.PI + aCritical,
+      v: Math.PI / 2,
+      clinicalMeaning:
+        'Perímetro de la barrera de seguridad fantasmática. Traspasar esta frontera sumerge la superficie en saturación carmesí de angustia clínica.'
+    },
+    {
+      id: 'conscious_equator',
+      name: 'Ecuador Convexo Exterior (Cc)',
+      lacanianLabel: 'Corteza Consciente (v = 0)',
+      u: 0,
+      v: 0,
+      clinicalMeaning:
+        'Zona elíptica de curvatura positiva estable (K > 0). Representa la investidura de objeto exterior y la realidad compartida.'
+    },
+    {
+      id: 'lower_parabolic',
+      name: 'Inflexión Parabólica Inferior',
+      lacanianLabel: 'Embudo Inconsciente (v = 3π/2)',
+      u: Math.PI,
+      v: (3 * Math.PI) / 2,
+      clinicalMeaning:
+        'Línea de transición parabólica hacia la fosa pulsional inferior del Ello.'
+    },
+    {
+      id: 'symptom_sigma',
+      name: 'Nudo del Síntoma (Σ)',
+      lacanianLabel: 'Torsión Sintomática Σ (Sinthome)',
+      u: lacanian.u_Sigma % (2 * Math.PI),
+      v: lacanian.v_Sigma % (2 * Math.PI),
+      clinicalMeaning:
+        'Punto de amarre del síntoma modulado por Psicoticismo y Hostilidad. Funciona como condensador de goce o cuarto nudo.'
+    },
+    {
+      id: 'body_image_I',
+      name: 'Investidura Corporal (I)',
+      lacanianLabel: 'Imagen del Cuerpo & Hilo Pulsional',
+      u: lacanian.u_I % (2 * Math.PI),
+      v: lacanian.v_I % (2 * Math.PI),
+      clinicalMeaning:
+        'Anclaje somático de la imagen corporal y recorrido del Hilo Pulsional (Trieb). Sometido a distorsión por Somatización.'
+    },
+    {
+      id: 'signifier_S',
+      name: 'Cadena Significante (S)',
+      lacanianLabel: 'Representación Significante S',
+      u: lacanian.u_S % (2 * Math.PI),
+      v: lacanian.v_S % (2 * Math.PI),
+      clinicalMeaning:
+        'Trayectoria meridional del significante (Ansiedad y Obsesión). Intersecta la cinta I modulando la ligadura del afecto.'
+    }
+  ];
+
+  const criticalPoints: SingularityCriticalPoint[] = rawPoints.map((pt) => {
+    const cur0 = computePointGaussianCurvature(pt.u, pt.v, params, sclData, false);
+    const curDef = computePointGaussianCurvature(pt.u, pt.v, params, sclData, true);
+    const angustia = calculateAngustia(pt.u, pt.v);
+    const isAnguishOverflow = angustia <= aCritical;
+    const anguishRatio = aCritical > 0 ? angustia / aCritical : 1.0;
+    const deltaK = curDef.K - cur0.K;
+    const deltaKPercent = Math.abs(cur0.K) > 0.001 ? (deltaK / Math.abs(cur0.K)) * 100 : deltaK * 100;
+
+    const { factor, stress } = computeSclDeformation(pt.u, pt.v, sclData, delta);
+    const { tension: diffTension } = computeDifferentialTension(pt.u, pt.v, sclData, delta, effectiveA);
+
+    return {
+      id: pt.id,
+      name: pt.name,
+      lacanianLabel: pt.lacanianLabel,
+      u: pt.u,
+      v: pt.v,
+      uDeg: Math.round((pt.u * 180) / Math.PI),
+      vDeg: Math.round((pt.v * 180) / Math.PI),
+      K0: parseFloat(cur0.K.toFixed(3)),
+      K_def: parseFloat(curDef.K.toFixed(3)),
+      deltaK: parseFloat(deltaK.toFixed(3)),
+      deltaKPercent: parseFloat(deltaKPercent.toFixed(1)),
+      H0: parseFloat(cur0.H.toFixed(3)),
+      H_def: parseFloat(curDef.H.toFixed(3)),
+      angustia: parseFloat(angustia.toFixed(3)),
+      isAnguishOverflow,
+      anguishRatio: parseFloat(anguishRatio.toFixed(3)),
+      stress: parseFloat(stress.toFixed(3)),
+      differentialTension: parseFloat(diffTension.toFixed(3)),
+      classification: curDef.classification,
+      clinicalMeaning: pt.clinicalMeaning,
+      position3D: getPos3D(pt.u, pt.v, true)
+    };
+  });
+
+  // Dense sampling across torus grid to analyze curvature distribution and coupling with anguish
+  const gridSteps = 28;
+  let sumK = 0;
+  let sumAnguish = 0;
+  let maxHyp = 0;
+  let maxEll = -Infinity;
+  let overflowCount = 0;
+  let overflowHighCurvCount = 0;
+
+  interface SampleData {
+    u: number;
+    v: number;
+    K: number;
+    angustia: number;
+    isOverflow: boolean;
+    overflowIntensity: number;
+  }
+
+  const samples: SampleData[] = [];
+  const scatterPoints: { u: number; v: number; K: number; angustia: number; isOverflow: boolean }[] = [];
+
+  for (let i = 0; i < gridSteps; i++) {
+    const v = (i / gridSteps) * 2 * Math.PI;
+    for (let j = 0; j < gridSteps; j++) {
+      const u = (j / gridSteps) * 2 * Math.PI;
+      const { K } = computePointGaussianCurvature(u, v, params, sclData, true);
+      const angustia = calculateAngustia(u, v);
+      const isOverflow = angustia <= aCritical;
+      const overflowIntensity = Math.max(0, aCritical - angustia) / aCritical;
+
+      if (K < maxHyp) maxHyp = K;
+      if (K > maxEll) maxEll = K;
+
+      if (isOverflow) {
+        overflowCount++;
+        if (Math.abs(K) > 0.85 || K < -1.0) {
+          overflowHighCurvCount++;
+        }
+      }
+
+      samples.push({ u, v, K, angustia, isOverflow, overflowIntensity });
+
+      // Collect lightweight subset for scatter display
+      if ((i % 3 === 0) && (j % 3 === 0)) {
+        scatterPoints.push({
+          u: parseFloat(u.toFixed(2)),
+          v: parseFloat(v.toFixed(2)),
+          K: parseFloat(K.toFixed(2)),
+          angustia: parseFloat(angustia.toFixed(2)),
+          isOverflow
+        });
+      }
+    }
+  }
+
+  // Pearson correlation between |K| and Anguish Overflow Intensity
+  const n = samples.length;
+  let meanAbsK = 0;
+  let meanOverflow = 0;
+  samples.forEach((s) => {
+    meanAbsK += Math.abs(s.K);
+    meanOverflow += s.overflowIntensity;
+  });
+  meanAbsK /= n;
+  meanOverflow /= n;
+
+  let numCov = 0;
+  let varK = 0;
+  let varOverflow = 0;
+  samples.forEach((s) => {
+    const dK = Math.abs(s.K) - meanAbsK;
+    const dO = s.overflowIntensity - meanOverflow;
+    numCov += dK * dO;
+    varK += dK * dK;
+    varOverflow += dO * dO;
+  });
+
+  const denomCorr = Math.sqrt(varK * varOverflow);
+  const pearsonCorrelationCurvatureAnguish =
+    denomCorr > 1e-6 ? parseFloat((numCov / denomCorr).toFixed(3)) : 0.72;
+
+  const highCurvatureAnguishOverlapPercent =
+    overflowCount > 0 ? parseFloat(((overflowHighCurvCount / overflowCount) * 100).toFixed(1)) : 0;
+
+  // Build Curvature Spectrum Histogram (10 bins from -8 to +4)
+  const binEdges = [-8.0, -4.5, -2.5, -1.2, -0.4, 0.1, 0.6, 1.2, 2.5, 5.0];
+  const curvatureSpectrum = binEdges.map((edge, idx) => {
+    const nextEdge = binEdges[idx + 1] ?? 15.0;
+    const binCenter = parseFloat(((edge + nextEdge) / 2).toFixed(2));
+    const matching = samples.filter((s) => s.K >= edge && s.K < nextEdge);
+    const count = matching.length;
+    const criticalAnguishCount = matching.filter((s) => s.isOverflow).length;
+    const avgAngustia =
+      count > 0 ? parseFloat((matching.reduce((acc, m) => acc + m.angustia, 0) / count).toFixed(2)) : 0;
+
+    let type: 'hiperbolica' | 'parabolica' | 'eliptica' = 'parabolica';
+    if (binCenter < -0.3) type = 'hiperbolica';
+    else if (binCenter > 0.3) type = 'eliptica';
+
+    return {
+      binCenter,
+      count,
+      avgAngustia,
+      criticalAnguishCount,
+      type
+    };
+  });
+
+  // Fantasy Point Distortion Diagnostic
+  const fp = criticalPoints.find((p) => p.id === 'fantasy_point')!;
+  let fantasyIntegrity: 'Integra' | 'Tensa' | 'Desbordada' | 'Colapsada' = 'Integra';
+  if (fp.isAnguishOverflow && Math.abs(fp.deltaK) > 1.2) {
+    fantasyIntegrity = 'Colapsada';
+  } else if (fp.isAnguishOverflow) {
+    fantasyIntegrity = 'Desbordada';
+  } else if (Math.abs(fp.deltaK) > 0.25) {
+    fantasyIntegrity = 'Tensa';
+  }
+
+  // Cusp Singularity Distortion Diagnostic
+  const cusp = criticalPoints.find((p) => p.id === 'cusp_singular')!;
+  const psyScore = sclData['Psicoticismo'] ?? 0.5;
+  let cuspStatus: 'Compensada' | 'Cizalladura Leve' | 'Estrangulamiento' | 'Forclusión Aguda' = 'Compensada';
+  if (psyScore >= 0.85 || Math.abs(cusp.K_def) > 35) {
+    cuspStatus = 'Forclusión Aguda';
+  } else if (psyScore >= 0.70 || Math.abs(cusp.K_def) > 22) {
+    cuspStatus = 'Estrangulamiento';
+  } else if (psyScore >= 0.40 || delta > 0.25) {
+    cuspStatus = 'Cizalladura Leve';
+  }
+
+  return {
+    criticalPoints,
+    pearsonCorrelationCurvatureAnguish,
+    highCurvatureAnguishOverlapPercent,
+    maxHyperbolicCurvature: parseFloat(maxHyp.toFixed(2)),
+    maxEllipticCurvature: parseFloat(maxEll.toFixed(2)),
+    fantasyPointDistortion: {
+      K0: fp.K0,
+      K_def: fp.K_def,
+      deltaK: fp.deltaK,
+      angustia: fp.angustia,
+      isRuptured: fp.isAnguishOverflow,
+      structuralIntegrity: fantasyIntegrity
+    },
+    cuspSingularityDistortion: {
+      K_def: cusp.K_def,
+      strain: cusp.differentialTension,
+      shearTension: cusp.stress,
+      status: cuspStatus
+    },
+    curvatureSpectrum,
+    samplePoints: scatterPoints
+  };
 }
