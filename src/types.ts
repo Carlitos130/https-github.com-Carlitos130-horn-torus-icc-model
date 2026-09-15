@@ -13,6 +13,16 @@ export interface SCL90RData {
   "PSDI": number; // Positive Symptom Distress Index
 }
 
+export type SCL90RInputMode = 't_scores' | 'normalized';
+
+export interface TScoreCategory {
+  tier: 'Normal' | 'Leve' | 'Moderado' | 'Severo';
+  rangeLabel: string;
+  badgeClass: string;
+  textColor: string;
+  description: string;
+}
+
 export interface ModelParams {
   a_scale: number; // Scale factor, default 0.1
   u_scale: number; // default 2 * Math.PI
@@ -28,15 +38,19 @@ export interface LacanianCoordinates {
   v_S: number;
   u_I: number;
   v_I: number;
-  u_Pulsion: number; // Hilo Pulsional (Trieb / Vorstellungrepräsentanz) pegado a I
+  u_Pulsion: number; // Hilo Pulsional (Trieb / VR Vorstellungrepräsentanz) pegado a I
   v_Pulsion: number;
   pulsionAttachmentStrength: number;
   u_Sigma: number;
   v_Sigma: number;
-  fantasyPointUV: [number, number]; // (pi, pi / 2) - La fantasía es angustia
+  fantasyPointUV: [number, number]; // (pi, pi / 2) - La fantasía es angustia en el Icc
   fantasyPoint3D: [number, number, number];
   ruptureCount: number;
   ruptureAreaPercent: number;
+  // Signifier-Fantasy proximity (Trauma / Anguish reactivation)
+  distanceSignifierToFantasy: number;
+  isTraumaReactivated: boolean;
+  earCuspActivity: number; // Activity at the central hole (v=pi)
 }
 
 export type ViewMode = 'standard' | 'deformed' | 'comparison' | 'cross_section' | 'interior_icc' | 'xray_icc';
@@ -64,4 +78,5 @@ export interface TopologicalMetrics {
   highTensionAreaPercent: number;
   lacanian: LacanianCoordinates;
 }
+
 

@@ -1,4 +1,91 @@
-import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates, ColorMapMode } from '../types';
+import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates, ColorMapMode, TScoreCategory } from '../types';
+
+/**
+ * Normaliza un puntaje T del SCL-90-R al rango [0, 1] usando el baremo estándar de adultos:
+ * Media poblacional T = 50 (dentro de la normalidad)
+ * Límite clínico severo T = 80 (+3 Desviaciones Estándar)
+ * Valores T < 60 corresponden al rango normal poblacional
+ * Fórmula: max(0, min(1, (T - 50) / 30))
+ */
+export function normalizeSCL90RTScore(tScore: number): number {
+  const norm = Math.max(0, Math.min(1, (tScore - 50) / 30));
+  return parseFloat(norm.toFixed(4));
+}
+
+/**
+ * Convierte un valor normalizado [0, 1] a su puntaje T correspondiente según el baremo de adultos:
+ * T = round(50 + 30 * norm)
+ */
+export function denormalizeSCL90RTScore(normVal: number): number {
+  return Math.round(50 + 30 * Math.max(0, Math.min(1, normVal)));
+}
+
+/**
+ * Clasificación e interpretación clínica del SCL-90-R con baremo de adultos:
+ * - T < 60: Normal (media poblacional T=50, sin significación clínica)
+ * - T 60-69: Leve (en riesgo / sospecha sintomática, +1 a +2 DE)
+ * - T 70-79: Moderado (clínicamente significativo, +2 a +3 DE)
+ * - T ≥ 80: Severo (caso clínico extremo, ≥ +3 DE)
+ */
+export function getTScoreInterpretation(tScore: number): TScoreCategory {
+  if (tScore < 60) {
+    return {
+      tier: 'Normal',
+      rangeLabel: 'T < 60 (Normal)',
+      badgeClass: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80',
+      textColor: 'text-emerald-400',
+      description: 'Población normal asintomática (T < 60, media estándar 50).'
+    };
+  } else if (tScore < 70) {
+    return {
+      tier: 'Leve',
+      rangeLabel: 'T 60-69 (Leve)',
+      badgeClass: 'bg-yellow-950/80 text-yellow-300 border-yellow-700/80',
+      textColor: 'text-yellow-400',
+      description: 'Riesgo clínico leve o compensado (+1 a +2 Desviaciones Estándar).'
+    };
+  } else if (tScore < 80) {
+    return {
+      tier: 'Moderado',
+      rangeLabel: 'T 70-79 (Moderado)',
+      badgeClass: 'bg-orange-950/80 text-orange-300 border-orange-700/80',
+      textColor: 'text-orange-400',
+      description: 'Cuadro sintomático clínico moderado (+2 a +3 Desviaciones Estándar).'
+    };
+  } else {
+    return {
+      tier: 'Severo',
+      rangeLabel: 'T ≥ 80 (Severo)',
+      badgeClass: 'bg-rose-950/80 text-rose-300 border-rose-700/80',
+      textColor: 'text-rose-400',
+      description: 'Severidad clínica extrema / crisis de ruptura (≥ +3 Desviaciones Estándar).'
+    };
+  }
+}
+
+/**
+ * Normaliza un diccionario de datos SCL-90-R expresado en puntajes T
+ */
+export function normalizeSCL90RData(tData: Record<string, number>): SCL90RData {
+  const result: Partial<SCL90RData> = {};
+  for (const key of Object.keys(tData) as (keyof SCL90RData)[]) {
+    const val = tData[key] ?? 50;
+    result[key] = normalizeSCL90RTScore(val);
+  }
+  return result as SCL90RData;
+}
+
+/**
+ * Convierte un objeto SCL-90-R con valores normalizados [0, 1] a Puntajes T del baremo de adultos
+ */
+export function sclDataToTScores(data: SCL90RData): Record<keyof SCL90RData, number> {
+  const result: Partial<Record<keyof SCL90RData, number>> = {};
+  for (const key of Object.keys(data) as (keyof SCL90RData)[]) {
+    const val = data[key] ?? 0.5;
+    result[key] = denormalizeSCL90RTScore(val);
+  }
+  return result as Record<keyof SCL90RData, number>;
+}
 
 export const DEFAULT_SCL90R_DATA: SCL90RData = {
   "Somatización": 0.8,
@@ -15,33 +102,114 @@ export const DEFAULT_SCL90R_DATA: SCL90RData = {
   "PSDI": 0.9
 };
 
-export const CLINICAL_PRESETS: { name: string; description: string; data: SCL90RData }[] = [
+export interface ClinicalPreset {
+  name: string;
+  description: string;
+  tScores: Record<keyof SCL90RData, number>;
+  data: SCL90RData;
+}
+
+export const CLINICAL_PRESETS: ClinicalPreset[] = [
   {
-    name: "Modelo Icc Lacaniano (Código Python)",
-    description: "Configuración psicométrica completa con curvas S, I, Σ y punto de angustia en la fantasía",
-    data: { ...DEFAULT_SCL90R_DATA }
-  },
-  {
-    name: "Caso SCL-90-R (Prompt Inicial)",
-    description: "GSI 0.90, Psicoticismo 0.95, Obsesión 0.85, Somatización 0.75",
+    name: "Caso SCL-90-R Real (Baremo Adultos)",
+    description: "Puntajes T clínicos de adultos: Ansiedad T=82, Psicoticismo T=85, Depresión T=78",
+    tScores: {
+      "Somatización": 65,
+      "Obsesión-Compulsión": 72,
+      "Sensibilidad Interpersonal": 58,
+      "Depresión": 78,
+      "Ansiedad": 82,
+      "Hostilidad": 55,
+      "Ansiedad Fóbica": 68,
+      "Ideación Paranoide": 70,
+      "Psicoticismo": 85,
+      "GSI": 75,
+      "PST": 60,
+      "PSDI": 70
+    },
     data: {
-      "Somatización": 0.75,
-      "Obsesión-Compulsión": 0.85,
-      "Sensibilidad Interpersonal": 0.70,
-      "Depresión": 0.70,
-      "Ansiedad": 0.80,
-      "Hostilidad": 0.60,
-      "Ansiedad Fóbica": 0.65,
-      "Ideación Paranoide": 0.75,
-      "Psicoticismo": 0.95,
-      "GSI": 0.90,
-      "PST": 0.75,
-      "PSDI": 0.95
+      "Somatización": 0.50,
+      "Obsesión-Compulsión": 0.73,
+      "Sensibilidad Interpersonal": 0.27,
+      "Depresión": 0.93,
+      "Ansiedad": 1.00,
+      "Hostilidad": 0.17,
+      "Ansiedad Fóbica": 0.60,
+      "Ideación Paranoide": 0.67,
+      "Psicoticismo": 1.00,
+      "GSI": 0.83,
+      "PST": 0.33,
+      "PSDI": 0.67
     }
   },
   {
+    name: "Población Normal Asintomática (T < 60)",
+    description: "Baremo control no clínico: todas las dimensiones T < 60 (media 50), sin zonas de angustia",
+    tScores: {
+      "Somatización": 45,
+      "Obsesión-Compulsión": 48,
+      "Sensibilidad Interpersonal": 46,
+      "Depresión": 45,
+      "Ansiedad": 46,
+      "Hostilidad": 42,
+      "Ansiedad Fóbica": 40,
+      "Ideación Paranoide": 44,
+      "Psicoticismo": 43,
+      "GSI": 45,
+      "PST": 44,
+      "PSDI": 48
+    },
+    data: {
+      "Somatización": 0.00,
+      "Obsesión-Compulsión": 0.00,
+      "Sensibilidad Interpersonal": 0.00,
+      "Depresión": 0.00,
+      "Ansiedad": 0.00,
+      "Hostilidad": 0.00,
+      "Ansiedad Fóbica": 0.00,
+      "Ideación Paranoide": 0.00,
+      "Psicoticismo": 0.00,
+      "GSI": 0.00,
+      "PST": 0.00,
+      "PSDI": 0.00
+    }
+  },
+  {
+    name: "Modelo Icc Lacaniano (Prompt Inicial)",
+    description: "Configuración psicométrica de alta severidad con curvas S, I, Σ y punto de angustia",
+    tScores: {
+      "Somatización": 74,
+      "Obsesión-Compulsión": 77,
+      "Sensibilidad Interpersonal": 71,
+      "Depresión": 76,
+      "Ansiedad": 79,
+      "Hostilidad": 68,
+      "Ansiedad Fóbica": 73,
+      "Ideación Paranoide": 74,
+      "Psicoticismo": 77,
+      "GSI": 76,
+      "PST": 71,
+      "PSDI": 77
+    },
+    data: { ...DEFAULT_SCL90R_DATA }
+  },
+  {
     name: "Estructura Neurótica Obsesiva",
-    description: "Curva S (Significante) dominante con alta resonancia y fijación sin ruptura",
+    description: "Curva S (Significante) dominante con rigidez cognitiva, O-C T=79 y Ansiedad T=78",
+    tScores: {
+      "Somatización": 54,
+      "Obsesión-Compulsión": 79,
+      "Sensibilidad Interpersonal": 60,
+      "Depresión": 64,
+      "Ansiedad": 78,
+      "Hostilidad": 52,
+      "Ansiedad Fóbica": 58,
+      "Ideación Paranoide": 58,
+      "Psicoticismo": 52,
+      "GSI": 66,
+      "PST": 62,
+      "PSDI": 72
+    },
     data: {
       "Somatización": 0.40,
       "Obsesión-Compulsión": 0.98,
@@ -58,8 +226,22 @@ export const CLINICAL_PRESETS: { name: string; description: string; data: SCL90R
     }
   },
   {
-    name: "Desencadenamiento Psicótico (Ruptura)",
-    description: "Curva Σ (Síntoma) en colapso e invasión masiva del punto de fantasía",
+    name: "Desencadenamiento Psicótico Severo",
+    description: "Puntajes extremos T ≥ 80 en Psicoticismo (T=88), Paranoia (T=82) y colapso de Σ",
+    tScores: {
+      "Somatización": 68,
+      "Obsesión-Compulsión": 70,
+      "Sensibilidad Interpersonal": 78,
+      "Depresión": 76,
+      "Ansiedad": 84,
+      "Hostilidad": 75,
+      "Ansiedad Fóbica": 72,
+      "Ideación Paranoide": 82,
+      "Psicoticismo": 88,
+      "GSI": 82,
+      "PST": 78,
+      "PSDI": 86
+    },
     data: {
       "Somatización": 0.65,
       "Obsesión-Compulsión": 0.70,
@@ -76,8 +258,22 @@ export const CLINICAL_PRESETS: { name: string; description: string; data: SCL90R
     }
   },
   {
-    name: "Histeria y Cuerpo (Imagen I)",
-    description: "Curva I (Imagen corporal) desfasada con alta somatización y sensibilidad interpersonal",
+    name: "Histeria y Cuerpo Somático (Imagen I)",
+    description: "Somatización T=82 y Sensibilidad T=75. Curva I desfasada en el Inconsciente",
+    tScores: {
+      "Somatización": 82,
+      "Obsesión-Compulsión": 52,
+      "Sensibilidad Interpersonal": 75,
+      "Depresión": 66,
+      "Ansiedad": 74,
+      "Hostilidad": 50,
+      "Ansiedad Fóbica": 68,
+      "Ideación Paranoide": 54,
+      "Psicoticismo": 52,
+      "GSI": 68,
+      "PST": 70,
+      "PSDI": 76
+    },
     data: {
       "Somatización": 0.95,
       "Obsesión-Compulsión": 0.50,
@@ -94,6 +290,7 @@ export const CLINICAL_PRESETS: { name: string; description: string; data: SCL90R
     }
   }
 ];
+
 
 export interface TorusPoint {
   x: number;
@@ -189,6 +386,16 @@ export function calculateLacanianParameters(
   const totalSamples = sampleSteps * sampleSteps;
   const ruptureAreaPercent = (rupturePointsCount / totalSamples) * 100;
 
+  // Reactivación traumática: distancia de la cinta significante S a la fantasía (u_F=pi, v_F=pi/2)
+  // En el Icc, la fantasía no pasa al exterior Cc. Pero cuando la trayectoria significante S
+  // circula en su proximidad, se reactiva el afecto de angustia (trauma que se despierta).
+  const distanceSignifierToFantasy = Math.abs(v_S - v_F);
+  const isTraumaReactivated = distanceSignifierToFantasy <= a_critical;
+
+  // Actividad en el "oído" / cúspide singular del horn torus (v = pi):
+  // Punto de auto-tangencia en el origen que comunica el exterior con el vórtice interior
+  const earCuspActivity = Math.max(0, Math.min(1, 1.0 - Math.abs(v_S - Math.PI) / Math.PI));
+
   return {
     a,
     u_S,
@@ -203,7 +410,10 @@ export function calculateLacanianParameters(
     fantasyPointUV: [u_F, v_F],
     fantasyPoint3D: [x_F, y_F, z_F],
     ruptureCount: rupturePointsCount,
-    ruptureAreaPercent
+    ruptureAreaPercent,
+    distanceSignifierToFantasy,
+    isTraumaReactivated,
+    earCuspActivity
   };
 }
 
@@ -1012,9 +1222,10 @@ Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
     -> Función: Especularidad y cuerpo somático. Somatización (${sclData["Somatización"].toFixed(2)}) + Sensibilidad (${sclData["Sensibilidad Interpersonal"].toFixed(2)})
     -> Color en Visualizador: VERDE (Emerald Ribbon)
 
-  * Hilo Pulsional (Trieb / Vorstellungrepräsentanz): PEGADO A I
-    -> Fijación pulsional: Fuerza de enlace somático = ${(lac.pulsionAttachmentStrength * 100).toFixed(1)}%
-    -> Función: Representante de la representación pulsional enlazado al cuerpo imaginario.
+  * VR (Vorstellungrepräsentanz / Representante Pulsional): PEGADO A I
+    -> Fijación somato-psíquica: Fuerza de enlace = ${(lac.pulsionAttachmentStrength * 100).toFixed(1)}%
+    -> Fundamento Metapsicológico: La pulsión pura (Trieb) no ingresa desnuda al Icc;
+       únicamente accede su representante de la representación (VR), fijado al cuerpo imaginario I.
     -> Color en Visualizador: DORADO / ÁMBAR (Golden Braid)
 
   * Σ (Síntoma / Sinthome): u_Σ = ${lac.u_Sigma.toFixed(4)} rad | v_Σ = ${lac.v_Sigma.toFixed(4)} rad
@@ -1023,23 +1234,44 @@ Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
 
   * Punto de Fantasía [La Fantasía es Angustia]: ($ <> a) en (u_F, v_F) = (π, π/2)
     -> Coordenadas 3D (x,y,z): (${lac.fantasyPoint3D[0].toFixed(4)}, ${lac.fantasyPoint3D[1].toFixed(4)}, ${lac.fantasyPoint3D[2].toFixed(4)})
-    -> Vórtice de Angustia y límite de ruptura en el umbral A_cr = π/4
+    -> Envoltura: Reside en el Icc (no traspasa al exterior Cc)
+    -> Vórtice de Angustia y límite de ruptura en el umbral A_cr = ${params.a_critical.toFixed(4)} rad
     -> Puntos de Ruptura (A ≤ A_cr): ${lac.ruptureCount} nodos (${lac.ruptureAreaPercent.toFixed(2)}% del Manifold)
 
-[2] VECTOR PSICOMÉTRICO SCL-90-R (DEROGATIS):
+  * Cúspide de Auto-tangencia ("El Oído" del Horn Torus en v=π):
+    -> Punto de contacto singular (0,0,0) que comunica el exterior con el vórtice interior
+    -> Nivel de apertura / actividad en el polo: ${(lac.earCuspActivity * 100).toFixed(1)}%
+
+  * Dinámica Traumática (Paso del Significante S cerca de la Fantasía):
+    -> Distancia angular S -> Fantasía: ${lac.distanceSignifierToFantasy.toFixed(4)} rad
+    -> Estado de Activación Traumática: ${lac.isTraumaReactivated ? '⚠ TRAUMA REACTIVADO (Significante activa la angustia en el Icc)' : '✓ Compensado (Trayectoria S distante del núcleo de angustia)'}
+
+[2] VECTOR PSICOMÉTRICO SCL-90-R (BAREMO DE ADULTOS DEROGATIS):
 --------------------------------------------------------------------------------
-  * Somatización (SOM):                ${sclData["Somatización"].toFixed(3)}
-  * Obsesión-Compulsión (O-C):          ${sclData["Obsesión-Compulsión"].toFixed(3)}
-  * Sensibilidad Interpersonal (I-S):   ${sclData["Sensibilidad Interpersonal"].toFixed(3)}
-  * Depresión (DEP):                    ${sclData["Depresión"].toFixed(3)}
-  * Ansiedad (ANX):                     ${sclData["Ansiedad"].toFixed(3)}
-  * Hostilidad (HOS):                   ${sclData["Hostilidad"].toFixed(3)}
-  * Ansiedad Fóbica (PHOB):             ${sclData["Ansiedad Fóbica"].toFixed(3)}
-  * Ideación Paranoide (PAR):           ${sclData["Ideación Paranoide"].toFixed(3)}
-  * Psicoticismo (PSY):                 ${sclData["Psicoticismo"].toFixed(3)}
-  * Global Severity Index (GSI):        ${sclData["GSI"].toFixed(3)}
-  * Positive Symptom Total (PST):       ${sclData["PST"].toFixed(3)}
-  * Positive Symptom Distress (PSDI):   ${sclData["PSDI"].toFixed(3)}
+Baremo Adultos: Normal T < 60 | Leve T 60-69 | Moderado T 70-79 | Severo T ≥ 80
+${(() => {
+  const tScores = sclDataToTScores(sclData);
+  const rows: { k: string; key: keyof SCL90RData }[] = [
+    { k: "Somatización (SOM)", key: "Somatización" },
+    { k: "Obsesión-Compulsión (O-C)", key: "Obsesión-Compulsión" },
+    { k: "Sensibilidad Interpersonal (I-S)", key: "Sensibilidad Interpersonal" },
+    { k: "Depresión (DEP)", key: "Depresión" },
+    { k: "Ansiedad (ANX)", key: "Ansiedad" },
+    { k: "Hostilidad (HOS)", key: "Hostilidad" },
+    { k: "Ansiedad Fóbica (PHOB)", key: "Ansiedad Fóbica" },
+    { k: "Ideación Paranoide (PAR)", key: "Ideación Paranoide" },
+    { k: "Psicoticismo (PSY)", key: "Psicoticismo" },
+    { k: "Global Severity Index (GSI)", key: "GSI" },
+    { k: "Positive Symptom Total (PST)", key: "PST" },
+    { k: "Positive Symptom Distress (PSDI)", key: "PSDI" }
+  ];
+  return rows.map(r => {
+    const t = tScores[r.key];
+    const norm = sclData[r.key];
+    const cat = getTScoreInterpretation(t);
+    return `  * ${r.k.padEnd(34)}: T=${t.toString().padEnd(3)} | Norm=${norm.toFixed(3)} | [${cat.tier.toUpperCase()}]`;
+  }).join('\n');
+})()}
 
 [3] INVARIANTES TOPOLÓGICOS Y ENERGÉTICOS:
 --------------------------------------------------------------------------------
@@ -1059,15 +1291,27 @@ Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
 
 /**
  * Returns exact standalone Python code for horn_torus_icc_model.py
- * complete with all classes, methods, curves, and plotting functions
+ * complete with adult norms normalization, all classes, methods, curves, and plotting
  */
 export function generatePythonScript(sclData: SCL90RData, params: ModelParams): string {
+  const tScores = sclDataToTScores(sclData);
+
   return `#!/usr/bin/env python3
 """
 Modelo 3D del Horn Torus para el Icc (Inconsciente)
-Integra resultados del test psicométrico SCL-90-R de Derogatis
-con variables S (Significante), I (Imagen del cuerpo), Σ (Síntoma)
-y la fantasía como punto de angustia.
+Integra resultados del test psicométrico SCL-90-R de Derogatis con Baremo de Adultos:
+- T < 60: Normal (media poblacional T=50, sin patología clínica)
+- T 60-69: Leve
+- T 70-79: Moderado
+- T >= 80: Severo (límite clínico crítico)
+Fórmula de normalización al modelo matemático [0,1]:
+  norm = max(0, min(1, (T - 50) / 30))
+
+Incluye:
+- Cintas interiores del Icc: S (Significante), I (Imagen del cuerpo), Σ (Síntoma)
+- VR (Vorstellungrepräsentanz): representante pulsional fijado a I
+- Punto de Fantasía en el Icc (u=π, v=π/2) y reactivación traumática
+- Cúspide singular en v=π ("el oído" del horn torus)
 """
 
 import numpy as np
@@ -1076,13 +1320,27 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
 
+def normalize_scl90r_t_scores(scl90r_data):
+    """
+    Normaliza puntajes T del SCL-90-R al rango [0,1] usando el baremo de adultos.
+    Baremo estándar: T=50 (media poblacional), T=80 (límite clínico severo).
+    Valores T < 60 corresponden al rango normal.
+    Fórmula: max(0, min(1, (T - 50) / 30))
+    """
+    normalized = {}
+    for key, value in scl90r_data.items():
+        normalized_value = max(0.0, min(1.0, (float(value) - 50.0) / 30.0))
+        normalized[key] = round(normalized_value, 4)
+    return normalized
+
 class HornTorusICCModel:
     """
     Clase principal para modelar y visualizar el Horn Torus del Icc
-    con datos del SCL-90-R.
+    con datos del SCL-90-R y Baremo de Adultos.
     """
 
-    def __init__(self, scl90r_data=None, a_scale=0.1, u_scale=2*np.pi, v_scale=np.pi):
+    def __init__(self, scl90r_data=None, a_scale=0.1, u_scale=2*np.pi, v_scale=np.pi,
+                 A_cr=np.pi/4, auto_normalize=True):
         # Datos por defecto del SCL-90-R (valores normalizados entre 0 y 1)
         self.default_scl90r_data = {
             "Somatización": 0.8,
@@ -1099,10 +1357,21 @@ class HornTorusICCModel:
             "PSDI": 0.9
         }
 
-        self.scl90r_data = scl90r_data if scl90r_data else self.default_scl90r_data
+        data_input = scl90r_data if scl90r_data else self.default_scl90r_data
+
+        # Si se proporcionan puntajes T (valores > 1), normalizar con baremo de adultos
+        if auto_normalize and any(float(v) > 1.0 for v in data_input.values()):
+            print("🔍 Detectados puntajes T del SCL-90-R. Normalizando con baremo de adultos [T=50 -> 0, T=80 -> 1]...")
+            self.scl90r_data = normalize_scl90r_t_scores(data_input)
+            self.raw_t_scores = data_input
+        else:
+            self.scl90r_data = data_input
+            self.raw_t_scores = {k: round(50 + 30 * float(v)) for k, v in data_input.items()}
+
         self.a_scale = a_scale
         self.u_scale = u_scale
         self.v_scale = v_scale
+        self.A_cr = A_cr
 
         # Parámetros del modelo
         self.a = None
@@ -1113,9 +1382,6 @@ class HornTorusICCModel:
         self.u_Sigma = None
         self.v_Sigma = None
         self.fantasy_point = None
-
-        # Umbral de angustia
-        self.A_cr = np.pi / 4
 
         # Calcular parámetros
         self._calculate_parameters()
@@ -1329,22 +1595,29 @@ class HornTorusICCModel:
         plt.close()
 
 if __name__ == '__main__':
-    scl90r_data = {
-        "Somatización": ${sclData["Somatización"]},
-        "Obsesión-Compulsión": ${sclData["Obsesión-Compulsión"]},
-        "Sensibilidad Interpersonal": ${sclData["Sensibilidad Interpersonal"]},
-        "Depresión": ${sclData["Depresión"]},
-        "Ansiedad": ${sclData["Ansiedad"]},
-        "Hostilidad": ${sclData["Hostilidad"]},
-        "Ansiedad Fóbica": ${sclData["Ansiedad Fóbica"]},
-        "Ideación Paranoide": ${sclData["Ideación Paranoide"]},
-        "Psicoticismo": ${sclData["Psicoticismo"]},
-        "GSI": ${sclData["GSI"]},
-        "PST": ${sclData["PST"]},
-        "PSDI": ${sclData["PSDI"]}
+    # Puntajes T reales con Baremo de Adultos (T < 60 Normal, T=50 Media, T>=80 Severo)
+    scl90r_t_scores = {
+        "Somatización": ${tScores["Somatización"]},
+        "Obsesión-Compulsión": ${tScores["Obsesión-Compulsión"]},
+        "Sensibilidad Interpersonal": ${tScores["Sensibilidad Interpersonal"]},
+        "Depresión": ${tScores["Depresión"]},
+        "Ansiedad": ${tScores["Ansiedad"]},
+        "Hostilidad": ${tScores["Hostilidad"]},
+        "Ansiedad Fóbica": ${tScores["Ansiedad Fóbica"]},
+        "Ideación Paranoide": ${tScores["Ideación Paranoide"]},
+        "Psicoticismo": ${tScores["Psicoticismo"]},
+        "GSI": ${tScores["GSI"]},
+        "PST": ${tScores["PST"]},
+        "PSDI": ${tScores["PSDI"]}
     }
 
-    model = HornTorusICCModel(scl90r_data=scl90r_data, a_scale=${params.a_scale})
+    print("Iniciando modelo Horn Torus con Baremo de Adultos...")
+    model = HornTorusICCModel(
+        scl90r_data=scl90r_t_scores,
+        a_scale=${params.a_scale},
+        A_cr=${params.a_critical},
+        auto_normalize=True
+    )
     model.print_model_summary()
     model.plot_3d_model(save_path='mi_modelo.png')
     model.plot_deformed_model(deformation_factor=${params.deformation_factor}, save_path='mi_modelo_deformado.png')
