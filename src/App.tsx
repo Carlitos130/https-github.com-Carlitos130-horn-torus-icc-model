@@ -5,6 +5,7 @@ import { HornTorusCanvas } from './components/HornTorusCanvas';
 import { Scl90rForm } from './components/Scl90rForm';
 import { ModelSummaryModal } from './components/ModelSummaryModal';
 import { PythonCodeExport } from './components/PythonCodeExport';
+import { TheoreticalManual } from './components/TheoreticalManualModal';
 import {
   Boxes,
   Sliders,
@@ -21,7 +22,10 @@ import {
   Palette,
   Activity,
   Radio,
-  Scan
+  Scan,
+  BookOpen,
+  Zap,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function App() {
@@ -57,7 +61,8 @@ export default function App() {
   const [isAnimatingDeformation, setIsAnimatingDeformation] = useState<boolean>(false);
 
   // UI Active Sidebar Tab
-  const [activeTab, setActiveTab] = useState<'parameters' | 'summary' | 'python' | 'gallery'>('parameters');
+  const [activeTab, setActiveTab] = useState<'parameters' | 'summary' | 'python' | 'gallery' | 'manual'>('parameters');
+  const [isPsychoticBreakActive, setIsPsychoticBreakActive] = useState<boolean>(false);
 
   // Captured snapshots gallery
   const [gallery, setGallery] = useState<{ type: string; url: string; time: string }[]>([]);
@@ -77,6 +82,51 @@ export default function App() {
 
   const handleToggleDeformationAnimation = () => {
     setIsAnimatingDeformation((prev) => !prev);
+  };
+
+  const handleTriggerPsychoticBreak = () => {
+    // Puntajes agudos de ruptura psíquica (PSIC > 80, T=100; Ansiedad y Depresión disparadas)
+    setSclData({
+      'Somatización': 0.65, // T=82
+      'Obsesión-Compulsión': 0.70, // T=85
+      'Sensibilidad Interpersonal': 0.60, // T=80
+      'Depresión': 0.76, // T=88
+      'Ansiedad': 0.85, // T=92
+      'Hostilidad': 0.80, // T=90
+      'Ansiedad Fóbica': 0.68, // T=84
+      'Ideación Paranoide': 0.84, // T=92
+      'Psicoticismo': 1.00, // T=100 (fuera del techo del baremo)
+      'GSI': 0.88, // T=94
+      'PST': 0.85,
+      'PSDI': 0.90,
+    });
+    setParams((prev) => ({
+      ...prev,
+      deformation_factor: 0.58,
+      a_critical: (Math.PI / 4) * 1.30, // Expansión del umbral de angustia crítica
+    }));
+    setColorMap('angustia');
+    setViewMode('xray_icc');
+    setCcOpacity(0.18);
+    setShowPulsion(true);
+    setShowFantasyPoint(true);
+    setShowRibbons(true);
+    setIsPsychoticBreakActive(true);
+    showToast('⚡ Brote Psicótico Desencadenado: Inundación en Cúspide Singular (v=±π)');
+  };
+
+  const handleResetPsychoticBreak = () => {
+    setSclData(DEFAULT_SCL90R_DATA);
+    setParams((prev) => ({
+      ...prev,
+      deformation_factor: 0.3,
+      a_critical: Math.PI / 4,
+    }));
+    setColorMap('angustia');
+    setViewMode('deformed');
+    setCcOpacity(0.92);
+    setIsPsychoticBreakActive(false);
+    showToast('✓ Estructura Compensada: Restablecido Toro Horn y Barrera Fantasmática');
   };
 
   const handleCapturePng = (type: 'standard' | 'deformed', dataUrl: string) => {
@@ -320,6 +370,21 @@ export default function App() {
               <Palette className="w-3 h-3 text-amber-400" />
               <span>Estrés</span>
             </button>
+
+            {/* Demostración de Brote Psicótico Trigger Button */}
+            <button
+              id="btn-trigger-psychotic-simulation"
+              onClick={isPsychoticBreakActive ? handleResetPsychoticBreak : handleTriggerPsychoticBreak}
+              className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all text-xs font-semibold border ${
+                isPsychoticBreakActive
+                  ? 'bg-rose-600 text-white border-rose-400 shadow-md shadow-rose-600/30 animate-pulse'
+                  : 'bg-rose-950/70 hover:bg-rose-900 text-rose-200 border-rose-700/80 hover:border-rose-500'
+              }`}
+              title="Demostración de Brote Psicótico: Forclusión del significante, cizalladura en singularidad y desborde de angustia"
+            >
+              <Zap className="w-3.5 h-3.5 text-rose-400 fill-current" />
+              <span>{isPsychoticBreakActive ? 'Compensar Estructura' : '⚡ Brote Psicótico'}</span>
+            </button>
           </div>
         </div>
 
@@ -496,6 +561,36 @@ export default function App() {
         </div>
       </header>
 
+      {/* Dynamic Alert Banner for Psychotic Outbreak Simulation */}
+      {isPsychoticBreakActive && (
+        <div className="bg-gradient-to-r from-rose-950/95 via-red-950/95 to-rose-950/95 border-b border-rose-500/80 px-4 py-2.5 text-xs font-mono flex flex-wrap items-center justify-between gap-3 text-rose-200 shadow-xl backdrop-blur-md animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 max-w-4xl">
+            <Flame className="w-4 h-4 text-rose-400 animate-pulse flex-shrink-0" />
+            <span className="leading-relaxed">
+              <strong className="text-white">DEMOSTRACIÓN DE BROTE PSICÓTICO:</strong>{' '}
+              Forclusión del significante, cizalladura extrema en cúspide singular (v = ±π), Psicoticismo T = 100 (T &gt; 80), e inundación masiva del campo de angustia (A ≤ A_cr) sobre la fantasía ($ ◇ a).
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              id="btn-banner-view-manual"
+              onClick={() => setActiveTab('manual')}
+              className="px-2.5 py-1 rounded-md bg-rose-900/90 hover:bg-rose-800 text-rose-100 border border-rose-500 text-[11px] transition-all flex items-center gap-1 font-semibold"
+            >
+              <BookOpen className="w-3 h-3 text-rose-300" />
+              <span>Ver Tratado Clínico</span>
+            </button>
+            <button
+              id="btn-banner-reset-structure"
+              onClick={handleResetPsychoticBreak}
+              className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-600 text-[11px] transition-all font-bold"
+            >
+              Compensar Estructura
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col lg:flex-row gap-5">
         {/* Left Column: 3D Horn Torus Viewport */}
@@ -570,6 +665,19 @@ export default function App() {
               <span>Python</span>
             </button>
 
+            <button
+              id="tab-manual-btn"
+              onClick={() => setActiveTab('manual')}
+              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                activeTab === 'manual'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Manual & Lacan</span>
+            </button>
+
             {gallery.length > 0 && (
               <button
                 id="tab-gallery-btn"
@@ -612,6 +720,12 @@ export default function App() {
               <PythonCodeExport
                 sclData={sclData}
                 params={params}
+              />
+            )}
+
+            {activeTab === 'manual' && (
+              <TheoreticalManual
+                onTriggerPsychoticBreak={handleTriggerPsychoticBreak}
               />
             )}
 
