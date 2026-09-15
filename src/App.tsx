@@ -53,6 +53,9 @@ export default function App() {
   const [showRibbons, setShowRibbons] = useState<boolean>(true);
   const [ccOpacity, setCcOpacity] = useState<number>(0.92);
 
+  // Deformation Animation State
+  const [isAnimatingDeformation, setIsAnimatingDeformation] = useState<boolean>(false);
+
   // UI Active Sidebar Tab
   const [activeTab, setActiveTab] = useState<'parameters' | 'summary' | 'python' | 'gallery'>('parameters');
 
@@ -66,6 +69,14 @@ export default function App() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleDeformationFactorChange = (factor: number) => {
+    setParams((prev) => ({ ...prev, deformation_factor: parseFloat(factor.toFixed(3)) }));
+  };
+
+  const handleToggleDeformationAnimation = () => {
+    setIsAnimatingDeformation((prev) => !prev);
   };
 
   const handleCapturePng = (type: 'standard' | 'deformed', dataUrl: string) => {
@@ -216,21 +227,71 @@ export default function App() {
             </button>
           </div>
 
-          {/* ColorMap Mode Switcher */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-            <button
-              id="btn-colormap-angustia"
-              onClick={() => setColorMap('angustia')}
-              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${
-                colorMap === 'angustia'
-                  ? 'bg-rose-950 text-rose-300 border border-rose-700 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Campo de Angustia A(u, v) y Umbral Crítico A_cr=π/4"
-            >
-              <Flame className="w-3 h-3 text-rose-400" />
-              <span>Angustia</span>
-            </button>
+          {/* ColorMap Mode Switcher & a_critical Live Control */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+            <div className="flex items-center gap-1">
+              <button
+                id="btn-colormap-angustia"
+                onClick={() => setColorMap('angustia')}
+                className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${
+                  colorMap === 'angustia'
+                    ? 'bg-rose-950 text-rose-300 border border-rose-700 font-semibold shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Campo de Angustia A(u, v) y Umbral Crítico A_cr"
+              >
+                <Flame className="w-3 h-3 text-rose-400" />
+                <span>Angustia</span>
+              </button>
+
+              {/* Real-time a_critical slider and numeric input */}
+              <div
+                id="panel-a-critical-control"
+                className="flex items-center gap-1.5 bg-slate-900/90 px-2 py-0.5 rounded-lg border border-rose-900/50 text-[10.5px] font-mono shadow-inner"
+                title="Modificar en tiempo real el valor de 'a_critical' (actualmente π/4 ≈ 0.785) para observar la topología de la zona de angustia"
+              >
+                <span className="text-rose-300/90 font-semibold text-[10px]">A_cr:</span>
+                <input
+                  id="slider-a-critical-colormap"
+                  type="range"
+                  min="0.10"
+                  max="2.50"
+                  step="0.01"
+                  value={params.a_critical}
+                  onChange={(e) => setParams((prev) => ({ ...prev, a_critical: parseFloat(e.target.value) }))}
+                  className="w-16 accent-rose-400 h-1 cursor-pointer"
+                  title="Deslizador a_critical"
+                />
+                <input
+                  id="input-a-critical-colormap"
+                  type="number"
+                  min="0.05"
+                  max="3.14"
+                  step="0.01"
+                  value={parseFloat(params.a_critical.toFixed(3))}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val) && val >= 0.01 && val <= 3.14) {
+                      setParams((prev) => ({ ...prev, a_critical: val }));
+                    }
+                  }}
+                  className="w-12 bg-slate-950 border border-slate-700 text-rose-300 font-mono text-[10px] rounded px-1 py-0.5 text-center focus:border-rose-500 focus:outline-none"
+                  title="Valor exacto de a_critical (rad)"
+                />
+                <button
+                  id="btn-preset-pi-4"
+                  onClick={() => setParams((prev) => ({ ...prev, a_critical: Math.PI / 4 }))}
+                  className={`px-1 py-0.5 rounded text-[9px] border transition-colors ${
+                    Math.abs(params.a_critical - Math.PI / 4) < 0.01
+                      ? 'bg-rose-950 text-rose-200 border-rose-600 font-bold'
+                      : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                  }`}
+                  title="Restablecer A_cr = π/4 (0.785 rad)"
+                >
+                  π/4
+                </button>
+              </div>
+            </div>
 
             <button
               id="btn-colormap-diff-stress"
@@ -453,7 +514,10 @@ export default function App() {
             showFantasyPoint={showFantasyPoint}
             showRibbons={showRibbons}
             ccOpacity={ccOpacity}
+            isAnimatingDeformationExternal={isAnimatingDeformation}
             onCcOpacityChange={setCcOpacity}
+            onDeformationFactorChange={handleDeformationFactorChange}
+            onToggleDeformationAnimation={handleToggleDeformationAnimation}
             onViewModeChange={(m) => {
               setViewMode(m);
               if (m === 'interior_icc' && ccOpacity > 0.3) setCcOpacity(0.20);
@@ -531,6 +595,8 @@ export default function App() {
                 onChangeSclData={setSclData}
                 params={params}
                 onChangeParams={setParams}
+                isAnimatingDeformation={isAnimatingDeformation}
+                onToggleDeformationAnimation={handleToggleDeformationAnimation}
               />
             )}
 

@@ -8,7 +8,8 @@ import {
   generateRibbonGeometryData,
   generatePulsionVectorFieldData,
   PulsionVectorItem,
-  computeSclDeformation
+  computeSclDeformation,
+  updateHornTorusVertices
 } from '../utils/hornTorusMath';
 import {
   RotateCcw,
@@ -23,7 +24,10 @@ import {
   Waves,
   ArrowRight,
   Radio,
-  Scan
+  Scan,
+  Repeat,
+  Zap,
+  Sliders
 } from 'lucide-react';
 
 /**
@@ -93,8 +97,11 @@ interface HornTorusCanvasProps {
   showFantasyPoint: boolean;
   showRibbons: boolean;
   ccOpacity: number;
+  isAnimatingDeformationExternal?: boolean;
   onCcOpacityChange?: (opacity: number) => void;
   onViewModeChange?: (mode: ViewMode) => void;
+  onDeformationFactorChange?: (factor: number) => void;
+  onToggleDeformationAnimation?: () => void;
   onCapturePng: (type: 'standard' | 'deformed', dataUrl: string) => void;
 }
 
@@ -112,8 +119,11 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   showFantasyPoint,
   showRibbons = true,
   ccOpacity = 0.95,
+  isAnimatingDeformationExternal,
   onCcOpacityChange,
   onViewModeChange,
+  onDeformationFactorChange,
+  onToggleDeformationAnimation,
   onCapturePng
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -197,6 +207,160 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     paramsRef.current = params;
     viewModeRef.current = viewMode;
   }, [sclData, params, viewMode]);
+
+  // Deformation Animation State & Refs
+  const [isAnimatingDeformation, setIsAnimatingDeformation] = useState<boolean>(false);
+  const [animatedDeformFactor, setAnimatedDeformFactor] = useState<number>(params.deformation_factor);
+  const [deformAnimMode, setDeformAnimMode] = useState<'loop' | 'once'>('loop');
+  const [deformAnimSpeed, setDeformAnimSpeed] = useState<number>(1.0);
+  const [showDeformPanel, setShowDeformPanel] = useState<boolean>(false);
+
+  const isAnimatingDeformRef = useRef(false);
+  const deformProgressRef = useRef(params.deformation_factor > 0 ? 1.0 : 0.0);
+  const deformDirectionRef = useRef(1);
+  const deformAnimModeRef = useRef<'loop' | 'once'>('loop');
+  const deformAnimSpeedRef = useRef(1.0);
+  const currentAnimatedDeltaRef = useRef(params.deformation_factor);
+  const targetMaxDeformationRef = useRef(params.deformation_factor > 0.05 ? params.deformation_factor : 0.30);
+  const lastStateSyncTimeRef = useRef(0);
+  const colorMapRef = useRef(colorMap);
+  const onDeformationFactorChangeRef = useRef(onDeformationFactorChange);
+  const onViewModeChangeRef = useRef(onViewModeChange);
+  const onToggleDeformationAnimationRef = useRef(onToggleDeformationAnimation);
+
+  useEffect(() => {
+    colorMapRef.current = colorMap;
+  }, [colorMap]);
+
+  useEffect(() => {
+    onDeformationFactorChangeRef.current = onDeformationFactorChange;
+    onViewModeChangeRef.current = onViewModeChange;
+    onToggleDeformationAnimationRef.current = onToggleDeformationAnimation;
+  }, [onDeformationFactorChange, onViewModeChange, onToggleDeformationAnimation]);
+
+  useEffect(() => {
+    deformAnimModeRef.current = deformAnimMode;
+  }, [deformAnimMode]);
+
+  useEffect(() => {
+    deformAnimSpeedRef.current = deformAnimSpeed;
+  }, [deformAnimSpeed]);
+
+  useEffect(() => {
+    if (!isAnimatingDeformRef.current) {
+      if (params.deformation_factor > 0.05) {
+        targetMaxDeformationRef.current = params.deformation_factor;
+      }
+      currentAnimatedDeltaRef.current = params.deformation_factor;
+      setAnimatedDeformFactor(params.deformation_factor);
+    }
+  }, [params.deformation_factor]);
+
+  // Synchronize external animation trigger from App header if provided
+  useEffect(() => {
+    if (
+      isAnimatingDeformationExternal !== undefined &&
+      isAnimatingDeformationExternal !== isAnimatingDeformRef.current
+    ) {
+      handleToggleDeformationAnimation();
+    }
+  }, [isAnimatingDeformationExternal]);
+
+  const handleToggleDeformationAnimation = () => {
+    const nextState = !isAnimatingDeformRef.current;
+    setIsAnimatingDeformation(nextState);
+    isAnimatingDeformRef.current = nextState;
+
+    if (nextState) {
+      // If at end or near top, restart from 0
+      if (deformProgressRef.current >= 0.99) {
+        deformProgressRef.current = 0.0;
+        deformDirectionRef.current = 1;
+      }
+      // Ensure deformed or xray view is active so the morphing is clearly visible
+      if (viewModeRef.current === 'standard' && onViewModeChangeRef.current) {
+        onViewModeChangeRef.current('deformed');
+      }
+    } else {
+      // Paused: sync final deformation factor to parent
+      if (onDeformationFactorChangeRef.current) {
+        onDeformationFactorChangeRef.current(currentAnimatedDeltaRef.current);
+      }
+    }
+
+    if (onToggleDeformationAnimationRef.current) {
+      onToggleDeformationAnimationRef.current();
+    }
+  };
+
+  const handleResetToStandard = () => {
+    isAnimatingDeformRef.current = false;
+    setIsAnimatingDeformation(false);
+    deformProgressRef.current = 0.0;
+    deformDirectionRef.current = 1;
+    currentAnimatedDeltaRef.current = 0.0;
+    setAnimatedDeformFactor(0.0);
+
+    if (deformedMeshRef.current) {
+      const geo = deformedMeshRef.current.geometry;
+      updateHornTorusVertices(
+        geo.attributes.position.array as Float32Array,
+        geo.attributes.normal.array as Float32Array,
+        geo.attributes.color.array as Float32Array,
+        paramsRef.current,
+        sclDataRef.current,
+        0.0,
+        colorMapRef.current
+      );
+      geo.attributes.position.needsUpdate = true;
+      geo.attributes.normal.needsUpdate = true;
+      geo.attributes.color.needsUpdate = true;
+    }
+    if (onDeformationFactorChangeRef.current) {
+      onDeformationFactorChangeRef.current(0.0);
+    }
+  };
+
+  const handleSetToDeformed = () => {
+    isAnimatingDeformRef.current = false;
+    setIsAnimatingDeformation(false);
+    deformProgressRef.current = 1.0;
+    deformDirectionRef.current = -1;
+    const target = targetMaxDeformationRef.current > 0.05 ? targetMaxDeformationRef.current : 0.30;
+    currentAnimatedDeltaRef.current = target;
+    setAnimatedDeformFactor(target);
+
+    if (deformedMeshRef.current) {
+      const geo = deformedMeshRef.current.geometry;
+      updateHornTorusVertices(
+        geo.attributes.position.array as Float32Array,
+        geo.attributes.normal.array as Float32Array,
+        geo.attributes.color.array as Float32Array,
+        paramsRef.current,
+        sclDataRef.current,
+        target,
+        colorMapRef.current
+      );
+      geo.attributes.position.needsUpdate = true;
+      geo.attributes.normal.needsUpdate = true;
+      geo.attributes.color.needsUpdate = true;
+    }
+    if (onDeformationFactorChangeRef.current) {
+      onDeformationFactorChangeRef.current(target);
+    }
+  };
+
+  const handleRestartDeformTransition = () => {
+    deformProgressRef.current = 0.0;
+    deformDirectionRef.current = 1;
+    currentAnimatedDeltaRef.current = 0.0;
+    setAnimatedDeformFactor(0.0);
+    isAnimatingDeformRef.current = true;
+    setIsAnimatingDeformation(true);
+    if (viewModeRef.current === 'standard' && onViewModeChangeRef.current) {
+      onViewModeChangeRef.current('deformed');
+    }
+  };
 
   // Camera spherical angles
   const rotationAngles = useRef({ theta: 0.65, phi: 0.75, radius: 9.0 });
@@ -314,6 +478,89 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         updateCameraPosition();
       }
 
+      // Smooth Deformation Animation: Transitions Horn Torus between Standard Geometric shape (delta=0) and Deformed state
+      if (isAnimatingDeformRef.current) {
+        const speed = deformAnimSpeedRef.current;
+        // Base transition duration: 2.8s at 1.0x speed
+        const progressStep = (delta / 2.8) * speed;
+
+        if (deformAnimModeRef.current === 'loop') {
+          deformProgressRef.current += progressStep * deformDirectionRef.current;
+          if (deformProgressRef.current >= 1.0) {
+            deformProgressRef.current = 1.0;
+            deformDirectionRef.current = -1;
+          } else if (deformProgressRef.current <= 0.0) {
+            deformProgressRef.current = 0.0;
+            deformDirectionRef.current = 1;
+          }
+        } else {
+          deformProgressRef.current += progressStep;
+          if (deformProgressRef.current >= 1.0) {
+            deformProgressRef.current = 1.0;
+            isAnimatingDeformRef.current = false;
+            setIsAnimatingDeformation(false);
+            if (onToggleDeformationAnimationRef.current) {
+              onToggleDeformationAnimationRef.current();
+            }
+          }
+        }
+
+        const t = Math.max(0.0, Math.min(1.0, deformProgressRef.current));
+        // Sine ease-in-out interpolation: smooth acceleration & deceleration
+        const easedT = 0.5 * (1.0 - Math.cos(Math.PI * t));
+        const maxDelta = Math.max(0.15, targetMaxDeformationRef.current);
+        const animatedDelta = easedT * maxDelta;
+        currentAnimatedDeltaRef.current = animatedDelta;
+
+        // In-place 60 FPS update of 3D geometry buffers
+        if (deformedMeshRef.current) {
+          const geo = deformedMeshRef.current.geometry;
+          const posAttr = geo.attributes.position as THREE.BufferAttribute;
+          const normAttr = geo.attributes.normal as THREE.BufferAttribute;
+          const colAttr = geo.attributes.color as THREE.BufferAttribute;
+          if (posAttr && normAttr && colAttr) {
+            updateHornTorusVertices(
+              posAttr.array as Float32Array,
+              normAttr.array as Float32Array,
+              colAttr.array as Float32Array,
+              paramsRef.current,
+              sclDataRef.current,
+              animatedDelta,
+              colorMapRef.current
+            );
+            posAttr.needsUpdate = true;
+            normAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+          }
+        }
+
+        if (xrayCcMeshRef.current && deformedMeshRef.current) {
+          const geo = xrayCcMeshRef.current.geometry;
+          if (geo.attributes.position) {
+            geo.attributes.position.needsUpdate = true;
+            geo.attributes.normal.needsUpdate = true;
+            geo.attributes.color.needsUpdate = true;
+          }
+        }
+        if (xrayIccMeshRef.current && deformedMeshRef.current) {
+          const geo = xrayIccMeshRef.current.geometry;
+          if (geo.attributes.position) {
+            geo.attributes.position.needsUpdate = true;
+            geo.attributes.normal.needsUpdate = true;
+            geo.attributes.color.needsUpdate = true;
+          }
+        }
+
+        // Throttled UI state synchronization (~18 fps)
+        if (currentTime - lastStateSyncTimeRef.current > 55 || !isAnimatingDeformRef.current) {
+          lastStateSyncTimeRef.current = currentTime;
+          setAnimatedDeformFactor(animatedDelta);
+          if (onDeformationFactorChangeRef.current) {
+            onDeformationFactorChangeRef.current(animatedDelta);
+          }
+        }
+      }
+
       // Update particle vortex flow
       if (particlesRef.current && showVortexFlowRef.current) {
         particlesRef.current.visible = true;
@@ -393,7 +640,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             const visualScale = 25.0;
             const effectiveA = lac.a * visualScale;
             const isDeform = (viewModeRef.current === 'deformed' || viewModeRef.current === 'comparison');
-            const effectiveDeform = isDeform ? paramsRef.current.deformation_factor : 0.0;
+            const effectiveDeform = isDeform
+              ? (isAnimatingDeformRef.current ? currentAnimatedDeltaRef.current : paramsRef.current.deformation_factor)
+              : 0.0;
             const phi_I = lac.v_I % (2 * Math.PI);
 
             for (let i = 0; i < count; i++) {
@@ -501,6 +750,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
+    if (isAnimatingDeformRef.current) return;
 
     // Clean up previous meshes
     if (standardMeshRef.current) scene.remove(standardMeshRef.current);
@@ -1149,6 +1399,148 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             </button>
           )}
 
+          {/* Deformation Animation Controls */}
+          <div className="relative flex items-center">
+            <button
+              id="btn-animate-deformation"
+              onClick={handleToggleDeformationAnimation}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+                isAnimatingDeformation
+                  ? 'bg-amber-500 text-slate-950 border border-amber-300 ring-2 ring-amber-400/40 animate-pulse'
+                  : 'bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700/80 hover:border-amber-500'
+              }`}
+              title="Animar la transición suave del parámetro 'deformation_factor' desde el toro geométrico estándar (δ=0) hasta el estado deformado psicométrico"
+            >
+              {isAnimatingDeformation ? (
+                <Pause className="w-3.5 h-3.5 text-slate-950 fill-current" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              )}
+              <span>
+                {isAnimatingDeformation
+                  ? `Pausar (δ: ${animatedDeformFactor.toFixed(2)})`
+                  : `Animar δ (${animatedDeformFactor.toFixed(2)})`}
+              </span>
+            </button>
+
+            <button
+              id="btn-deformation-settings-toggle"
+              onClick={() => setShowDeformPanel(!showDeformPanel)}
+              className={`ml-0.5 p-1.5 rounded-md border text-xs transition-colors ${
+                showDeformPanel
+                  ? 'bg-amber-900 text-amber-200 border-amber-600'
+                  : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border-slate-700'
+              }`}
+              title="Ajustes de animación: velocidad, modo bucle/único, saltos directos a δ=0 y δ nominal"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Floating Dropdown / Settings Panel for Deformation Animation */}
+            {showDeformPanel && (
+              <div className="absolute top-full mt-1.5 right-0 bg-slate-900/98 backdrop-blur-md border border-amber-500/60 rounded-xl p-3 shadow-2xl text-xs font-mono text-slate-200 z-50 w-72 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                  <span className="font-semibold text-amber-300 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    Transición deformation_factor (δ)
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-200 border border-amber-800">
+                    δ: {animatedDeformFactor.toFixed(3)}
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>Estándar (δ=0.0)</span>
+                    <span>Deformado (δ={targetMaxDeformationRef.current.toFixed(2)})</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-400 via-amber-400 to-rose-500 rounded-full transition-all duration-75"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, (animatedDeformFactor / (targetMaxDeformationRef.current || 0.3)) * 100))}%`
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Mode Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400">Modo de Animación:</label>
+                  <div className="grid grid-cols-2 gap-1 text-[11px]">
+                    <button
+                      onClick={() => setDeformAnimMode('loop')}
+                      className={`py-1 px-2 rounded border flex items-center justify-center gap-1 transition-colors ${
+                        deformAnimMode === 'loop'
+                          ? 'bg-amber-950 text-amber-200 border-amber-600 font-semibold'
+                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <Repeat className="w-3 h-3" />
+                      <span>Bucle Continuo</span>
+                    </button>
+                    <button
+                      onClick={() => setDeformAnimMode('once')}
+                      className={`py-1 px-2 rounded border flex items-center justify-center gap-1 transition-colors ${
+                        deformAnimMode === 'once'
+                          ? 'bg-amber-950 text-amber-200 border-amber-600 font-semibold'
+                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <span>Transición 1x</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Speed Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400">Velocidad de Morfología:</label>
+                  <div className="grid grid-cols-3 gap-1 text-[10px]">
+                    {[0.5, 1.0, 2.0].map((spd) => (
+                      <button
+                        key={spd}
+                        onClick={() => setDeformAnimSpeed(spd)}
+                        className={`py-1 rounded border transition-colors ${
+                          deformAnimSpeed === spd
+                            ? 'bg-cyan-950 text-cyan-200 border-cyan-500 font-semibold'
+                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                        }`}
+                      >
+                        {spd}x {spd === 0.5 ? '(Lento)' : spd === 2.0 ? '(Rápido)' : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Instant Jump & Replay buttons */}
+                <div className="pt-1 border-t border-slate-800 flex items-center justify-between gap-1 text-[10px]">
+                  <button
+                    onClick={handleResetToStandard}
+                    className="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors text-center"
+                    title="Fijar δ = 0 inmediatamente (Toro Estándar puro)"
+                  >
+                    δ = 0 (Estándar)
+                  </button>
+                  <button
+                    onClick={handleRestartDeformTransition}
+                    className="flex-1 py-1 rounded bg-amber-950 hover:bg-amber-900 text-amber-200 border border-amber-700 transition-colors text-center font-medium"
+                    title="Reiniciar morfología suave desde 0 hasta el valor deformado"
+                  >
+                    0 ➔ δ (Animar)
+                  </button>
+                  <button
+                    onClick={handleSetToDeformed}
+                    className="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors text-center"
+                    title="Fijar δ = nominal (Deformado clínico)"
+                  >
+                    δ = Nominal
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             id="toggle-rotation-btn"
             onClick={() => setIsRotating(!isRotating)}
@@ -1198,6 +1590,43 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Live Deformation Morphing HUD Indicator when animation is active */}
+      {isAnimatingDeformation && (
+        <div className="absolute top-14 left-3.5 pointer-events-auto bg-slate-900/95 backdrop-blur-md border border-amber-500/80 rounded-xl p-2.5 shadow-2xl text-xs font-mono z-30 max-w-xs animate-in fade-in duration-200 space-y-1.5">
+          <div className="flex items-center justify-between text-amber-300 font-bold border-b border-slate-800 pb-1.5">
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+              <span>Morfología Psicométrica Activa</span>
+            </span>
+            <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-200 border border-amber-700 text-[10px]">
+              δ = {animatedDeformFactor.toFixed(3)}
+            </span>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex justify-between text-[9.5px] text-slate-400">
+              <span className={animatedDeformFactor < 0.05 ? 'text-cyan-300 font-bold' : ''}>Toro Estándar (δ=0)</span>
+              <span className={animatedDeformFactor > (targetMaxDeformationRef.current || 0.3) * 0.95 ? 'text-rose-400 font-bold' : ''}>
+                Deformado (δ={(targetMaxDeformationRef.current || 0.3).toFixed(2)})
+              </span>
+            </div>
+            <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-400 via-amber-400 to-rose-500 rounded-full transition-all duration-75"
+                style={{
+                  width: `${Math.min(100, Math.max(0, (animatedDeformFactor / (targetMaxDeformationRef.current || 0.3)) * 100))}%`
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-[9.5px] text-slate-400 pt-0.5 border-t border-slate-800/80">
+            <span>Modo: <span className="text-cyan-300">{deformAnimMode === 'loop' ? 'Bucle Continuo' : 'Paso Único'}</span></span>
+            <span>Velocidad: <span className="text-amber-300">{deformAnimSpeed}x</span></span>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Floating Lacanian & Differential Stress Legend */}
       <div className="absolute bottom-3.5 left-3.5 pointer-events-none flex flex-col gap-2">

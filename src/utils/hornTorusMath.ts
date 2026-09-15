@@ -1,31 +1,58 @@
-import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates, ColorMapMode, TScoreCategory } from '../types';
+import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates, ColorMapMode, TScoreCategory, CasulloPerezNormRow } from '../types';
 
 /**
- * Normaliza un puntaje T del SCL-90-R al rango [0, 1] usando el baremo estándar de adultos:
- * Media poblacional T = 50 (dentro de la normalidad)
- * Límite clínico severo T = 80 (+3 Desviaciones Estándar)
- * Valores T < 60 corresponden al rango normal poblacional
- * Fórmula: max(0, min(1, (T - 50) / 30))
+ * Tabla Normativa Baremo Casullo - Pérez (2008)
+ * SCL-90-R Adaptación UBA / CONICET.
+ * Varones adultos (25-60 años), Población General Buenos Aires y Conurbano. N: 379.
  */
-export function normalizeSCL90RTScore(tScore: number): number {
-  const norm = Math.max(0, Math.min(1, (tScore - 50) / 30));
+export const BAREMO_CASULLO_PEREZ_2008_VARONES: CasulloPerezNormRow[] = [
+  { T: 30, SOM: 0.00, OBS: 0.00, SI: 0.00, DEP: 0.00, ANS: 0.00, HOS: 0.00, FOB: 0.00, PAR: 0.00, PSIC: 0.00, IGS: 0.11, TSP: 5.60, IMSP: 1.05 },
+  { T: 35, SOM: 0.00, OBS: 0.20, SI: 0.00, DEP: 0.08, ANS: 0.10, HOS: 0.00, FOB: 0.00, PAR: 0.00, PSIC: 0.00, IGS: 0.17, TSP: 10.00, IMSP: 1.22 },
+  { T: 40, SOM: 0.08, OBS: 0.30, SI: 0.11, DEP: 0.23, ANS: 0.20, HOS: 0.17, FOB: 0.00, PAR: 0.17, PSIC: 0.00, IGS: 0.29, TSP: 16.00, IMSP: 1.36 },
+  { T: 45, SOM: 0.25, OBS: 0.50, SI: 0.33, DEP: 0.38, ANS: 0.40, HOS: 0.33, FOB: 0.00, PAR: 0.33, PSIC: 0.20, IGS: 0.41, TSP: 23.80, IMSP: 1.56 },
+  { T: 50, SOM: 0.42, OBS: 0.80, SI: 0.56, DEP: 0.69, ANS: 0.60, HOS: 0.67, FOB: 0.14, PAR: 0.67, PSIC: 0.30, IGS: 0.61, TSP: 32.00, IMSP: 1.75 },
+  { T: 55, SOM: 0.75, OBS: 1.30, SI: 0.89, DEP: 1.02, ANS: 0.90, HOS: 1.00, FOB: 0.29, PAR: 1.17, PSIC: 0.50, IGS: 0.88, TSP: 41.20, IMSP: 2.00 },
+  { T: 60, SOM: 1.08, OBS: 1.70, SI: 1.33, DEP: 1.38, ANS: 1.30, HOS: 1.33, FOB: 0.57, PAR: 1.50, PSIC: 0.90, IGS: 1.10, TSP: 52.00, IMSP: 2.25 },
+  { T: 63, SOM: 1.25, OBS: 1.90, SI: 1.56, DEP: 1.62, ANS: 1.60, HOS: 1.67, FOB: 0.86, PAR: 1.83, PSIC: 1.20, IGS: 1.32, TSP: 57.00, IMSP: 2.40 },
+  { T: 65, SOM: 1.42, OBS: 2.20, SI: 1.67, DEP: 1.77, ANS: 1.70, HOS: 1.83, FOB: 1.00, PAR: 2.07, PSIC: 1.40, IGS: 1.49, TSP: 61.00, IMSP: 2.53 },
+  { T: 70, SOM: 1.75, OBS: 2.60, SI: 2.38, DEP: 2.42, ANS: 2.28, HOS: 2.57, FOB: 1.43, PAR: 2.67, PSIC: 1.74, IGS: 1.84, TSP: 75.00, IMSP: 2.91 },
+  { T: 75, SOM: 2.31, OBS: 3.40, SI: 3.00, DEP: 2.88, ANS: 2.67, HOS: 3.17, FOB: 1.88, PAR: 2.95, PSIC: 2.17, IGS: 2.17, TSP: 79.72, IMSP: 3.30 },
+  { T: 80, SOM: 2.50, OBS: 3.60, SI: 3.22, DEP: 3.15, ANS: 2.70, HOS: 3.83, FOB: 2.71, PAR: 3.17, PSIC: 2.30, IGS: 2.22, TSP: 85.00, IMSP: 3.65 }
+];
+
+/**
+ * Normaliza un puntaje T del SCL-90-R al rango [0, max_normalized].
+ * Baremo estándar (Casullo & Pérez 2008):
+ * - T = 50 (media poblacional) → 0.0
+ * - T = 63 (umbral de riesgo clínico, p90) → 0.26
+ * - T = 70 (moderado) → 0.40
+ * - T = 80 (límite clínico del baremo) → 0.60
+ * - T = 100 (máximo clínico extremo / psicosis) → 1.00
+ * - T > 80 y hasta 150+ → valores > 1.0 diferenciables (hasta max_normalized = 2.0)
+ * 
+ * Fórmula: Math.max(0, Math.min(maxNormalized, (T - 50) / 50))
+ */
+export function normalizeSCL90RTScore(tScore: number, maxNormalized: number = 2.0): number {
+  const norm = Math.max(0, Math.min(maxNormalized, (tScore - 50) / 50));
   return parseFloat(norm.toFixed(4));
 }
 
 /**
- * Convierte un valor normalizado [0, 1] a su puntaje T correspondiente según el baremo de adultos:
- * T = round(50 + 30 * norm)
+ * Convierte un valor normalizado a su puntaje T correspondiente:
+ * T = round(50 + 50 * norm)
  */
 export function denormalizeSCL90RTScore(normVal: number): number {
-  return Math.round(50 + 30 * Math.max(0, Math.min(1, normVal)));
+  return Math.round(50 + 50 * Math.max(0, normVal));
 }
 
 /**
- * Clasificación e interpretación clínica del SCL-90-R con baremo de adultos:
- * - T < 60: Normal (media poblacional T=50, sin significación clínica)
- * - T 60-69: Leve (en riesgo / sospecha sintomática, +1 a +2 DE)
- * - T 70-79: Moderado (clínicamente significativo, +2 a +3 DE)
- * - T ≥ 80: Severo (caso clínico extremo, ≥ +3 DE)
+ * Clasificación e interpretación clínica del SCL-90-R con baremo UBA/CONICET (Casullo & Pérez, 2008):
+ * - T < 60: Normal (media poblacional T=50, asintomático)
+ * - T 60-62: Normal-Alto / Subclínico
+ * - T 63-69: EN RIESGO (T ≥ 63 es percentil 90, umbral de riesgo clínico)
+ * - T 70-79: Moderado (+2 a +3 Desviaciones Estándar)
+ * - T 80-84: Severo (+3 DE, límite de baremo estándar)
+ * - T ≥ 85 o T > 80 (ej. T=100): ⚠ EN RIESGO (ALERTA) / FUERA DE BAREMO
  */
 export function getTScoreInterpretation(tScore: number): TScoreCategory {
   if (tScore < 60) {
@@ -36,29 +63,51 @@ export function getTScoreInterpretation(tScore: number): TScoreCategory {
       textColor: 'text-emerald-400',
       description: 'Población normal asintomática (T < 60, media estándar 50).'
     };
+  } else if (tScore < 63) {
+    return {
+      tier: 'Leve',
+      rangeLabel: 'T 60-62 (Subclínico)',
+      badgeClass: 'bg-teal-950/80 text-teal-300 border-teal-700/80',
+      textColor: 'text-teal-400',
+      description: 'Puntaje en rango superior pero por debajo del umbral de riesgo clínico.'
+    };
   } else if (tScore < 70) {
     return {
       tier: 'Leve',
-      rangeLabel: 'T 60-69 (Leve)',
-      badgeClass: 'bg-yellow-950/80 text-yellow-300 border-yellow-700/80',
+      rangeLabel: 'T 63-69 (EN RIESGO)',
+      badgeClass: 'bg-yellow-950/80 text-yellow-300 border-yellow-700/80 ring-1 ring-yellow-500/30 font-semibold',
       textColor: 'text-yellow-400',
-      description: 'Riesgo clínico leve o compensado (+1 a +2 Desviaciones Estándar).'
+      description: 'EN RIESGO: Supera el umbral normativo de T ≥ 63 (Percentil 90 en baremo UBA).',
+      isRisk: true
     };
   } else if (tScore < 80) {
     return {
       tier: 'Moderado',
-      rangeLabel: 'T 70-79 (Moderado)',
-      badgeClass: 'bg-orange-950/80 text-orange-300 border-orange-700/80',
+      rangeLabel: 'T 70-79 (Moderado / Riesgo)',
+      badgeClass: 'bg-orange-950/80 text-orange-300 border-orange-700/80 ring-1 ring-orange-500/40 font-semibold',
       textColor: 'text-orange-400',
-      description: 'Cuadro sintomático clínico moderado (+2 a +3 Desviaciones Estándar).'
+      description: 'Cuadro sintomático moderado-severo (+2 a +3 Desviaciones Estándar).',
+      isRisk: true
+    };
+  } else if (tScore < 85) {
+    return {
+      tier: 'Severo',
+      rangeLabel: 'T 80-84 (Severo / Techo Baremo)',
+      badgeClass: 'bg-rose-950/80 text-rose-300 border-rose-700/80 ring-1 ring-rose-500/50 font-bold',
+      textColor: 'text-rose-400',
+      description: 'Severidad clínica extrema en el límite superior del baremo normativo.',
+      isRisk: true,
+      isAlert: true
     };
   } else {
     return {
-      tier: 'Severo',
-      rangeLabel: 'T ≥ 80 (Severo)',
-      badgeClass: 'bg-rose-950/80 text-rose-300 border-rose-700/80',
-      textColor: 'text-rose-400',
-      description: 'Severidad clínica extrema / crisis de ruptura (≥ +3 Desviaciones Estándar).'
+      tier: 'Extremo',
+      rangeLabel: 'T > 80 (⚠ ALERTA / Fuera de Baremo)',
+      badgeClass: 'bg-red-950 text-red-200 border border-red-500 ring-2 ring-red-500/60 font-bold animate-pulse',
+      textColor: 'text-red-400',
+      description: '⚠ ALERTA PRIORITARIA: Puntaje fuera de baremo (T > 80, descompensación psicótica o afectiva severa).',
+      isRisk: true,
+      isAlert: true
     };
   }
 }
@@ -66,17 +115,17 @@ export function getTScoreInterpretation(tScore: number): TScoreCategory {
 /**
  * Normaliza un diccionario de datos SCL-90-R expresado en puntajes T
  */
-export function normalizeSCL90RData(tData: Record<string, number>): SCL90RData {
+export function normalizeSCL90RData(tData: Record<string, number>, maxNormalized: number = 2.0): SCL90RData {
   const result: Partial<SCL90RData> = {};
   for (const key of Object.keys(tData) as (keyof SCL90RData)[]) {
     const val = tData[key] ?? 50;
-    result[key] = normalizeSCL90RTScore(val);
+    result[key] = normalizeSCL90RTScore(val, maxNormalized);
   }
   return result as SCL90RData;
 }
 
 /**
- * Convierte un objeto SCL-90-R con valores normalizados [0, 1] a Puntajes T del baremo de adultos
+ * Convierte un objeto SCL-90-R con valores normalizados a Puntajes T del baremo de adultos
  */
 export function sclDataToTScores(data: SCL90RData): Record<keyof SCL90RData, number> {
   const result: Partial<Record<keyof SCL90RData, number>> = {};
@@ -107,9 +156,45 @@ export interface ClinicalPreset {
   description: string;
   tScores: Record<keyof SCL90RData, number>;
   data: SCL90RData;
+  patientName?: string;
+  isRiskCase?: boolean;
 }
 
 export const CLINICAL_PRESETS: ClinicalPreset[] = [
+  {
+    name: "Caso Ross, Matías Gabriel (30a, Varón UBA/CONICET)",
+    description: "Protocolo UBA: PSIC > 80 (T=100 ⚠ ALERTA), DEP T=73, SI T=73, OBS T=70, IGS T=74. Riesgo de ruptura y trauma reactivado",
+    patientName: "Ross, Matías Gabriel",
+    isRiskCase: true,
+    tScores: {
+      "Somatización": 63,
+      "Obsesión-Compulsión": 70,
+      "Sensibilidad Interpersonal": 73,
+      "Depresión": 73,
+      "Ansiedad": 65,
+      "Hostilidad": 62,
+      "Ansiedad Fóbica": 60,
+      "Ideación Paranoide": 69,
+      "Psicoticismo": 100, // T > 80 fuera de baremo (alerta clínica extrema)
+      "GSI": 74,
+      "PST": 69,
+      "PSDI": 65
+    },
+    data: {
+      "Somatización": 0.26,
+      "Obsesión-Compulsión": 0.40,
+      "Sensibilidad Interpersonal": 0.46,
+      "Depresión": 0.46,
+      "Ansiedad": 0.30,
+      "Hostilidad": 0.24,
+      "Ansiedad Fóbica": 0.20,
+      "Ideación Paranoide": 0.38,
+      "Psicoticismo": 1.00, // o hasta 2.0
+      "GSI": 0.48,
+      "PST": 0.38,
+      "PSDI": 0.30
+    }
+  },
   {
     name: "Caso SCL-90-R Real (Baremo Adultos)",
     description: "Puntajes T clínicos de adultos: Ansiedad T=82, Psicoticismo T=85, Depresión T=78",
@@ -128,18 +213,18 @@ export const CLINICAL_PRESETS: ClinicalPreset[] = [
       "PSDI": 70
     },
     data: {
-      "Somatización": 0.50,
-      "Obsesión-Compulsión": 0.73,
-      "Sensibilidad Interpersonal": 0.27,
-      "Depresión": 0.93,
-      "Ansiedad": 1.00,
-      "Hostilidad": 0.17,
-      "Ansiedad Fóbica": 0.60,
-      "Ideación Paranoide": 0.67,
-      "Psicoticismo": 1.00,
-      "GSI": 0.83,
-      "PST": 0.33,
-      "PSDI": 0.67
+      "Somatización": 0.30,
+      "Obsesión-Compulsión": 0.44,
+      "Sensibilidad Interpersonal": 0.16,
+      "Depresión": 0.56,
+      "Ansiedad": 0.64,
+      "Hostilidad": 0.10,
+      "Ansiedad Fóbica": 0.36,
+      "Ideación Paranoide": 0.40,
+      "Psicoticismo": 0.70,
+      "GSI": 0.50,
+      "PST": 0.20,
+      "PSDI": 0.40
     }
   },
   {
@@ -757,9 +842,19 @@ export function computeSclDeformation(
   const wDep = dep * 0.18 * Math.sin(v);
   const wAnx = anx * 0.14 * Math.sin(8 * u) * Math.cos(2 * v);
 
+  // Acumulación de perturbaciones armónicas
   const rawDeform = wSom + wOC + wPsy + wGSI + wPST + wPSDI + wDep + wAnx;
-  const factor = 1.0 + deformationFactor * rawDeform;
-  const stress = Math.min(1.0, Math.max(0.0, Math.abs(rawDeform) * (1 + psdi * 0.5)));
+
+  // Saturación sigmoidal suave (Math.tanh) para evitar que perturbaciones acumuladas
+  // con puntuaciones fuera de escala (T > 80, T=100 o valores normalizados > 1.0) causen
+  // radios negativos o singularidades geométricas que rompan o inviertan el toroide:
+  const safeScale = 1.45;
+  const boundedDeform = Math.tanh(rawDeform / safeScale) * safeScale;
+
+  // Aseguramos un factor mínimo estríctamente positivo (factor >= 0.15)
+  // para que el radio r = a(1 + cos(v)) * factor nunca colapse a cero ni se invierta
+  const factor = Math.max(0.15, 1.0 + deformationFactor * boundedDeform);
+  const stress = Math.min(1.0, Math.max(0.0, Math.abs(boundedDeform) * (0.8 + psdi * 0.4)));
 
   return { factor, stress };
 }
@@ -982,9 +1077,109 @@ export function generateHornTorusGeometry(
 }
 
 /**
+ * Updates positions, normals, and colors buffers in-place for a Horn Torus mesh
+ * based on the dynamic deformation factor delta.
+ * Highly optimized for 60fps smooth animation transitions between standard and deformed states.
+ */
+export function updateHornTorusVertices(
+  positions: Float32Array,
+  normals: Float32Array,
+  colors: Float32Array,
+  params: ModelParams,
+  sclData: SCL90RData,
+  currentDeformation: number,
+  colorMode: ColorMapMode = 'angustia'
+) {
+  const { gridResolution, a_critical } = params;
+  const lacanian = calculateLacanianParameters(sclData, params);
+  const visualScale = 25.0;
+  const effectiveA = lacanian.a * visualScale;
+
+  const numU = gridResolution;
+  const numV = gridResolution;
+  const maxAngustia = Math.sqrt((2 * Math.PI) ** 2 + (2 * Math.PI) ** 2);
+
+  let ptr = 0;
+
+  for (let i = 0; i <= numV; i++) {
+    const v = (i / numV) * 2 * Math.PI;
+    const cosV = Math.cos(v);
+    const sinV = Math.sin(v);
+    const r0 = effectiveA * (1 + cosV);
+    const z0 = effectiveA * sinV;
+
+    for (let j = 0; j <= numU; j++) {
+      const u = (j / numU) * 2 * Math.PI;
+      const cosU = Math.cos(u);
+      const sinU = Math.sin(u);
+
+      let x = r0 * cosU;
+      let y = r0 * sinU;
+      let z = z0;
+
+      const { factor, stress } = computeSclDeformation(u, v, sclData, currentDeformation);
+
+      if (currentDeformation > 0) {
+        x *= factor;
+        y *= factor;
+        z *= 1.0 + (factor - 1.0) * 0.85;
+      }
+
+      positions[ptr] = x;
+      positions[ptr + 1] = y;
+      positions[ptr + 2] = z;
+
+      // Outward normal vector
+      let nx = cosV * cosU;
+      let ny = cosV * sinU;
+      let nz = sinV;
+
+      if (currentDeformation > 0) {
+        nx += (factor - 1) * 0.5 * cosU;
+        ny += (factor - 1) * 0.5 * sinU;
+        nz += (factor - 1) * 0.4 * sinV;
+      }
+
+      const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+      normals[ptr] = nx / nLen;
+      normals[ptr + 1] = ny / nLen;
+      normals[ptr + 2] = nz / nLen;
+
+      // Color mapping
+      const angustia = calculateAngustia(u, v);
+      const isRupture = angustia <= a_critical;
+      const { tension: diffTension } = computeDifferentialTension(
+        u,
+        v,
+        sclData,
+        currentDeformation,
+        effectiveA
+      );
+
+      const rgb = getVertexColor(
+        angustia,
+        isRupture,
+        stress,
+        diffTension,
+        v,
+        maxAngustia,
+        a_critical,
+        colorMode
+      );
+
+      colors[ptr] = rgb.r;
+      colors[ptr + 1] = rgb.g;
+      colors[ptr + 2] = rgb.b;
+
+      ptr += 3;
+    }
+  }
+}
+
+/**
  * Color mapper based on Angustia A(u, v), Rupture zones, Stress, and Differential Stress
  */
-function getVertexColor(
+export function getVertexColor(
   angustia: number,
   isRupture: boolean,
   stress: number,
@@ -1320,28 +1515,44 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
 
-def normalize_scl90r_t_scores(scl90r_data):
+def normalize_scl90r_t_scores(scl90r_data, max_normalized=2.0):
     """
-    Normaliza puntajes T del SCL-90-R al rango [0,1] usando el baremo de adultos.
-    Baremo estándar: T=50 (media poblacional), T=80 (límite clínico severo).
-    Valores T < 60 corresponden al rango normal.
-    Fórmula: max(0, min(1, (T - 50) / 30))
+    Normaliza puntajes T del SCL-90-R al rango [0, max_normalized] según el baremo de adultos.
+    Baremo estándar (Casullo & Pérez, 2008):
+      - T = 50 (media poblacional) -> 0.0
+      - T = 63 (umbral de riesgo clínico p90) -> 0.26
+      - T = 70 (moderado) -> 0.40
+      - T = 80 (límite clínico del baremo) -> 0.60
+      - T = 100 (máximo clínico extremo / descompensación) -> 1.00
+      - T > 80 (hasta 150+) -> valores > 1.0 diferenciables (hasta max_normalized)
+    
+    Args:
+        scl90r_data (dict): Diccionario con puntajes T del SCL-90-R.
+        max_normalized (float): Límite superior normalizado (default 2.0).
+
+    Returns:
+        dict: Valores normalizados entre 0 y max_normalized.
     """
     normalized = {}
     for key, value in scl90r_data.items():
-        normalized_value = max(0.0, min(1.0, (float(value) - 50.0) / 30.0))
-        normalized[key] = round(normalized_value, 4)
+        try:
+            t_score = float(value)
+            normalized_value = (t_score - 50.0) / 50.0
+            normalized_value = max(0.0, min(max_normalized, normalized_value))
+            normalized[key] = round(normalized_value, 4)
+        except (ValueError, TypeError):
+            normalized[key] = value
     return normalized
 
 class HornTorusICCModel:
     """
     Clase principal para modelar y visualizar el Horn Torus del Icc
-    con datos del SCL-90-R y Baremo de Adultos.
+    con datos del SCL-90-R y Baremo de Adultos (Casullo & Pérez 2008).
     """
 
     def __init__(self, scl90r_data=None, a_scale=0.1, u_scale=2*np.pi, v_scale=np.pi,
-                 A_cr=np.pi/4, auto_normalize=True):
-        # Datos por defecto del SCL-90-R (valores normalizados entre 0 y 1)
+                 A_cr=np.pi/4, auto_normalize=True, max_normalized=2.0):
+        # Datos por defecto del SCL-90-R (valores normalizados)
         self.default_scl90r_data = {
             "Somatización": 0.8,
             "Obsesión-Compulsión": 0.9,
@@ -1357,16 +1568,17 @@ class HornTorusICCModel:
             "PSDI": 0.9
         }
 
+        self.max_normalized = max_normalized
         data_input = scl90r_data if scl90r_data else self.default_scl90r_data
 
         # Si se proporcionan puntajes T (valores > 1), normalizar con baremo de adultos
         if auto_normalize and any(float(v) > 1.0 for v in data_input.values()):
-            print("🔍 Detectados puntajes T del SCL-90-R. Normalizando con baremo de adultos [T=50 -> 0, T=80 -> 1]...")
-            self.scl90r_data = normalize_scl90r_t_scores(data_input)
+            print(f"🔍 Detectados puntajes T del SCL-90-R. Normalizando con baremo de adultos [T=50 -> 0, T=80 -> 0.6, max_normalized={max_normalized}]...")
+            self.scl90r_data = normalize_scl90r_t_scores(data_input, max_normalized=max_normalized)
             self.raw_t_scores = data_input
         else:
             self.scl90r_data = data_input
-            self.raw_t_scores = {k: round(50 + 30 * float(v)) for k, v in data_input.items()}
+            self.raw_t_scores = {k: round(50 + 50 * float(v)) for k, v in data_input.items()}
 
         self.a_scale = a_scale
         self.u_scale = u_scale
@@ -1555,11 +1767,15 @@ class HornTorusICCModel:
         x, y, z, u, v = self.horn_torus_surface()
         angustia = self.calculate_angustia(u, v)
 
-        # Deformación armónica basada en SCL-90-R
+        # Deformación armónica basada en SCL-90-R con acotamiento de seguridad
         som = self.scl90r_data.get("Somatización", 0.8)
         psy = self.scl90r_data.get("Psicoticismo", 0.9)
         oc = self.scl90r_data.get("Obsesión-Compulsión", 0.9)
-        deform = 1.0 + deformation_factor * (som * 0.25 * np.cos(3*v) + oc * 0.25 * np.sin(4*u) + psy * 0.35 * np.sin(u + v))
+        raw_deform = (som * 0.25 * np.cos(3*v) + oc * 0.25 * np.sin(4*u) + psy * 0.35 * np.sin(u + v))
+        
+        # Bounded deformation (tanh) para evitar que T>80 o deformaciones intensas rompan el toroide
+        bounded_deform = np.tanh(raw_deform / 1.45) * 1.45
+        deform = np.maximum(0.15, 1.0 + deformation_factor * bounded_deform)
 
         xd = x * deform
         yd = y * deform
@@ -1595,7 +1811,8 @@ class HornTorusICCModel:
         plt.close()
 
 if __name__ == '__main__':
-    # Puntajes T reales con Baremo de Adultos (T < 60 Normal, T=50 Media, T>=80 Severo)
+    # Puntajes T reales con Baremo de Adultos (Casullo & Pérez 2008, UBA)
+    # Media T=50, Riesgo T>=63, Severo T>=80, Alerta T>80
     scl90r_t_scores = {
         "Somatización": ${tScores["Somatización"]},
         "Obsesión-Compulsión": ${tScores["Obsesión-Compulsión"]},
@@ -1611,12 +1828,13 @@ if __name__ == '__main__':
         "PSDI": ${tScores["PSDI"]}
     }
 
-    print("Iniciando modelo Horn Torus con Baremo de Adultos...")
+    print("Iniciando modelo Horn Torus con Baremo de Adultos (max_normalized=2.0)...")
     model = HornTorusICCModel(
         scl90r_data=scl90r_t_scores,
         a_scale=${params.a_scale},
         A_cr=${params.a_critical},
-        auto_normalize=True
+        auto_normalize=True,
+        max_normalized=2.0
     )
     model.print_model_summary()
     model.plot_3d_model(save_path='mi_modelo.png')

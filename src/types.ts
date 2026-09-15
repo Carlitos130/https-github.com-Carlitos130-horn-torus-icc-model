@@ -16,11 +16,13 @@ export interface SCL90RData {
 export type SCL90RInputMode = 't_scores' | 'normalized';
 
 export interface TScoreCategory {
-  tier: 'Normal' | 'Leve' | 'Moderado' | 'Severo';
+  tier: 'Normal' | 'Leve' | 'Moderado' | 'Severo' | 'Extremo';
   rangeLabel: string;
   badgeClass: string;
   textColor: string;
   description: string;
+  isRisk?: boolean;
+  isAlert?: boolean;
 }
 
 export interface ModelParams {
@@ -30,6 +32,23 @@ export interface ModelParams {
   deformation_factor: number; // default 0.3
   gridResolution: number; // e.g., 80
   a_critical: number; // Critical anguish threshold A_cr = Math.PI / 4
+  max_normalized?: number; // Maximum normalization ceiling (default 2.0 to support T > 80)
+}
+
+export interface CasulloPerezNormRow {
+  T: number;
+  SOM: number;
+  OBS: number;
+  SI: number;
+  DEP: number;
+  ANS: number;
+  HOS: number;
+  FOB: number;
+  PAR: number;
+  PSIC: number;
+  IGS: number;
+  TSP: number;
+  IMSP: number;
 }
 
 export interface LacanianCoordinates {
