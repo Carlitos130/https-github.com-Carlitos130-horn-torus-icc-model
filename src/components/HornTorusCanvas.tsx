@@ -1109,12 +1109,27 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       scene.add(objSigma);
     }
 
-    // 5. Fantasy Point [La Fantasía es Angustia] (Punto de Angustia Máxima)
+    // 5. Fantasy Point & Void Hole [La Fantasía es un agujero en el Toro donde no existe representación]
     if (showFantasyPoint) {
       const fantasyGroup = new THREE.Group();
 
-      // Main glowing sphere
-      const sphereGeo = new THREE.SphereGeometry(0.13, 20, 20);
+      // Void Hole Tube / Inner Ring (Representing the non-representable void/hole $1/S_2)
+      const voidRingGeo = new THREE.TorusGeometry(0.24, 0.035, 16, 32);
+      const voidRingMat = new THREE.MeshStandardMaterial({
+        color: 0xf59e0b,
+        emissive: 0xd97706,
+        emissiveIntensity: 0.90,
+        metalness: 0.8,
+        roughness: 0.2,
+        depthWrite: !isXRayMode
+      });
+      const voidRing = new THREE.Mesh(voidRingGeo, voidRingMat);
+      voidRing.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
+      voidRing.lookAt(0, 0, 0);
+      fantasyGroup.add(voidRing);
+
+      // Main glowing sphere (Point of Fantasy $ <> a)
+      const sphereGeo = new THREE.SphereGeometry(0.11, 20, 20);
       const sphereMat = new THREE.MeshStandardMaterial({
         color: 0xf43f5e,
         emissive: 0xe11d48,
@@ -1126,8 +1141,8 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       sphere.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
       fantasyGroup.add(sphere);
 
-      // Outer pulsating ring
-      const ringGeo = new THREE.RingGeometry(0.18, 0.26, 32);
+      // Outer pulsating ring representing the boundary frame of the hole
+      const ringGeo = new THREE.RingGeometry(0.28, 0.36, 32);
       const ringMat = new THREE.MeshBasicMaterial({
         color: 0xfb7185,
         side: THREE.DoubleSide,
@@ -1141,7 +1156,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       fantasyGroup.add(ring);
 
       // Critical Anguish Boundary Halo ($ <> a - Umbral A_cr = π/4)
-      const haloGeo = new THREE.SphereGeometry(0.38, 16, 16);
+      const haloGeo = new THREE.SphereGeometry(0.42, 16, 16);
       const haloMat = new THREE.MeshBasicMaterial({
         color: 0xf43f5e,
         transparent: true,
@@ -1743,9 +1758,12 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
           <div className="border-t border-slate-800/80 pt-1.5 text-[10px] text-slate-400 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-rose-400 font-medium">La Fantasía es Angustia:</span>
-              <span className="text-rose-300 font-bold">(π, π/2)</span>
+              <span className="text-amber-300 font-medium">Agujero de Fantasía ($ ◇ a):</span>
+              <span className="text-amber-200 font-bold">Sin Representación</span>
             </div>
+            <p className="text-[9.5px] text-slate-300 leading-tight">
+              Agujero en el toro donde la representación significante ($1 / S_2$) fracasa; las cadenas bordean el vacío sin colmarlo.
+            </p>
             <div className="flex justify-between text-slate-400">
               <span>Fijación Somática a I:</span>
               <span className="text-amber-300 font-bold">{(lacanian.pulsionAttachmentStrength * 100).toFixed(0)}%</span>

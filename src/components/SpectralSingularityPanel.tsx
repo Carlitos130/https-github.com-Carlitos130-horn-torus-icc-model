@@ -174,11 +174,11 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
           </p>
         </div>
 
-        {/* Card 3: Fantasy Point Distortion */}
+        {/* Card 3: Fantasy Point & Hole Distortion */}
         <div className="bg-slate-950/70 border border-slate-800/90 rounded-lg p-3 space-y-1">
           <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-            <span>FANTASÍA ($ ◇ a)</span>
-            <Target className="w-3.5 h-3.5 text-rose-400" />
+            <span>AGUJERO FANTASÍA ($ ◇ a)</span>
+            <Target className="w-3.5 h-3.5 text-amber-400" />
           </div>
           <div className="flex items-baseline justify-between">
             <div className="text-lg font-bold font-mono text-white">
@@ -197,8 +197,8 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
               {report.fantasyPointDistortion.structuralIntegrity}
             </span>
           </div>
-          <p className="text-[10px] text-slate-400 leading-tight">
-            K_def = {report.fantasyPointDistortion.K_def.toFixed(2)} (K0 = {report.fantasyPointDistortion.K0.toFixed(2)} parabólico).
+          <p className="text-[10px] text-amber-300/90 leading-tight font-mono">
+            Agujero sin representación significante ($1 / S_2).
           </p>
         </div>
 
@@ -709,15 +709,10 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
       <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-lg text-xs text-slate-400 space-y-1">
         <h4 className="font-semibold text-cyan-300 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-          Fundamentación de la Relación Curvatura - Angustia Desbordada:
+          Fundamentación Metapsicológica: La Fantasía como Agujero sin Representación
         </h4>
         <p className="leading-relaxed text-[11px]">
-          En la geometría del Horn Torus, la línea parabólica ($K_0 = 0$) en $v = \pi/2$ actúa como frontera
-          natural entre la corteza consciente elíptica ($K &gt; 0$) y el abismo inconsciente hiperbólico ($K &lt; 0$).
-          La <strong>Fantasía Fundamental ($\$ \diamond a$)</strong> se ubica exactamente sobre esta línea. Cuando la
-          deformación sintomática perturba la estructura, el marco de la fantasía se comba ($\Delta K \neq 0$),
-          provocando que el campo de angustia desborde el umbral crítico (A &le; A_cr) e inunde el toroide,
-          alcanzando la cizalladura máxima en la singularidad de la cúspide central ($v = \pm\pi$).
+          En la geometría del Horn Torus, la <strong>Fantasía Fundamental ($\$ \diamond a$)</strong> constituye un <strong>agujero estructural en el toro donde no existe una representación significante ($1 / S_2$)</strong>. Las cadenas de significantes $S$ y las imágenes de la especularidad $I$ bordean este vacío sin poder penetrarlo o colmarlo. La línea parabólica ($K_0 = 0$) en $v = \pi/2$ actúa como marco de este agujero; cuando la deformación sintomática comba el marco ($\Delta K \neq 0$), la angustia desborda el umbral crítico ($A \le A\_cr$) inundando el manifold psíquico hacia la singularidad central ($v = \pm\pi$).
         </p>
       </div>
     </div>

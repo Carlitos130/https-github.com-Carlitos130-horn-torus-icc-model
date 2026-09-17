@@ -491,6 +491,11 @@ export function calculateLacanianParameters(
   // Punto de auto-tangencia en el origen que comunica el exterior con el vórtice interior
   const earCuspActivity = Math.max(0, Math.min(1, 1.0 - Math.abs(v_S - Math.PI) / Math.PI));
 
+  // La fantasía es un agujero en el toro donde no existe una representación (falla de S1 -> S2)
+  const fantasyHoleVoidRadius = 0.0; // Radio cero del cuello central v=pi
+  const nonRepresentabilityIndex = Math.min(100, Math.max(0, (1.0 - distanceSignifierToFantasy / Math.PI) * 100));
+  const fantasyHoleDescription = "La fantasía es un agujero en el toro donde no existe una representación ($1 / S_2). El agujero central (v=π) del Horn Torus es un vacío donde las cadenas de significantes bordean el límite pero no penetran ni pueden representar la Cosa (Das Ding).";
+
   return {
     a,
     u_S,
@@ -508,7 +513,10 @@ export function calculateLacanianParameters(
     ruptureAreaPercent,
     distanceSignifierToFantasy,
     isTraumaReactivated,
-    earCuspActivity
+    earCuspActivity,
+    fantasyHoleVoidRadius,
+    nonRepresentabilityIndex,
+    fantasyHoleDescription
   };
 }
 
@@ -1466,7 +1474,12 @@ Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
 [1] TOPOLOGÍA LACANIANA DEL HORN TORUS:
 --------------------------------------------------------------------------------
   * Exterior: Cc (Consciente) - Superficie y horizonte visible desde afuera
-  * Interior: Icc (Inconsciente) - Cavidad interior, vórtice y cúspide de auto-tangencia
+  * Interior: Icc (Inconsciente) - Cavidad interior, vórtice y agujero de imposibilidad
+  * Principio Lacaniano de la Fantasía:
+    "La fantasía es un agujero en el toro donde no existe una representación ($1 / S_2)."
+    El agujero en la fantasía (v=π / v=π/2) representa la imposibilidad estructural de la
+    representación significante total. Cadenas de significantes bordean el vacío sin penetrar.
+
   * Cintas Entrecruzadas en el Interior:
 
   * S (Simbólico / Significante): u_S = ${lac.u_S.toFixed(4)} rad | v_S = ${lac.v_S.toFixed(4)} rad

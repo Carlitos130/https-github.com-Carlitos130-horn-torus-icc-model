@@ -70,6 +70,10 @@ export interface LacanianCoordinates {
   distanceSignifierToFantasy: number;
   isTraumaReactivated: boolean;
   earCuspActivity: number; // Activity at the central hole (v=pi)
+  // La fantasía es un agujero en el toro donde no existe representación
+  fantasyHoleVoidRadius: number; // Radio cero/vacío del agujero central (v=pi)
+  nonRepresentabilityIndex: number; // Índice de la imposibilidad de representación significante (S1->S2) en el agujero
+  fantasyHoleDescription: string;
 }
 
 export type ViewMode = 'standard' | 'deformed' | 'comparison' | 'cross_section' | 'interior_icc' | 'xray_icc';

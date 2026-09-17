@@ -226,15 +226,31 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 <strong> Fantasía $(\$ \diamond a)$</strong> se encuentra anclado en la <strong>cara interna</strong> ($v \approx 0, u = \pi$).
               </p>
               <p className="text-[11px] text-slate-400">
-                La fórmula lacaniana del fantasma $(\$ \diamond a)$ vincula al sujeto tachado ($\$$) con el objeto causa del deseo ($a$).
+                La formula lacaniana del fantasma $(\$ \diamond a)$ vincula al sujeto tachado ($\$$) con el objeto causa del deseo ($a$).
                 La fantasía sirve como <strong>pantalla protectora</strong>: enmarca la realidad para impedir que el sujeto
                 sea confrontado directamente con el vacío de la Cosa (<em>Das Ding</em>) y la ferocidad del superyó.
               </p>
             </div>
 
+            <div className="bg-amber-950/30 border border-amber-500/50 p-3 rounded-lg space-y-2">
+              <h4 className="font-bold text-amber-200 flex items-center gap-1.5 text-xs">
+                <Target className="w-4 h-4 text-amber-400" />
+                C. La Fantasía es un Agujero en el Toro donde No Existe una Representación ($1 / S_2$)
+              </h4>
+              <p className="text-[11.5px] text-amber-100/90 leading-relaxed font-sans">
+                <strong>Tesis Fundamental Lacaniana:</strong> <em>"La fantasía es un agujero en el toro donde no existe una representación."</em>
+              </p>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                En el análisis estructural de la topología toroidal, la representación significante requiere que un significante $S_1$ represente al sujeto para otro significante $S_2$ ($S_1 \to S_2$). Sin embargo, en el <strong>agujero de la fantasía</strong> ($v = \pi$ / punto central del cuello), esa operación representacional <strong>fracasa estructuralmente</strong>.
+              </p>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                No hay ningún significante (Vorstellungsrepräsentanz) dentro del agujero mismo que pueda representar la Cosa (<em>Das Ding</em>) o el goce del sujeto. Por ello, las cadenas significante $S$ y las imágenes de la especularidad $I$ <strong>bordean y giran alrededor del agujero de la fantasía</strong> sin poder jamás colmarlo o penetrarlo. La fantasía es el marco (<em>frame</em>) que enmarca ese vacío de representación irreductible.
+              </p>
+            </div>
+
             <div className="bg-slate-950/50 border border-slate-800/80 p-3 rounded-lg space-y-1.5">
               <h4 className="font-semibold text-rose-300">
-                C. La Angustia en Lacan: "La Angustia no es la Pérdida del Objeto"
+                D. La Angustia en Lacan: "La Angustia no es la Pérdida del Objeto"
               </h4>
               <p className="text-[11px] text-slate-400">
                 En el <em>Seminario X</em>, Lacan rompe con la idea tradicional de que la angustia proviene de la pérdida del objeto.
