@@ -1601,7 +1601,6 @@ Incluye:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
 
@@ -1663,7 +1662,10 @@ class HornTorusICCModel:
 
         # Si se proporcionan puntajes T (valores > 1), normalizar con baremo de adultos
         if auto_normalize and any(float(v) > 1.0 for v in data_input.values()):
-            print(f"🔍 Detectados puntajes T del SCL-90-R. Normalizando con baremo de adultos [T=50 -> 0, T=80 -> 0.6, max_normalized={max_normalized}]...")
+            print(
+                f"🔍 Detectados puntajes T del SCL-90-R. Normalizando con baremo "
+                f"de adultos [T=50 -> 0, T=80 -> 0.6, max_normalized={max_normalized}]..."
+            )
             self.scl90r_data = normalize_scl90r_t_scores(data_input, max_normalized=max_normalized)
             self.raw_t_scores = data_input
         else:
@@ -1820,7 +1822,7 @@ class HornTorusICCModel:
 
         # Superficie coloreada por angustia
         norm = Normalize(vmin=angustia.min(), vmax=angustia.max())
-        surf = ax.plot_surface(
+        ax.plot_surface(
             x, y, z,
             facecolors=plt.cm.viridis(norm(angustia)),
             alpha=0.65,
