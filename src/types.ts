@@ -74,6 +74,9 @@ export interface LacanianCoordinates {
   fantasyHoleVoidRadius: number; // Radio cero/vacío del agujero central (v=pi)
   nonRepresentabilityIndex: number; // Índice de la imposibilidad de representación significante (S1->S2) en el agujero
   fantasyHoleDescription: string;
+  // Extimidad: Intrusión de la pulsión Voz (Superyó / Objeto a) como único "afuera" que horada el toroide
+  voiceIntrusionVector: [number, number, number];
+  extimacyDescription: string;
 }
 
 export type ViewMode = 'standard' | 'deformed' | 'comparison' | 'cross_section' | 'interior_icc' | 'xray_icc';

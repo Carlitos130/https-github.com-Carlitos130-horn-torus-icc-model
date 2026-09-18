@@ -159,17 +159,17 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
             <div className="bg-slate-950/50 border border-slate-800/80 p-3 rounded-lg space-y-1.5">
               <h4 className="font-semibold text-cyan-300 flex items-center gap-1.5">
                 <ChevronRight className="w-3.5 h-3.5 text-cyan-400" />
-                El Aparato Psíquico y la Vesícula Anti-Estímulo
+                Del Esquema de la Vesícula al Monismo de Superficie del Inconsciente
               </h4>
               <p className="text-[11px] text-slate-400">
-                En <em>Más allá del principio del placer (1920)</em>, Freud describe el aparato psíquico como una
-                vesícula viviente protegida por una corteza externa que amortigua y filtra los estímulos (<em>Reizschutz</em>).
-                Por debajo de ella se agita el reservorio pulsional del <strong>Ello (Icc)</strong>.
+                En <em>Más allá del principio del placer (1920)</em>, Freud esbozó el aparato psíquico como una
+                vesícula con una corteza externa protectora (<em>Reizschutz</em>). Sin embargo, Jacques Lacan
+                demuestra que la metáfora esférica induce un engaño cartesiano (adentro vs. afuera).
               </p>
               <p className="text-[11px] text-slate-400">
-                En el Horn Torus, la <strong>cara externa</strong> representa la interfaz Consciente/Preconsciente
-                (el Yo expuesto a la realidad), mientras que la <strong>cara interna cóncava</strong> aloja el
-                núcleo inconsciente y la fijación libidinal primaria.
+                En la topología toroidal, <strong>toda la superficie es la trama continua del Inconsciente (Icc)</strong>:
+                no existe un adentro sustancial ni un afuera espacial. La supuesta "conciencia" es apenas una perspectiva
+                especular proyectada sobre esa misma superficie bidimensional sin espesor.
               </p>
             </div>
           </div>
@@ -177,11 +177,11 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
           <div className="bg-cyan-950/20 border border-cyan-800/40 p-3 rounded-lg space-y-1 text-[11.5px]">
             <strong className="text-cyan-300">La Condición Específica del Horn Torus ($R = r = a$):</strong>
             <p className="text-slate-300">
-              En un toro ordinario (de dona, donde $R &gt; r$), existe un orificio central libre que deja un pasaje cilíndrico abierto.
-              En el <strong>Horn Torus</strong>, la distancia al centro de rotación es exactamente igual al radio de la sección transversal ($R = r$).
-              Esto hace que el agujero central colapse en un <strong>único punto singular en el origen $(0,0,0)$</strong> (en $v = \pm\pi$).
-              En términos freudianos, este punto singular representa el <em>ombligo del sueño</em> y la fuente pulsional cero
-              donde no hay distancia entre la excitación endógena y su impacto sobre el aparato psíquico.
+              En un toro ordinario ($R &gt; r$), existe un pasaje cilíndrico abierto.
+              En el <strong>Horn Torus</strong>, el radio mayor iguala al radio menor ($R = r$), haciendo que el agujero central
+              colapse en un <strong>punto singular de auto-tangencia en el origen $(0,0,0)$</strong> (en $v = \pm\pi$).
+              Este orificio central no es un interior cerrado, sino el <strong>embudo de intrusión éxtima</strong> por donde
+              irrumpe la pulsión primordial (la Voz y el Superyó) que horada la superficie del Inconsciente.
             </p>
           </div>
         </div>
@@ -193,13 +193,12 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
           <div className="bg-slate-950/70 border border-slate-800 p-3 rounded-lg space-y-2">
             <h3 className="text-sm font-semibold text-amber-300 flex items-center gap-2">
               <Compass className="w-4 h-4 text-amber-400" />
-              2. Lacan y la Topología del Toro (Seminarios IX, X y XI)
+              2. Lacan y la Topología del Toro: Monismo de Superficie y Extimidad
             </h3>
             <p>
-              Jacques Lacan recurre al toro en el <em>Seminario IX: La identificación (1961-1962)</em> y en el
-              <em> Seminario X: La angustia (1962-1963)</em> para demostrar que la estructura del sujeto del inconsciente
-              <strong> no es esférica</strong> (cerrada con interior y exterior ingenuos), sino <strong>toroidal</strong>,
-              donde la demanda, el deseo y la pulsión tienen propiedades conectivas irreductibles.
+              En el <em>Seminario IX: La identificación</em>, el <em>Seminario X: La angustia</em> y en <em>L'Étourdit</em>,
+              Lacan derriba definitivamente la psicología de las profundidades: <strong>no hay nada en el interior del toro</strong>.
+              El toro es una 2-variedad compacta sin volumen interior: <strong>toda la superficie es el tejido del Inconsciente</strong>.
             </p>
           </div>
 
@@ -209,42 +208,40 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 A. Los Dos Giros: Demanda y Deseo
               </h4>
               <p className="text-[11px] text-slate-400">
-                En el toro estándar, un lazo que da una vuelta meridiana ($v$) representa la <strong>demanda</strong>, que puede
-                cerrarse sobre sí misma sin abarcar el centro. Sin embargo, para rodear el agujero central (el objeto perdido del deseo),
-                el lazo debe dar una vuelta longitudinal ($u$).
-                Lacan demuestra que para que un corte sobre el toro libere una superficie equivalente a un plano (o banda de Möbius),
-                se requiere una trayectoria de <strong>doble vuelta en ocho interior</strong> ($8$).
+                En el toro, un lazo que da una vuelta meridiana ($v$) representa la <strong>demanda</strong>.
+                Para rodear el agujero central (el objeto perdido del deseo), el lazo debe realizar una vuelta longitudinal ($u$).
+                Lacan demuestra que para cortar el toro y liberar una superficie conexa equivalente a una banda de Möbius o plano,
+                se requiere una trayectoria en <strong>doble vuelta en ocho ($8$)</strong> que entreteje ambos giros.
               </p>
+            </div>
+
+            <div className="bg-amber-950/40 border border-amber-600/60 p-3 rounded-lg space-y-2">
+              <h4 className="font-bold text-amber-200 flex items-center gap-1.5 text-xs">
+                <Target className="w-4 h-4 text-amber-400" />
+                B. La Extimidad: La Pulsión Voz (Superyó) como Único "Afuera" y los $V_R$ en toda la Superficie
+              </h4>
+              <p className="text-[11.5px] text-amber-100 leading-relaxed font-sans">
+                <strong>La formulación topológica fundamental:</strong> <em>"No hay adentro ni afuera: es todo superficie del inconsciente. El único afuera que podemos ver desde el toro es la pulsión Voz que entra al toro."</em>
+              </p>
+              <div className="text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
+                <p>
+                  <strong>1. La Voz y el Superyó como Intrusión Éxtima:</strong> La Voz es el objeto pulsional ($a$) más desprendido e invasivo; encarna el imperativo mudo del Superyó (<em>"¡Goza!"</em>). En el Horn Torus, la Voz no pertenece a un espacio exterior habitable: es una <strong>intrusión éxtima que horada el cuello central $(v = \pi)$</strong>.
+                </p>
+                <p>
+                  <strong>2. Los $V_R$ (Vorstellungsrepräsentanz) en toda la Superficie:</strong> A partir de ese orificio central de contacto con el Ello/Superyó, los representantes de la representación de la pulsión ($V_R$) <strong>se desplazan, circulan y se anudan sobre la totalidad de la superficie toroidal</strong>. No están confinados a un rincón interno: circulan continuamente sobre la superficie del Inconsciente bordeando el agujero central sin jamás colmarlo.
+                </p>
+              </div>
             </div>
 
             <div className="bg-slate-950/50 border border-slate-800/80 p-3 rounded-lg space-y-1.5">
               <h4 className="font-semibold text-amber-300">
-                B. La Fantasía Fundamental $(\$ \diamond a)$ anclada en la Cara Interna
+                C. La Fantasía Fundamental $(\$ \diamond a)$ como Agujero sin Representación ($1 / S_2$)
               </h4>
-              <p className="text-[11px] text-slate-400">
-                ¿Dónde se ubica la fantasía en este modelo? En el modelo visual del Horn Torus, el punto dorado
-                <strong> Fantasía $(\$ \diamond a)$</strong> se encuentra anclado en la <strong>cara interna</strong> ($v \approx 0, u = \pi$).
-              </p>
-              <p className="text-[11px] text-slate-400">
-                La formula lacaniana del fantasma $(\$ \diamond a)$ vincula al sujeto tachado ($\$$) con el objeto causa del deseo ($a$).
-                La fantasía sirve como <strong>pantalla protectora</strong>: enmarca la realidad para impedir que el sujeto
-                sea confrontado directamente con el vacío de la Cosa (<em>Das Ding</em>) y la ferocidad del superyó.
-              </p>
-            </div>
-
-            <div className="bg-amber-950/30 border border-amber-500/50 p-3 rounded-lg space-y-2">
-              <h4 className="font-bold text-amber-200 flex items-center gap-1.5 text-xs">
-                <Target className="w-4 h-4 text-amber-400" />
-                C. La Fantasía es un Agujero en el Toro donde No Existe una Representación ($1 / S_2$)
-              </h4>
-              <p className="text-[11.5px] text-amber-100/90 leading-relaxed font-sans">
-                <strong>Tesis Fundamental Lacaniana:</strong> <em>"La fantasía es un agujero en el toro donde no existe una representación."</em>
-              </p>
               <p className="text-[11px] text-slate-300 leading-relaxed">
-                En el análisis estructural de la topología toroidal, la representación significante requiere que un significante $S_1$ represente al sujeto para otro significante $S_2$ ($S_1 \to S_2$). Sin embargo, en el <strong>agujero de la fantasía</strong> ($v = \pi$ / punto central del cuello), esa operación representacional <strong>fracasa estructuralmente</strong>.
+                La fórmula $(\$ \diamond a)$ establece que la fantasía es un <strong>agujero en el toro donde no existe una representación significante</strong>. Mientras que el significante ordinario funciona en binario $S_1 \to S_2$, en el punto de fantasía ese acoplamiento <strong>falla estructuralmente</strong>.
               </p>
-              <p className="text-[11px] text-slate-300 leading-relaxed">
-                No hay ningún significante (Vorstellungsrepräsentanz) dentro del agujero mismo que pueda representar la Cosa (<em>Das Ding</em>) o el goce del sujeto. Por ello, las cadenas significante $S$ y las imágenes de la especularidad $I$ <strong>bordean y giran alrededor del agujero de la fantasía</strong> sin poder jamás colmarlo o penetrarlo. La fantasía es el marco (<em>frame</em>) que enmarca ese vacío de representación irreductible.
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Las cadenas de significantes $S$ y las imágenes de la especularidad $I$ bordean y enmarcan ese vacío sin poder penetrar la Cosa (<em>Das Ding</em>). La fantasía es la pantalla/marco protector que contiene la angustia.
               </p>
             </div>
 
@@ -442,8 +439,8 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               <ul className="list-disc pl-5 space-y-1 text-[11px] text-slate-400">
                 <li><strong>Estándar:</strong> Geometría pura del Horn Torus (δ = 0, R = r = a) sin perturbación psicométrica.</li>
                 <li><strong>Deformado:</strong> Aplicación de la perturbación armónica 1.0 + δ · deform basada en el vector SCL-90-R.</li>
-                <li><strong>Interior (Icc):</strong> La cámara se adentra en el orificio interno, revelando la cara interior cóncava, el punto de fantasía y las cintas libidinales.</li>
-                <li><strong>Rayos X Icc:</strong> Reduce selectivamente la opacidad de la corteza exterior para observar las estructuras inconscientes en transparencia.</li>
+                <li><strong>Vórtice Central (Icc):</strong> La cámara se orienta hacia el orificio singular central donde penetra la pulsión Voz, revelando el despliegue continuo de los VR en la superficie, el punto de fantasía y las cintas simbólicas e imaginarias.</li>
+                <li><strong>Rayos X Icc:</strong> Aplica transparencia selectiva al toro para observar la red de significantes y el flujo de los VR a través de toda la superficie continua.</li>
                 <li><strong>Dual:</strong> Renderiza ambos estados morfológicos en ventanas contiguas para comparación directa.</li>
               </ul>
             </div>

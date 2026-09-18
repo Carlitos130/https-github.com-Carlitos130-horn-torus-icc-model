@@ -709,10 +709,10 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
       <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-lg text-xs text-slate-400 space-y-1">
         <h4 className="font-semibold text-cyan-300 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-          Fundamentación Metapsicológica: La Fantasía como Agujero sin Representación
+          Fundamentación Metapsicológica: Monismo de Superficie del Icc y Extimidad de la Voz
         </h4>
         <p className="leading-relaxed text-[11px]">
-          En la geometría del Horn Torus, la <strong>Fantasía Fundamental ($\$ \diamond a$)</strong> constituye un <strong>agujero estructural en el toro donde no existe una representación significante ($1 / S_2$)</strong>. Las cadenas de significantes $S$ y las imágenes de la especularidad $I$ bordean este vacío sin poder penetrarlo o colmarlo. La línea parabólica ($K_0 = 0$) en $v = \pi/2$ actúa como marco de este agujero; cuando la deformación sintomática comba el marco ($\Delta K \neq 0$), la angustia desborda el umbral crítico ($A \le A\_cr$) inundando el manifold psíquico hacia la singularidad central ($v = \pm\pi$).
+          Toda la variedad del Horn Torus es la <strong>superficie continua del Inconsciente (Icc)</strong>: no existe un adentro sustancial ni un afuera espacial cartesiano. El único "afuera" que contacta con el toro es la <strong>intrusión de la pulsión Voz (y el imperativo del Superyó)</strong> que horada el cuello singular central ($v = \pm\pi$). A partir de este orificio éxtimo, los representantes de la representación ($V_R$) y las cadenas significantes circulan sobre toda la superficie. La <strong>Fantasía Fundamental ($\$ \diamond a$)</strong> constituye el agujero estructural donde no existe representación ($1 / S_2$), enmarcando el vacío de la Cosa para impedir el desborde directo de la angustia.
         </p>
       </div>
     </div>

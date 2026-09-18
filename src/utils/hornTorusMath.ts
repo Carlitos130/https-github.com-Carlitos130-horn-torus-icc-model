@@ -496,6 +496,16 @@ export function calculateLacanianParameters(
   const nonRepresentabilityIndex = Math.min(100, Math.max(0, (1.0 - distanceSignifierToFantasy / Math.PI) * 100));
   const fantasyHoleDescription = "La fantasía es un agujero en el toro donde no existe una representación ($1 / S_2). El agujero central (v=π) del Horn Torus es un vacío donde las cadenas de significantes bordean el límite pero no penetran ni pueden representar la Cosa (Das Ding).";
 
+  // Extimidad de la Pulsión Voz (Superyó / Objeto a):
+  // No hay "adentro" ni "afuera" cartesianos: toda la superficie del toroide es la trama del Inconsciente (Icc).
+  // El único "afuera" real que contacta el toroide es la intrusión pulsional éxtima de la Voz (objeto a / Superyó)
+  // que penetra verticalmente a lo largo del eje central hacia la cúspide singular (0, 0, 0) en v = π.
+  const host = sclData['Hostilidad'] ?? 0.6;
+  const psy = sclData['Psicoticismo'] ?? 0.8;
+  const voiceIntensity = 0.8 + 0.4 * host + 0.5 * psy;
+  const voiceIntrusionVector: [number, number, number] = [0, 0, -voiceIntensity];
+  const extimacyDescription = "Toda la superficie del toro es superficie del Inconsciente (Icc). El único 'afuera' que podemos concebir desde el toro es la pulsión Voz (y el imperativo del Superyó) que entra por el agujero central hacia el Icc; a partir de allí, los representantes de la representación (VR) de la pulsión y las cadenas significantes se mueven y despliegan sobre toda esa superficie continua.";
+
   return {
     a,
     u_S,
@@ -516,7 +526,9 @@ export function calculateLacanianParameters(
     earCuspActivity,
     fantasyHoleVoidRadius,
     nonRepresentabilityIndex,
-    fantasyHoleDescription
+    fantasyHoleDescription,
+    voiceIntrusionVector,
+    extimacyDescription
   };
 }
 
@@ -743,10 +755,11 @@ export function generatePulsionVectorFieldData(
 
   const vectors: PulsionVectorItem[] = [];
 
-  // Interior manifold domain: v in [pi/2, 3*pi/2] (concave interior facing the cusp at v = pi)
+  // Monismo topológico: Toda la superficie del Toro es Inconsciente (v in [0, 2*pi]).
+  // Los VR (Vorstellungsrepräsentanz) de la pulsión se mueven e inscriben a lo largo de toda la variedad.
   for (let iv = 0; iv < vSteps; iv++) {
     const tV = (iv + 0.5) / vSteps;
-    const v = Math.PI * 0.5 + tV * Math.PI; // in (pi/2, 3*pi/2)
+    const v = tV * 2 * Math.PI; // Toda la superficie continua del Icc
 
     for (let iu = 0; iu < uSteps; iu++) {
       const u = (iu / uSteps) * 2 * Math.PI;
@@ -1473,14 +1486,18 @@ Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
 
 [1] TOPOLOGÍA LACANIANA DEL HORN TORUS:
 --------------------------------------------------------------------------------
-  * Exterior: Cc (Consciente) - Superficie y horizonte visible desde afuera
-  * Interior: Icc (Inconsciente) - Cavidad interior, vórtice y agujero de imposibilidad
-  * Principio Lacaniano de la Fantasía:
+  * Monismo Topológico: TODA LA SUPERFICIE ES EL INCONSCIENTE (Icc)
+    -> No hay un "adentro" sustancial ni un "afuera" cartesiano: el toro es una variedad 2D compacta y conexa.
+    -> La totalidad de la superficie es el tejido de significantes y representantes de la representación (VR).
+  * Extimidad y el Único "Afuera": La Pulsión Voz (Superyó / Objeto a):
+    -> El único exterior real que contacta el toroide es la pulsión Voz que entra por el orificio central singular (v = π).
+    -> La Voz y el imperativo del Superyó horadan el centro; a partir de allí, los VR (Vorstellungsrepräsentanz)
+       se mueven y se inscriben en toda la superficie toroidal.
+  * Principio de la Fantasía como Agujero:
     "La fantasía es un agujero en el toro donde no existe una representación ($1 / S_2)."
-    El agujero en la fantasía (v=π / v=π/2) representa la imposibilidad estructural de la
-    representación significante total. Cadenas de significantes bordean el vacío sin penetrar.
+    Las cadenas significantes S y los VR de la pulsión bordean este vacío central sin penetrar ni colmar la Cosa.
 
-  * Cintas Entrecruzadas en el Interior:
+  * Cintas y Redes Distribuidas en la Superficie del Icc:
 
   * S (Simbólico / Significante): u_S = ${lac.u_S.toFixed(4)} rad | v_S = ${lac.v_S.toFixed(4)} rad
     -> Función: Cadena significante. Ansiedad (${sclData["Ansiedad"].toFixed(2)}) + Obsesión (${sclData["Obsesión-Compulsión"].toFixed(2)})

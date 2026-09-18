@@ -165,6 +165,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     speeds: Float32Array;
     count: number;
   } | null>(null);
+  // Intrusión éxtima de la Voz (Superyó / Objeto a) refs
+  const voiceConeRef = useRef<THREE.Mesh | null>(null);
+  const voiceRingsRef = useRef<THREE.Mesh[]>([]);
 
   // Temp vectors and matrices for zero-GC 60fps instance updates
   const dummyObjRef = useRef(new THREE.Object3D());
@@ -652,9 +655,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               v[i] += delta * spd * 1.65 * throatFactor;
               u[i] += delta * spd * 1.15;
 
-              // Constrained to the interior surface v in [pi/2, 3*pi/2]
-              if (v[i] > Math.PI * 1.5) {
-                v[i] = Math.PI * 0.5 + Math.random() * 0.25;
+              // Monismo de superficie: los VR circulan sobre toda la variedad del Icc (v in [0, 2*pi])
+              if (v[i] > Math.PI * 2) {
+                v[i] -= Math.PI * 2;
                 u[i] = Math.random() * 2 * Math.PI;
               }
               if (u[i] > Math.PI * 2) {
@@ -717,6 +720,30 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
             pointsAttr.needsUpdate = true;
             linesAttr.needsUpdate = true;
+          }
+
+          // 3. Animate Extimate Voice Intrusion Waves (Pulsión Voz / Superyó descending along Z into the cusp)
+          if (voiceConeRef.current && voiceRingsRef.current.length > 0) {
+            const host = sclDataRef.current['Hostilidad'] ?? 0.6;
+            const psy = sclDataRef.current['Psicoticismo'] ?? 0.8;
+            const voicePulse = 1.0 + 0.30 * Math.sin(timeSec * (4.2 + 2.0 * host));
+
+            // Pulsate voice cone scale along radial and vertical dimensions
+            voiceConeRef.current.scale.set(voicePulse, voicePulse, 1.0 + 0.15 * Math.sin(timeSec * 3.0));
+
+            // Animate rings descending into the cusp (0, 0, 0)
+            voiceRingsRef.current.forEach((ring, idx) => {
+              const phase = (timeSec * 0.9 + idx * 0.33) % 1.0;
+              // Z position descends along central funnel toward the singularity
+              const currentZ = 1.4 - phase * 1.3;
+              ring.position.z = currentZ;
+              const currentScale = 0.3 + phase * 0.75;
+              ring.scale.set(currentScale, currentScale, currentScale);
+              const mat = ring.material as THREE.MeshBasicMaterial;
+              if (mat) {
+                mat.opacity = Math.sin(phase * Math.PI) * (0.55 + 0.35 * psy);
+              }
+            });
           }
         } else {
           pulsionGroupRef.current.visible = false;
@@ -1054,8 +1081,8 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
       for (let i = 0; i < tracerCount; i++) {
         tracerU[i] = Math.random() * 2 * Math.PI;
-        // Interior surface domain: v in [pi/2, 3*pi/2]
-        tracerV[i] = Math.PI * 0.5 + Math.random() * Math.PI;
+        // Monismo de superficie: los VR cubren toda la variedad del Icc (v in [0, 2*pi])
+        tracerV[i] = Math.random() * 2 * Math.PI;
         tracerSpeeds[i] = 0.45 + Math.random() * 0.55;
       }
       pulsionTracersStateRef.current = {
@@ -1095,6 +1122,41 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       const tracersPoints = new THREE.Points(pointsGeo, pointsMat);
       pulsionGroup.add(tracersPoints);
       pulsionTracersPointsRef.current = tracersPoints;
+
+      // 4. Intrusión Éxtima de la Pulsión Voz (Superyó / Objeto a):
+      // El único "afuera" que contacta con el toro es la Voz penetrando verticalmente por el eje central hacia el origen (v = pi).
+      const voiceConeGeo = new THREE.ConeGeometry(0.38, 1.4, 24, 1, true);
+      voiceConeGeo.rotateX(Math.PI / 2); // Apunta hacia el centro singular (0, 0, 0)
+      const voiceConeMat = new THREE.MeshBasicMaterial({
+        color: 0xec4899,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.55,
+        side: THREE.DoubleSide,
+        clippingPlanes
+      });
+      const voiceCone = new THREE.Mesh(voiceConeGeo, voiceConeMat);
+      voiceCone.position.set(0, 0, 0.95);
+      pulsionGroup.add(voiceCone);
+      voiceConeRef.current = voiceCone;
+
+      // Ondas acústicas concéntricas descendiendo hacia la cúspide
+      const waveRings: THREE.Mesh[] = [];
+      for (let w = 0; w < 3; w++) {
+        const ringGeo = new THREE.RingGeometry(0.12 + w * 0.1, 0.16 + w * 0.1, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xf43f5e,
+          transparent: true,
+          opacity: 0.65,
+          side: THREE.DoubleSide,
+          clippingPlanes
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.set(0, 0, 0.45 + w * 0.35);
+        pulsionGroup.add(ringMesh);
+        waveRings.push(ringMesh);
+      }
+      voiceRingsRef.current = waveRings;
 
       pulsionGroup.visible = showPulsion;
       if (isXRayMode) pulsionGroup.renderOrder = 6;
@@ -1711,9 +1773,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
           <div className="flex items-center justify-between font-semibold text-slate-200 border-b border-slate-800 pb-1.5">
             <span className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Interior Icc: Cintas Entrecruzadas</span>
+              <span>Superficie Icc: Cintas Entrecruzadas</span>
             </span>
-            <span className="text-[10px] text-amber-400 font-semibold">Exterior = Cc</span>
+            <span className="text-[10px] text-amber-400 font-semibold">Toda la variedad = Icc</span>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 text-[11px]">
@@ -1727,7 +1789,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             </div>
             <div className={`flex items-center gap-1.5 ${showPulsion ? 'text-amber-300 font-semibold' : 'text-slate-500 line-through'}`}>
               <span className={`w-2.5 h-1.5 rounded-sm ${showPulsion ? 'bg-amber-400 shadow-sm animate-pulse' : 'bg-slate-700'}`} />
-              <span>Pulsión (Flujo Vectorial)</span>
+              <span>VR & Voz (Superyó)</span>
             </div>
             <div className="flex items-center gap-1.5 text-blue-400">
               <span className="w-2.5 h-1.5 rounded-sm bg-blue-500 shadow-sm" />
@@ -1740,18 +1802,18 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               <div className="flex items-center justify-between text-amber-300 font-semibold text-[10.5px]">
                 <span className="flex items-center gap-1">
                   <Waves className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Campo Vectorial Trieb (Drang)</span>
+                  <span>VR en Superficie & Intrusión Voz</span>
                 </span>
                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-200 border border-amber-700/60">
-                  Flujo Animado Interior
+                  Monismo Icc
                 </span>
               </div>
               <p className="text-[9.5px] text-slate-300 leading-tight">
-                Vectores de flujo direccional en el interior <span className="text-amber-400 font-mono">v ∈ [π/2, 3π/2]</span> convergiendo helicoidalmente hacia la cúspide <span className="text-cyan-300 font-mono">v=π</span> (objeto a), anclados a la imagen del cuerpo <span className="text-emerald-400 font-mono">I</span> (Vorstellungsrepräsentanz).
+                <strong>Intrusión Éxtima:</strong> La pulsión Voz (Superyó) penetra por el eje central hacia el orificio singular (<span className="text-cyan-300 font-mono">v=π</span>). Los <strong>VR</strong> (Vorstellungsrepräsentanz) circulan sobre <span className="text-amber-300 font-mono">toda la superficie continua</span> (<span className="text-amber-400 font-mono">v ∈ [0, 2π]</span>) enlazados a la imagen corporal <span className="text-emerald-400 font-mono">I</span>.
               </p>
               <div className="flex justify-between text-[9px] text-slate-400 pt-0.5">
                 <span>Fijación a I: <span className="text-amber-300 font-bold">{(lacanian.pulsionAttachmentStrength * 100).toFixed(0)}%</span></span>
-                <span>Empuje: <span className="text-rose-300 font-medium">Wiederholungszwang</span></span>
+                <span>Único afuera: <span className="text-rose-300 font-medium">Voz (Superyó)</span></span>
               </div>
             </div>
           )}
@@ -1781,7 +1843,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         {onCcOpacityChange && (
           <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-mono shadow-xl">
             <span className="text-slate-400 text-[11px]">
-              {viewMode === 'xray_icc' ? 'Transparencia Cc:' : 'Opacidad Cc:'}
+              {viewMode === 'xray_icc' ? 'Transparencia Icc:' : 'Transluscencia Icc:'}
             </span>
             <input
               type="range"
@@ -1791,14 +1853,14 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               value={ccOpacity}
               onChange={(e) => onCcOpacityChange(parseFloat(e.target.value))}
               className="w-20 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
-              title="Ajusta la opacidad de la piel exterior (Cc) para revelar el interior (Icc)"
+              title="Ajusta la translucidez de la superficie del Icc para observar la red interna y la singularidad central"
             />
             <span className="text-cyan-300 font-bold w-8 text-right">{(ccOpacity * 100).toFixed(0)}%</span>
           </div>
         )}
 
         <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 px-2.5 py-1 rounded text-[10px] text-slate-400 font-mono">
-          Exterior = Cc | Interior = Icc | Arrastrar: rotar | Rueda: zoom
+          Superficie = 100% Inconsciente (Icc) | Centro = Intrusión Voz (Superyó) | Arrastrar: rotar
         </div>
       </div>
     </div>
