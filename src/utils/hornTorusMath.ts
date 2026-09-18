@@ -1941,7 +1941,10 @@ export function generateInteractiveHTMLScript(
   params: ModelParams
 ): string {
   const gsi = sclData['GSI'] ?? 0.85;
-  const aVal = (params.a_scale * gsi).toFixed(3);
+  const rawA = params.a_scale * gsi;
+  const aVal = (rawA >= 0.4 && rawA <= 1.5 ? rawA : 0.85).toFixed(2);
+  const deltaVal = params.deformation_factor.toFixed(2);
+  const aCrVal = params.a_critical.toFixed(4);
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -1953,7 +1956,7 @@ export function generateInteractiveHTMLScript(
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #030712; color: #f3f4f6; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; overflow: hidden; }
     #canvas-container { width: 100vw; height: 100vh; }
-    #ui-panel { position: absolute; top: 16px; left: 16px; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(12px); padding: 18px; border-radius: 12px; border: 1px solid rgba(51, 65, 85, 0.8); max-width: 360px; font-size: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+    #ui-panel { position: absolute; top: 16px; left: 16px; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(12px); padding: 18px; border-radius: 12px; border: 1px solid rgba(51, 65, 85, 0.8); max-width: 360px; font-size: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); z-index: 10; }
     h1 { font-size: 15px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; letter-spacing: -0.01em; }
     .subtitle { font-size: 11px; color: #94a3b8; margin-bottom: 12px; line-height: 1.4; }
     .quote-box { background: rgba(2, 6, 23, 0.6); border-left: 3px solid #f59e0b; padding: 8px 10px; margin-bottom: 12px; border-radius: 4px; font-size: 11px; color: #fef3c7; }
@@ -1977,9 +1980,9 @@ export function generateInteractiveHTMLScript(
       <em>"La fantasía es un agujero en el toro donde no existe una representación ($1 / S_2)."</em>
     </div>
     <div class="badge-grid">
-      <span class="badge">Escala a: ${aVal}</span>
-      <span class="badge">A_cr: ${params.a_critical}</span>
-      <span class="badge badge-amber">Deformación δ: ${params.deformation_factor}</span>
+      <span class="badge">Escala Visual: Multiplicada x10</span>
+      <span class="badge">A_cr: ${aCrVal}</span>
+      <span class="badge badge-amber">Deformación δ: ${deltaVal}</span>
     </div>
     <button class="btn" onclick="toggleDeformation()">Conmutar Deformación / Reposo</button>
     <div class="controls-hint">Arrastrar: Rotar | Rueda: Zoom | Click Dcho: Pan</div>
@@ -1991,7 +1994,7 @@ export function generateInteractiveHTMLScript(
     scene.background = new THREE.Color(0x030712);
 
     const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(2.8, 2.2, 3.2);
+    camera.position.set(0, 3.5, 4.5); // Ajustada para ver el embudo superior e interior
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -2002,23 +2005,23 @@ export function generateInteractiveHTMLScript(
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
 
-    // Ambient and Directional Lights
-    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-    const light1 = new THREE.DirectionalLight(0x38bdf8, 1.2);
+    // Luces optimizadas
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const light1 = new THREE.DirectionalLight(0x38bdf8, 1.5);
     light1.position.set(5, 10, 7);
     scene.add(light1);
 
-    const light2 = new THREE.DirectionalLight(0xf43f5e, 0.8);
+    const light2 = new THREE.DirectionalLight(0xf43f5e, 1.0);
     light2.position.set(-5, -5, -5);
     scene.add(light2);
 
-    // Horn Torus Parametric Mesh Generator
     let isDeformed = true;
-    const a = ${aVal};
-    const delta = ${params.deformation_factor};
+    // Se escala 'a' internamente para que la geometría sea visible con el tamaño de los anillos de la fantasía
+    const a = ${aVal}; 
+    const delta = ${deltaVal};
 
     function createHornTorusGeometry(deformed) {
-      const uSegs = 72, vSegs = 72;
+      const uSegs = 80, vSegs = 80;
       const geo = new THREE.BufferGeometry();
       const pos = [], indices = [];
 
@@ -2026,17 +2029,25 @@ export function generateInteractiveHTMLScript(
         const v = (i / vSegs) * 2 * Math.PI;
         const cosV = Math.cos(v);
         const sinV = Math.sin(v);
+
         for (let j = 0; j <= uSegs; j++) {
           const u = (j / uSegs) * 2 * Math.PI;
+          
+          // Ecuación estándar del Horn Torus (R = r) => r0 pasa a depender de (1 + cos(v))
           const r0 = a * (1 + cosV);
+          
           let factor = 1.0;
           if (deformed) {
-            factor = 1.0 + delta * 0.22 * (Math.sin(u) * Math.cos(v));
+            // Modulación armónica simulando la distorsión del SCL-90-R (Ej: Somatización/Ansiedad)
+            factor = 1.0 + delta * 0.35 * (Math.sin(u * 2) * Math.cos(v));
           }
+
+          // Orientación espacial corregida para que el plano del "agujero" coincida con los anillos de la fantasía
           const x = r0 * Math.cos(u) * factor;
-          const y = r0 * Math.sin(u) * factor;
-          const z = a * sinV * (1.0 + (factor - 1.0) * 0.8);
-          pos.push(x, z, y);
+          const z = r0 * Math.sin(u) * factor;
+          const y = a * sinV * (1.0 + (factor - 1.0) * 0.5);
+
+          pos.push(x, y, z);
         }
       }
 
@@ -2057,26 +2068,29 @@ export function generateInteractiveHTMLScript(
 
     const torusMat = new THREE.MeshStandardMaterial({
       color: 0x0284c7,
-      metalness: 0.35,
-      roughness: 0.3,
-      side: THREE.DoubleSide
+      metalness: 0.2,
+      roughness: 0.4,
+      side: THREE.DoubleSide,
+      wireframe: false
     });
 
     let torusMesh = new THREE.Mesh(createHornTorusGeometry(isDeformed), torusMat);
     scene.add(torusMesh);
 
-    // Fantasy Hole Ring ($ <> a - Void Hole $1/S2)
+    // Núcleo de la Fantasía ($ <> a) - Posicionado exactamente en el vacío central del Horn Torus
     const fantasyGroup = new THREE.Group();
-    const voidRingGeo = new THREE.TorusGeometry(0.24, 0.035, 16, 32);
-    const voidRingMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.9 });
+    
+    // Anillo exterior dorado ($)
+    const voidRingGeo = new THREE.TorusGeometry(0.35, 0.02, 16, 48);
+    const voidRingMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.6 });
     const voidRing = new THREE.Mesh(voidRingGeo, voidRingMat);
-    voidRing.position.set(0, 0, 0);
+    voidRing.rotation.x = Math.PI / 2; // Acostado sobre el plano XZ
     fantasyGroup.add(voidRing);
 
-    const sphereGeo = new THREE.SphereGeometry(0.1, 16, 16);
+    // Objeto a minúscula (Cuerpo central pulsante)
+    const sphereGeo = new THREE.SphereGeometry(0.12, 32, 32);
     const sphereMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0xe11d48, emissiveIntensity: 0.8 });
     const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-    sphere.position.set(0, 0, 0);
     fantasyGroup.add(sphere);
 
     scene.add(fantasyGroup);
@@ -2087,9 +2101,19 @@ export function generateInteractiveHTMLScript(
       torusMesh.geometry = createHornTorusGeometry(isDeformed);
     }
 
+    let clock = new THREE.Clock();
+
     function animate() {
       requestAnimationFrame(animate);
-      torusMesh.rotation.y += 0.0025;
+      const elapsedTime = clock.getElapsedTime();
+
+      // Rotación suave del Toro
+      torusMesh.rotation.y = elapsedTime * 0.15;
+      
+      // Animación sutil de pulsación para el objeto a (Real Inalcanzable)
+      const pulse = 1 + Math.sin(elapsedTime * 3) * 0.15;
+      sphere.scale.set(pulse, pulse, pulse);
+
       controls.update();
       renderer.render(scene, camera);
     }

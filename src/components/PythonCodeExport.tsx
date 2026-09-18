@@ -161,6 +161,17 @@ export const PythonCodeExport: React.FC<PythonCodeExportProps> = ({
           <div className="flex items-center justify-between text-xs font-mono text-slate-400">
             <span>Abrir directamente en navegador: <code className="text-amber-300">horn_torus_icc_interactivo.html</code></span>
             <div className="flex items-center gap-1.5">
+              <a
+                id="btn-open-html-tab"
+                href="/horn_torus_icc_interactivo.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded text-xs font-mono flex items-center gap-1.5 transition-colors border border-slate-700"
+                title="Abrir visor interactivo Three.js en pestaña independiente"
+              >
+                <Globe className="w-3.5 h-3.5 text-sky-400" />
+                <span>Abrir en Pestaña</span>
+              </a>
               <button
                 id="btn-copy-html-code"
                 onClick={handleCopyHtml}
