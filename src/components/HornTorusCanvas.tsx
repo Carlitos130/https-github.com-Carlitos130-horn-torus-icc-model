@@ -135,6 +135,8 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   // Mesh refs
   const standardMeshRef = useRef<THREE.Mesh | null>(null);
   const deformedMeshRef = useRef<THREE.Mesh | null>(null);
+  const standardMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
+  const deformedMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
   const wireframeRef = useRef<THREE.LineSegments | null>(null);
   const particlesRef = useRef<THREE.Points | null>(null);
   const clippingPlaneRef = useRef<THREE.Plane | null>(null);
@@ -145,6 +147,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   const xrayIccMeshRef = useRef<THREE.Mesh | null>(null);
   const xrayWireframeRef = useRef<THREE.LineSegments | null>(null);
   const xrayCcMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
+  const xrayIccMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
 
   // Lacanian curves / ribbons & Fantasy point refs
   const curveSRef = useRef<THREE.Object3D | null>(null);
@@ -178,6 +181,26 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   // Interaction state
   const [isRotating, setIsRotating] = useState<boolean>(true);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
+
+  // ViewMode Fluid Transition & Morphing State
+  const [isTransitioningViewMode, setIsTransitioningViewMode] = useState<boolean>(false);
+  const [displayViewMode, setDisplayViewMode] = useState<ViewMode>(viewMode);
+  const viewModeTransitionProgressRef = useRef<number>(1.0);
+  const fromViewModeRef = useRef<ViewMode>(viewMode);
+  const targetViewModeRef = useRef<ViewMode>(viewMode);
+  const transitionDurationRef = useRef<number>(0.65); // 650ms smooth transition
+  const previousCcOpacityRef = useRef<number>(ccOpacity);
+
+  // Trigger smooth transition whenever viewMode prop changes
+  useEffect(() => {
+    if (viewMode !== targetViewModeRef.current) {
+      fromViewModeRef.current = targetViewModeRef.current;
+      targetViewModeRef.current = viewMode;
+      viewModeTransitionProgressRef.current = 0.0;
+      setIsTransitioningViewMode(true);
+      setDisplayViewMode(viewMode);
+    }
+  }, [viewMode]);
 
   // Reactive Prop Synchronizers for the Animation Frame Loop
   const showPulsionRef = useRef(showPulsion);
@@ -564,6 +587,91 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         }
       }
 
+      // Smooth Fluid ViewMode Transition (Morphing / Cross-Fading between Standard, Deformed, X-Ray, Interior, etc.)
+      if (viewModeTransitionProgressRef.current < 1.0) {
+        viewModeTransitionProgressRef.current += delta / transitionDurationRef.current;
+        if (viewModeTransitionProgressRef.current >= 1.0) {
+          viewModeTransitionProgressRef.current = 1.0;
+          setIsTransitioningViewMode(false);
+        }
+
+        const t = Math.max(0.0, Math.min(1.0, viewModeTransitionProgressRef.current));
+        // Smooth Hermite / S-Curve Ease-in-out: 3t^2 - 2t^3
+        const smoothT = t * t * (3.0 - 2.0 * t);
+
+        const fromMode = fromViewModeRef.current;
+        const toMode = targetViewModeRef.current;
+
+        // Determine target base opacities according to mode specifications
+        const getModeOpacities = (m: ViewMode) => {
+          const isXRay = m === 'xray_icc';
+          const isInt = m === 'interior_icc';
+          const isStd = m === 'standard';
+          const isDef = m === 'deformed' || m === 'cross_section';
+          const isComp = m === 'comparison';
+
+          const userCc = previousCcOpacityRef.current;
+          const xrayCcTarget = isXRay ? Math.max(0.04, Math.min(1.0, userCc)) : 0.0;
+          const xrayIccTarget = isXRay ? 0.36 : 0.0;
+          const stdTarget = (isStd || isInt) ? (isInt ? Math.min(userCc, 0.22) : (isComp ? 0.35 : userCc)) : 0.0;
+          const defTarget = isDef ? userCc : (isComp ? userCc : 0.0);
+          const wireCcTarget = isXRay ? Math.max(0.06, Math.min(0.40, userCc * 0.45 + 0.08)) : 0.0;
+
+          return { xrayCcTarget, xrayIccTarget, stdTarget, defTarget, wireCcTarget };
+        };
+
+        const fromVals = getModeOpacities(fromMode);
+        const toVals = getModeOpacities(toMode);
+
+        const currentStdOpacity = fromVals.stdTarget + (toVals.stdTarget - fromVals.stdTarget) * smoothT;
+        const currentDefOpacity = fromVals.defTarget + (toVals.defTarget - fromVals.defTarget) * smoothT;
+        const currentXrayCcOpacity = fromVals.xrayCcTarget + (toVals.xrayCcTarget - fromVals.xrayCcTarget) * smoothT;
+        const currentXrayIccOpacity = fromVals.xrayIccTarget + (toVals.xrayIccTarget - fromVals.xrayIccTarget) * smoothT;
+        const currentWireOpacity = fromVals.wireCcTarget + (toVals.wireCcTarget - fromVals.wireCcTarget) * smoothT;
+
+        // Apply dynamic interpolated opacity and visibility to Standard Torus mesh
+        if (standardMeshRef.current && standardMaterialRef.current) {
+          standardMaterialRef.current.opacity = currentStdOpacity;
+          standardMeshRef.current.visible = currentStdOpacity > 0.005;
+        }
+
+        // Apply dynamic interpolated opacity and visibility to Deformed Torus mesh
+        if (deformedMeshRef.current && deformedMaterialRef.current) {
+          deformedMaterialRef.current.opacity = currentDefOpacity;
+          deformedMeshRef.current.visible = currentDefOpacity > 0.005;
+        }
+
+        // Apply dynamic interpolated opacity and visibility to X-Ray Cc Outer Shell
+        if (xrayCcMeshRef.current && xrayCcMaterialRef.current) {
+          xrayCcMaterialRef.current.opacity = currentXrayCcOpacity;
+          xrayCcMeshRef.current.visible = currentXrayCcOpacity > 0.005;
+        }
+
+        // Apply dynamic interpolated opacity and visibility to X-Ray Outer Structural Wireframe
+        if (xrayWireframeRef.current) {
+          const wireMat = xrayWireframeRef.current.material as THREE.LineBasicMaterial;
+          wireMat.opacity = currentWireOpacity;
+          xrayWireframeRef.current.visible = currentWireOpacity > 0.005;
+        }
+
+        // Apply dynamic interpolated opacity and visibility to X-Ray Icc Inner Core
+        if (xrayIccMeshRef.current && xrayIccMaterialRef.current) {
+          xrayIccMaterialRef.current.opacity = currentXrayIccOpacity;
+          xrayIccMeshRef.current.visible = currentXrayIccOpacity > 0.005;
+        }
+
+        // Dynamic light transition
+        if (interiorLightRef.current) {
+          const isFromGlow = fromMode === 'xray_icc' || fromMode === 'interior_icc';
+          const isToGlow = toMode === 'xray_icc' || toMode === 'interior_icc';
+          const fromIntensity = isFromGlow ? (fromMode === 'xray_icc' ? 3.0 : 2.2) : 0.0;
+          const toIntensity = isToGlow ? (toMode === 'xray_icc' ? 3.0 : 2.2) : 0.0;
+          const currentIntensity = fromIntensity + (toIntensity - fromIntensity) * smoothT;
+          interiorLightRef.current.intensity = currentIntensity;
+          interiorLightRef.current.visible = currentIntensity > 0.05;
+        }
+      }
+
       // Update particle vortex flow
       if (particlesRef.current && showVortexFlowRef.current) {
         particlesRef.current.visible = true;
@@ -830,12 +938,16 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       side: THREE.DoubleSide,
       clippingPlanes,
       clipShadows: true,
-      transparent: isTranslucent,
-      opacity: isInteriorMode ? effectiveCcOpacity : (viewMode === 'comparison' ? 0.35 : effectiveCcOpacity),
+      transparent: true,
+      opacity: (viewMode === 'standard' || isInteriorMode)
+        ? (isInteriorMode ? Math.min(effectiveCcOpacity, 0.22) : effectiveCcOpacity)
+        : (viewMode === 'comparison' ? 0.35 : 0.0),
       depthWrite: !isTranslucent,
       wireframe: false
     });
+    standardMaterialRef.current = stdMat;
     const stdMesh = new THREE.Mesh(stdGeo, stdMat);
+    stdMesh.visible = (viewMode === 'standard' || isInteriorMode || viewMode === 'comparison');
     standardMeshRef.current = stdMesh;
 
     // 2. Deformed Horn Torus Geometry
@@ -856,111 +968,111 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       side: THREE.DoubleSide,
       clippingPlanes,
       clipShadows: true,
-      transparent: isTranslucent,
-      opacity: isInteriorMode ? effectiveCcOpacity : effectiveCcOpacity,
+      transparent: true,
+      opacity: (viewMode === 'deformed' || viewMode === 'cross_section' || viewMode === 'comparison')
+        ? effectiveCcOpacity
+        : 0.0,
       depthWrite: !isTranslucent,
       wireframe: false
     });
+    deformedMaterialRef.current = defMat;
     const defMesh = new THREE.Mesh(defGeo, defMat);
+    defMesh.visible = (viewMode === 'deformed' || viewMode === 'cross_section' || viewMode === 'comparison');
     deformedMeshRef.current = defMesh;
 
-    // Surface and X-Ray Configuration
-    if (isXRayMode) {
-      // Vista de Rayos X del Icc:
-      // Envolvente Cc externa (v in [0, pi/2) U (3pi/2, 2pi]) con transparencia dinámica y sutil carcasa holográfica
-      const targetData = (params.deformation_factor > 0 ? defData : stdData);
-      const xrayCcGeo = new THREE.BufferGeometry();
-      xrayCcGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
-      xrayCcGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
-      xrayCcGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
-      xrayCcGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
-      xrayCcGeo.setIndex(new THREE.BufferAttribute(targetData.ccIndices, 1));
+    // Surface and X-Ray Configuration:
+    // We instantiate both the Standard/Deformed surfaces AND the X-Ray components
+    // so mode changes cross-fade smoothly at 60 FPS without destroying/recreating meshes.
+    const targetData = (params.deformation_factor > 0 ? defData : stdData);
+    const xrayCcGeo = new THREE.BufferGeometry();
+    xrayCcGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
+    xrayCcGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
+    xrayCcGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
+    xrayCcGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
+    xrayCcGeo.setIndex(new THREE.BufferAttribute(targetData.ccIndices, 1));
 
-      const xrayCcMat = new THREE.MeshPhysicalMaterial({
-        vertexColors: true,
-        color: 0x38bdf8,
-        metalness: 0.12,
-        roughness: 0.20,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.1,
-        transparent: true,
-        opacity: effectiveCcOpacity,
-        depthWrite: false, // Fundamental: evita oclusión Z de las cintas interiores
-        side: THREE.DoubleSide,
-        clippingPlanes,
-        clipShadows: true
-      });
-      xrayCcMaterialRef.current = xrayCcMat;
+    const xrayCcMat = new THREE.MeshPhysicalMaterial({
+      vertexColors: true,
+      color: 0x38bdf8,
+      metalness: 0.12,
+      roughness: 0.20,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.1,
+      transparent: true,
+      opacity: isXRayMode ? effectiveCcOpacity : 0.0,
+      depthWrite: false, // Fundamental: evita oclusión Z de las cintas interiores
+      side: THREE.DoubleSide,
+      clippingPlanes,
+      clipShadows: true
+    });
+    xrayCcMaterialRef.current = xrayCcMat;
 
-      const xrayCcMesh = new THREE.Mesh(xrayCcGeo, xrayCcMat);
-      xrayCcMesh.renderOrder = 10;
-      xrayCcMeshRef.current = xrayCcMesh;
-      scene.add(xrayCcMesh);
+    const xrayCcMesh = new THREE.Mesh(xrayCcGeo, xrayCcMat);
+    xrayCcMesh.renderOrder = 10;
+    xrayCcMesh.visible = isXRayMode;
+    xrayCcMeshRef.current = xrayCcMesh;
+    scene.add(xrayCcMesh);
 
-      // Crystalline structural wireframe outlining the conscious outer shell
-      const wireCcGeo = new THREE.WireframeGeometry(xrayCcGeo);
-      const wireCcMat = new THREE.LineBasicMaterial({
-        color: 0x38bdf8,
-        transparent: true,
-        opacity: Math.max(0.06, Math.min(0.40, effectiveCcOpacity * 0.45 + 0.08)),
-        clippingPlanes
-      });
-      const xrayWire = new THREE.LineSegments(wireCcGeo, wireCcMat);
-      xrayWire.renderOrder = 11;
-      xrayWireframeRef.current = xrayWire;
-      scene.add(xrayWire);
+    // Crystalline structural wireframe outlining the conscious outer shell
+    const wireCcGeo = new THREE.WireframeGeometry(xrayCcGeo);
+    const wireCcMat = new THREE.LineBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: isXRayMode ? Math.max(0.06, Math.min(0.40, effectiveCcOpacity * 0.45 + 0.08)) : 0.0,
+      clippingPlanes
+    });
+    const xrayWire = new THREE.LineSegments(wireCcGeo, wireCcMat);
+    xrayWire.renderOrder = 11;
+    xrayWire.visible = isXRayMode;
+    xrayWireframeRef.current = xrayWire;
+    scene.add(xrayWire);
 
-      // Núcleo interior Icc (v in [pi/2, 3pi/2]) convergiendo a la cúspide singular v=pi
-      const xrayIccGeo = new THREE.BufferGeometry();
-      xrayIccGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
-      xrayIccGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
-      xrayIccGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
-      xrayIccGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
-      xrayIccGeo.setIndex(new THREE.BufferAttribute(targetData.iccIndices, 1));
+    // Núcleo interior Icc (v in [pi/2, 3pi/2]) convergiendo a la cúspide singular v=pi
+    const xrayIccGeo = new THREE.BufferGeometry();
+    xrayIccGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
+    xrayIccGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
+    xrayIccGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
+    xrayIccGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
+    xrayIccGeo.setIndex(new THREE.BufferAttribute(targetData.iccIndices, 1));
 
-      const xrayIccMat = new THREE.MeshPhysicalMaterial({
-        vertexColors: true,
-        metalness: 0.25,
-        roughness: 0.35,
-        clearcoat: 0.5,
-        transparent: true,
-        opacity: 0.36,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        clippingPlanes,
-        clipShadows: true
-      });
-      const xrayIccMesh = new THREE.Mesh(xrayIccGeo, xrayIccMat);
-      xrayIccMesh.renderOrder = 1;
-      xrayIccMeshRef.current = xrayIccMesh;
-      scene.add(xrayIccMesh);
-    } else {
-      // 3. Wireframe Overlay
-      if (showWireframe) {
-        const targetGeo = (viewMode === 'standard' || isInteriorMode) ? stdGeo : defGeo;
-        const wire = new THREE.LineSegments(
-          new THREE.WireframeGeometry(targetGeo),
-          new THREE.LineBasicMaterial({
-            color: 0x94a3b8,
-            transparent: true,
-            opacity: isInteriorMode ? 0.18 : 0.25,
-            clippingPlanes
-          })
-        );
-        wireframeRef.current = wire;
-        scene.add(wire);
-      }
+    const xrayIccMat = new THREE.MeshPhysicalMaterial({
+      vertexColors: true,
+      metalness: 0.25,
+      roughness: 0.35,
+      clearcoat: 0.5,
+      transparent: true,
+      opacity: isXRayMode ? 0.36 : 0.0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      clippingPlanes,
+      clipShadows: true
+    });
+    xrayIccMaterialRef.current = xrayIccMat;
+    const xrayIccMesh = new THREE.Mesh(xrayIccGeo, xrayIccMat);
+    xrayIccMesh.renderOrder = 1;
+    xrayIccMesh.visible = isXRayMode;
+    xrayIccMeshRef.current = xrayIccMesh;
+    scene.add(xrayIccMesh);
 
-      // Add surface to scene
-      if (viewMode === 'standard' || isInteriorMode) {
-        scene.add(stdMesh);
-      } else if (viewMode === 'deformed' || viewMode === 'cross_section') {
-        scene.add(defMesh);
-      } else if (viewMode === 'comparison') {
-        scene.add(stdMesh);
-        scene.add(defMesh);
-      }
+    // 3. Wireframe Overlay
+    if (showWireframe) {
+      const targetGeo = (viewMode === 'standard' || isInteriorMode) ? stdGeo : defGeo;
+      const wire = new THREE.LineSegments(
+        new THREE.WireframeGeometry(targetGeo),
+        new THREE.LineBasicMaterial({
+          color: 0x94a3b8,
+          transparent: true,
+          opacity: isInteriorMode ? 0.18 : 0.25,
+          clippingPlanes
+        })
+      );
+      wireframeRef.current = wire;
+      scene.add(wire);
     }
+
+    // Add standard and deformed meshes to scene (both persisted for instantaneous or smooth transitions)
+    scene.add(stdMesh);
+    scene.add(defMesh);
 
     // 4. Lacanian Ribbons & Curves: S, I, Hilo Pulsional, Sigma (entrecruzadas en el interior)
     const lacanian = calculateLacanianParameters(sclData, params);
@@ -1251,6 +1363,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
   // Real-time dynamic opacity adjustment for Cc conscious shell in X-Ray mode
   useEffect(() => {
+    previousCcOpacityRef.current = ccOpacity;
     if (viewMode === 'xray_icc' && xrayCcMaterialRef.current) {
       xrayCcMaterialRef.current.opacity = Math.max(0.04, Math.min(1.0, ccOpacity));
       xrayCcMaterialRef.current.needsUpdate = true;
@@ -1702,6 +1815,17 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             <span>Modo: <span className="text-cyan-300">{deformAnimMode === 'loop' ? 'Bucle Continuo' : 'Paso Único'}</span></span>
             <span>Velocidad: <span className="text-amber-300">{deformAnimSpeed}x</span></span>
           </div>
+        </div>
+      )}
+
+      {/* Fluid ViewMode Morphing HUD Badge (active during transition between Standard, X-Ray, etc.) */}
+      {isTransitioningViewMode && (
+        <div className="absolute top-14 right-3.5 pointer-events-auto bg-slate-900/95 backdrop-blur-md border border-cyan-500/70 rounded-lg px-3 py-1.5 shadow-xl text-xs font-mono z-30 flex items-center gap-2 animate-in fade-in duration-150">
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+          <span className="text-cyan-200 font-semibold">Transición Fluida Topológica...</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+            {displayViewMode === 'xray_icc' ? 'Rayos X' : displayViewMode === 'interior_icc' ? 'Interior Icc' : displayViewMode === 'standard' ? 'Estándar' : 'Deformado'}
+          </span>
         </div>
       )}
 
