@@ -13,7 +13,9 @@ import {
   ruptureThresholdGsi,
   PSYCHOTIC_RUPTURE_FACTOR,
   BAREMO_T60_GSI,
-  RibbonMode
+  RibbonMode,
+  updateHornTorusVertices,
+  generatePrccFieldPoints
 } from '../utils/hornTorusMath';
 import { RUPTURE_TIMELINE, RUPTURE_VISUAL_PARAMS, rupturePhaseAt } from '../utils/ruptureSequence';
 import {
@@ -30,7 +32,10 @@ import {
   ArrowRight,
   Radio,
   Scan,
-  Flame
+  Flame,
+  Repeat,
+  Zap,
+  Sliders
 } from 'lucide-react';
 
 /**
@@ -121,10 +126,15 @@ interface HornTorusCanvasProps {
   showPulsion: boolean;
   showCurveSigma: boolean;
   showFantasyPoint: boolean;
+  /** Campo Prcc: lo que entra por la voz (p), concentrado en el embudo del eje y sin borde. */
+  showPrcc?: boolean;
   showRibbons: boolean;
   ccOpacity: number;
+  isAnimatingDeformationExternal?: boolean;
   onCcOpacityChange?: (opacity: number) => void;
   onViewModeChange?: (mode: ViewMode) => void;
+  onDeformationFactorChange?: (factor: number) => void;
+  onToggleDeformationAnimation?: () => void;
   onCapturePng: (type: 'standard' | 'deformed', dataUrl: string) => void;
   ruptureVisual?: RuptureVisualState;
   onRuptureVisualChange?: (state: RuptureVisualState) => void;
@@ -214,8 +224,10 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   showPulsion = true,
   showCurveSigma,
   showFantasyPoint,
+  showPrcc = true,
   showRibbons = true,
   ccOpacity = 0.95,
+  isAnimatingDeformationExternal,
   onCcOpacityChange,
   onViewModeChange,
   onCapturePng,
@@ -230,7 +242,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   onRuptureTimeChange,
   onRupturePlayingChange,
   onRuptureReplay,
-  onResetToStable
+  onResetToStable,
+  onDeformationFactorChange,
+  onToggleDeformationAnimation
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -241,16 +255,19 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   // Mesh refs
   const standardMeshRef = useRef<THREE.Mesh | null>(null);
   const deformedMeshRef = useRef<THREE.Mesh | null>(null);
+  const standardMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
+  const deformedMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
   const wireframeRef = useRef<THREE.LineSegments | null>(null);
   const particlesRef = useRef<THREE.Points | null>(null);
   const clippingPlaneRef = useRef<THREE.Plane | null>(null);
   const interiorLightRef = useRef<THREE.PointLight | null>(null);
 
-  // X-Ray Mode refs (piel externa de la superficie Icc semitransparente & pared interna Prcc)
+  // X-Ray Mode refs (cara externa de la superficie Icc semitransparente & cara interna de la pared)
   const xrayCcMeshRef = useRef<THREE.Mesh | null>(null);
   const xrayIccMeshRef = useRef<THREE.Mesh | null>(null);
   const xrayWireframeRef = useRef<THREE.LineSegments | null>(null);
   const xrayCcMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
+  const xrayIccMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
 
   // Lacanian curves / ribbons & Fantasy point refs
   const curveSRef = useRef<THREE.Object3D | null>(null);
@@ -258,6 +275,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   const curvePulsionRef = useRef<THREE.Object3D | null>(null);
   const curveSigmaRef = useRef<THREE.Object3D | null>(null);
   const fantasyMeshRef = useRef<THREE.Group | null>(null);
+  const prccPointsRef = useRef<THREE.Points | null>(null);
 
   // Hilo Pulsional Directional Flow Vector Field & Dynamic Tracers refs
   const pulsionGroupRef = useRef<THREE.Group | null>(null);
@@ -271,6 +289,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     speeds: Float32Array;
     count: number;
   } | null>(null);
+  // Intrusión éxtima de la Voz (Superyó / Objeto a) refs
+  const voiceConeRef = useRef<THREE.Mesh | null>(null);
+  const voiceRingsRef = useRef<THREE.Mesh[]>([]);
 
   // Temp vectors and matrices for zero-GC 60fps instance updates
   const dummyObjRef = useRef(new THREE.Object3D());
@@ -281,6 +302,26 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   // Interaction state
   const [isRotating, setIsRotating] = useState<boolean>(true);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
+
+  // ViewMode Fluid Transition & Morphing State
+  const [isTransitioningViewMode, setIsTransitioningViewMode] = useState<boolean>(false);
+  const [displayViewMode, setDisplayViewMode] = useState<ViewMode>(viewMode);
+  const viewModeTransitionProgressRef = useRef<number>(1.0);
+  const fromViewModeRef = useRef<ViewMode>(viewMode);
+  const targetViewModeRef = useRef<ViewMode>(viewMode);
+  const transitionDurationRef = useRef<number>(0.65); // 650ms smooth transition
+  const previousCcOpacityRef = useRef<number>(ccOpacity);
+
+  // Trigger smooth transition whenever viewMode prop changes
+  useEffect(() => {
+    if (viewMode !== targetViewModeRef.current) {
+      fromViewModeRef.current = targetViewModeRef.current;
+      targetViewModeRef.current = viewMode;
+      viewModeTransitionProgressRef.current = 0.0;
+      setIsTransitioningViewMode(true);
+      setDisplayViewMode(viewMode);
+    }
+  }, [viewMode]);
 
   // Reactive Prop Synchronizers for the Animation Frame Loop
   const showPulsionRef = useRef(showPulsion);
@@ -437,6 +478,160 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       onRuptureVisualChange?.('ejected');
     }
   }, [ruptureClockProp, rupturePlaying]);
+
+  // Deformation Animation State & Refs
+  const [isAnimatingDeformation, setIsAnimatingDeformation] = useState<boolean>(false);
+  const [animatedDeformFactor, setAnimatedDeformFactor] = useState<number>(params.deformation_factor);
+  const [deformAnimMode, setDeformAnimMode] = useState<'loop' | 'once'>('loop');
+  const [deformAnimSpeed, setDeformAnimSpeed] = useState<number>(1.0);
+  const [showDeformPanel, setShowDeformPanel] = useState<boolean>(false);
+
+  const isAnimatingDeformRef = useRef(false);
+  const deformProgressRef = useRef(params.deformation_factor > 0 ? 1.0 : 0.0);
+  const deformDirectionRef = useRef(1);
+  const deformAnimModeRef = useRef<'loop' | 'once'>('loop');
+  const deformAnimSpeedRef = useRef(1.0);
+  const currentAnimatedDeltaRef = useRef(params.deformation_factor);
+  const targetMaxDeformationRef = useRef(params.deformation_factor > 0.05 ? params.deformation_factor : 0.30);
+  const lastStateSyncTimeRef = useRef(0);
+  const colorMapRef = useRef(colorMap);
+  const onDeformationFactorChangeRef = useRef(onDeformationFactorChange);
+  const onViewModeChangeRef = useRef(onViewModeChange);
+  const onToggleDeformationAnimationRef = useRef(onToggleDeformationAnimation);
+
+  useEffect(() => {
+    colorMapRef.current = colorMap;
+  }, [colorMap]);
+
+  useEffect(() => {
+    onDeformationFactorChangeRef.current = onDeformationFactorChange;
+    onViewModeChangeRef.current = onViewModeChange;
+    onToggleDeformationAnimationRef.current = onToggleDeformationAnimation;
+  }, [onDeformationFactorChange, onViewModeChange, onToggleDeformationAnimation]);
+
+  useEffect(() => {
+    deformAnimModeRef.current = deformAnimMode;
+  }, [deformAnimMode]);
+
+  useEffect(() => {
+    deformAnimSpeedRef.current = deformAnimSpeed;
+  }, [deformAnimSpeed]);
+
+  useEffect(() => {
+    if (!isAnimatingDeformRef.current) {
+      if (params.deformation_factor > 0.05) {
+        targetMaxDeformationRef.current = params.deformation_factor;
+      }
+      currentAnimatedDeltaRef.current = params.deformation_factor;
+      setAnimatedDeformFactor(params.deformation_factor);
+    }
+  }, [params.deformation_factor]);
+
+  // Synchronize external animation trigger from App header if provided
+  useEffect(() => {
+    if (
+      isAnimatingDeformationExternal !== undefined &&
+      isAnimatingDeformationExternal !== isAnimatingDeformRef.current
+    ) {
+      handleToggleDeformationAnimation();
+    }
+  }, [isAnimatingDeformationExternal]);
+
+  const handleToggleDeformationAnimation = () => {
+    const nextState = !isAnimatingDeformRef.current;
+    setIsAnimatingDeformation(nextState);
+    isAnimatingDeformRef.current = nextState;
+
+    if (nextState) {
+      // If at end or near top, restart from 0
+      if (deformProgressRef.current >= 0.99) {
+        deformProgressRef.current = 0.0;
+        deformDirectionRef.current = 1;
+      }
+      // Ensure deformed or xray view is active so the morphing is clearly visible
+      if (viewModeRef.current === 'standard' && onViewModeChangeRef.current) {
+        onViewModeChangeRef.current('deformed');
+      }
+    } else {
+      // Paused: sync final deformation factor to parent
+      if (onDeformationFactorChangeRef.current) {
+        onDeformationFactorChangeRef.current(currentAnimatedDeltaRef.current);
+      }
+    }
+
+    if (onToggleDeformationAnimationRef.current) {
+      onToggleDeformationAnimationRef.current();
+    }
+  };
+
+  const handleResetToStandard = () => {
+    isAnimatingDeformRef.current = false;
+    setIsAnimatingDeformation(false);
+    deformProgressRef.current = 0.0;
+    deformDirectionRef.current = 1;
+    currentAnimatedDeltaRef.current = 0.0;
+    setAnimatedDeformFactor(0.0);
+
+    if (deformedMeshRef.current) {
+      const geo = deformedMeshRef.current.geometry;
+      updateHornTorusVertices(
+        geo.attributes.position.array as Float32Array,
+        geo.attributes.normal.array as Float32Array,
+        geo.attributes.color.array as Float32Array,
+        paramsRef.current,
+        sclDataRef.current,
+        0.0,
+        colorMapRef.current
+      );
+      geo.attributes.position.needsUpdate = true;
+      geo.attributes.normal.needsUpdate = true;
+      geo.attributes.color.needsUpdate = true;
+    }
+    if (onDeformationFactorChangeRef.current) {
+      onDeformationFactorChangeRef.current(0.0);
+    }
+  };
+
+  const handleSetToDeformed = () => {
+    isAnimatingDeformRef.current = false;
+    setIsAnimatingDeformation(false);
+    deformProgressRef.current = 1.0;
+    deformDirectionRef.current = -1;
+    const target = targetMaxDeformationRef.current > 0.05 ? targetMaxDeformationRef.current : 0.30;
+    currentAnimatedDeltaRef.current = target;
+    setAnimatedDeformFactor(target);
+
+    if (deformedMeshRef.current) {
+      const geo = deformedMeshRef.current.geometry;
+      updateHornTorusVertices(
+        geo.attributes.position.array as Float32Array,
+        geo.attributes.normal.array as Float32Array,
+        geo.attributes.color.array as Float32Array,
+        paramsRef.current,
+        sclDataRef.current,
+        target,
+        colorMapRef.current
+      );
+      geo.attributes.position.needsUpdate = true;
+      geo.attributes.normal.needsUpdate = true;
+      geo.attributes.color.needsUpdate = true;
+    }
+    if (onDeformationFactorChangeRef.current) {
+      onDeformationFactorChangeRef.current(target);
+    }
+  };
+
+  const handleRestartDeformTransition = () => {
+    deformProgressRef.current = 0.0;
+    deformDirectionRef.current = 1;
+    currentAnimatedDeltaRef.current = 0.0;
+    setAnimatedDeformFactor(0.0);
+    isAnimatingDeformRef.current = true;
+    setIsAnimatingDeformation(true);
+    if (viewModeRef.current === 'standard' && onViewModeChangeRef.current) {
+      onViewModeChangeRef.current('deformed');
+    }
+  };
 
   // Camera spherical angles
   const rotationAngles = useRef({ theta: 0.65, phi: 0.75, radius: 9.0 });
@@ -650,6 +845,174 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         voiceGroupRef.current.visible = false;
       }
 
+      // Smooth Deformation Animation: Transitions Horn Torus between Standard Geometric shape (delta=0) and Deformed state
+      if (isAnimatingDeformRef.current) {
+        const speed = deformAnimSpeedRef.current;
+        // Base transition duration: 2.8s at 1.0x speed
+        const progressStep = (delta / 2.8) * speed;
+
+        if (deformAnimModeRef.current === 'loop') {
+          deformProgressRef.current += progressStep * deformDirectionRef.current;
+          if (deformProgressRef.current >= 1.0) {
+            deformProgressRef.current = 1.0;
+            deformDirectionRef.current = -1;
+          } else if (deformProgressRef.current <= 0.0) {
+            deformProgressRef.current = 0.0;
+            deformDirectionRef.current = 1;
+          }
+        } else {
+          deformProgressRef.current += progressStep;
+          if (deformProgressRef.current >= 1.0) {
+            deformProgressRef.current = 1.0;
+            isAnimatingDeformRef.current = false;
+            setIsAnimatingDeformation(false);
+            if (onToggleDeformationAnimationRef.current) {
+              onToggleDeformationAnimationRef.current();
+            }
+          }
+        }
+
+        const t = Math.max(0.0, Math.min(1.0, deformProgressRef.current));
+        // Sine ease-in-out interpolation: smooth acceleration & deceleration
+        const easedT = 0.5 * (1.0 - Math.cos(Math.PI * t));
+        const maxDelta = Math.max(0.15, targetMaxDeformationRef.current);
+        const animatedDelta = easedT * maxDelta;
+        currentAnimatedDeltaRef.current = animatedDelta;
+
+        // In-place 60 FPS update of 3D geometry buffers
+        if (deformedMeshRef.current) {
+          const geo = deformedMeshRef.current.geometry;
+          const posAttr = geo.attributes.position as THREE.BufferAttribute;
+          const normAttr = geo.attributes.normal as THREE.BufferAttribute;
+          const colAttr = geo.attributes.color as THREE.BufferAttribute;
+          if (posAttr && normAttr && colAttr) {
+            updateHornTorusVertices(
+              posAttr.array as Float32Array,
+              normAttr.array as Float32Array,
+              colAttr.array as Float32Array,
+              paramsRef.current,
+              sclDataRef.current,
+              animatedDelta,
+              colorMapRef.current
+            );
+            posAttr.needsUpdate = true;
+            normAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+          }
+        }
+
+        if (xrayCcMeshRef.current && deformedMeshRef.current) {
+          const geo = xrayCcMeshRef.current.geometry;
+          if (geo.attributes.position) {
+            geo.attributes.position.needsUpdate = true;
+            geo.attributes.normal.needsUpdate = true;
+            geo.attributes.color.needsUpdate = true;
+          }
+        }
+        if (xrayIccMeshRef.current && deformedMeshRef.current) {
+          const geo = xrayIccMeshRef.current.geometry;
+          if (geo.attributes.position) {
+            geo.attributes.position.needsUpdate = true;
+            geo.attributes.normal.needsUpdate = true;
+            geo.attributes.color.needsUpdate = true;
+          }
+        }
+
+        // Throttled UI state synchronization (~18 fps)
+        if (currentTime - lastStateSyncTimeRef.current > 55 || !isAnimatingDeformRef.current) {
+          lastStateSyncTimeRef.current = currentTime;
+          setAnimatedDeformFactor(animatedDelta);
+          if (onDeformationFactorChangeRef.current) {
+            onDeformationFactorChangeRef.current(animatedDelta);
+          }
+        }
+      }
+
+      // Smooth Fluid ViewMode Transition (Morphing / Cross-Fading between Standard, Deformed, X-Ray, Interior, etc.)
+      if (viewModeTransitionProgressRef.current < 1.0) {
+        viewModeTransitionProgressRef.current += delta / transitionDurationRef.current;
+        if (viewModeTransitionProgressRef.current >= 1.0) {
+          viewModeTransitionProgressRef.current = 1.0;
+          setIsTransitioningViewMode(false);
+        }
+
+        const t = Math.max(0.0, Math.min(1.0, viewModeTransitionProgressRef.current));
+        // Smooth Hermite / S-Curve Ease-in-out: 3t^2 - 2t^3
+        const smoothT = t * t * (3.0 - 2.0 * t);
+
+        const fromMode = fromViewModeRef.current;
+        const toMode = targetViewModeRef.current;
+
+        // Determine target base opacities according to mode specifications
+        const getModeOpacities = (m: ViewMode) => {
+          const isXRay = m === 'xray_icc';
+          const isInt = m === 'interior_icc';
+          const isStd = m === 'standard';
+          const isDef = m === 'deformed' || m === 'cross_section';
+          const isComp = m === 'comparison';
+
+          const userCc = previousCcOpacityRef.current;
+          const xrayCcTarget = isXRay ? Math.max(0.04, Math.min(1.0, userCc)) : 0.0;
+          const xrayIccTarget = isXRay ? 0.36 : 0.0;
+          const stdTarget = (isStd || isInt) ? (isInt ? Math.min(userCc, 0.22) : (isComp ? 0.35 : userCc)) : 0.0;
+          const defTarget = isDef ? userCc : (isComp ? userCc : 0.0);
+          const wireCcTarget = isXRay ? Math.max(0.06, Math.min(0.40, userCc * 0.45 + 0.08)) : 0.0;
+
+          return { xrayCcTarget, xrayIccTarget, stdTarget, defTarget, wireCcTarget };
+        };
+
+        const fromVals = getModeOpacities(fromMode);
+        const toVals = getModeOpacities(toMode);
+
+        const currentStdOpacity = fromVals.stdTarget + (toVals.stdTarget - fromVals.stdTarget) * smoothT;
+        const currentDefOpacity = fromVals.defTarget + (toVals.defTarget - fromVals.defTarget) * smoothT;
+        const currentXrayCcOpacity = fromVals.xrayCcTarget + (toVals.xrayCcTarget - fromVals.xrayCcTarget) * smoothT;
+        const currentXrayIccOpacity = fromVals.xrayIccTarget + (toVals.xrayIccTarget - fromVals.xrayIccTarget) * smoothT;
+        const currentWireOpacity = fromVals.wireCcTarget + (toVals.wireCcTarget - fromVals.wireCcTarget) * smoothT;
+
+        // Apply dynamic interpolated opacity and visibility to Standard Torus mesh
+        if (standardMeshRef.current && standardMaterialRef.current) {
+          standardMaterialRef.current.opacity = currentStdOpacity;
+          standardMeshRef.current.visible = currentStdOpacity > 0.005;
+        }
+
+        // Apply dynamic interpolated opacity and visibility to Deformed Torus mesh
+        if (deformedMeshRef.current && deformedMaterialRef.current) {
+          deformedMaterialRef.current.opacity = currentDefOpacity;
+          deformedMeshRef.current.visible = currentDefOpacity > 0.005;
+        }
+
+        // Apply dynamic interpolated opacity and visibility to X-Ray Cc Outer Shell
+        if (xrayCcMeshRef.current && xrayCcMaterialRef.current) {
+          xrayCcMaterialRef.current.opacity = currentXrayCcOpacity;
+          xrayCcMeshRef.current.visible = currentXrayCcOpacity > 0.005;
+        }
+
+        // Apply dynamic interpolated opacity and visibility to X-Ray Outer Structural Wireframe
+        if (xrayWireframeRef.current) {
+          const wireMat = xrayWireframeRef.current.material as THREE.LineBasicMaterial;
+          wireMat.opacity = currentWireOpacity;
+          xrayWireframeRef.current.visible = currentWireOpacity > 0.005;
+        }
+
+        // Apply dynamic interpolated opacity and visibility to X-Ray Icc Inner Core
+        if (xrayIccMeshRef.current && xrayIccMaterialRef.current) {
+          xrayIccMaterialRef.current.opacity = currentXrayIccOpacity;
+          xrayIccMeshRef.current.visible = currentXrayIccOpacity > 0.005;
+        }
+
+        // Dynamic light transition
+        if (interiorLightRef.current) {
+          const isFromGlow = fromMode === 'xray_icc' || fromMode === 'interior_icc';
+          const isToGlow = toMode === 'xray_icc' || toMode === 'interior_icc';
+          const fromIntensity = isFromGlow ? (fromMode === 'xray_icc' ? 3.0 : 2.2) : 0.0;
+          const toIntensity = isToGlow ? (toMode === 'xray_icc' ? 3.0 : 2.2) : 0.0;
+          const currentIntensity = fromIntensity + (toIntensity - fromIntensity) * smoothT;
+          interiorLightRef.current.intensity = currentIntensity;
+          interiorLightRef.current.visible = currentIntensity > 0.05;
+        }
+      }
+
       // Update particle vortex flow
       if (particlesRef.current && showVortexFlowRef.current) {
         particlesRef.current.visible = true;
@@ -729,7 +1092,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             const visualScale = 25.0;
             const effectiveA = lac.a * visualScale;
             const isDeform = (viewModeRef.current === 'deformed' || viewModeRef.current === 'comparison');
-            const effectiveDeform = isDeform ? paramsRef.current.deformation_factor : 0.0;
+            const effectiveDeform = isDeform
+              ? (isAnimatingDeformRef.current ? currentAnimatedDeltaRef.current : paramsRef.current.deformation_factor)
+              : 0.0;
             const phi_I = lac.v_I % (2 * Math.PI);
 
             for (let i = 0; i < count; i++) {
@@ -739,9 +1104,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               v[i] += delta * spd * 1.65 * throatFactor;
               u[i] += delta * spd * 1.15;
 
-              // Constrained to the interior surface v in [pi/2, 3*pi/2]
-              if (v[i] > Math.PI * 1.5) {
-                v[i] = Math.PI * 0.5 + Math.random() * 0.25;
+              // Monismo de superficie: los VR circulan sobre toda la variedad del Icc (v in [0, 2*pi])
+              if (v[i] > Math.PI * 2) {
+                v[i] -= Math.PI * 2;
                 u[i] = Math.random() * 2 * Math.PI;
               }
               if (u[i] > Math.PI * 2) {
@@ -805,6 +1170,30 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             pointsAttr.needsUpdate = true;
             linesAttr.needsUpdate = true;
           }
+
+          // 3. Animate Extimate Voice Intrusion Waves (Pulsión Voz / Superyó descending along Z into the cusp)
+          if (voiceConeRef.current && voiceRingsRef.current.length > 0) {
+            const host = sclDataRef.current['Hostilidad'] ?? 0.6;
+            const psy = sclDataRef.current['Psicoticismo'] ?? 0.8;
+            const voicePulse = 1.0 + 0.30 * Math.sin(timeSec * (4.2 + 2.0 * host));
+
+            // Pulsate voice cone scale along radial and vertical dimensions
+            voiceConeRef.current.scale.set(voicePulse, voicePulse, 1.0 + 0.15 * Math.sin(timeSec * 3.0));
+
+            // Animate rings descending into the cusp (0, 0, 0)
+            voiceRingsRef.current.forEach((ring, idx) => {
+              const phase = (timeSec * 0.9 + idx * 0.33) % 1.0;
+              // Z position descends along central funnel toward the singularity
+              const currentZ = 1.4 - phase * 1.3;
+              ring.position.z = currentZ;
+              const currentScale = 0.3 + phase * 0.75;
+              ring.scale.set(currentScale, currentScale, currentScale);
+              const mat = ring.material as THREE.MeshBasicMaterial;
+              if (mat) {
+                mat.opacity = Math.sin(phase * Math.PI) * (0.55 + 0.35 * psy);
+              }
+            });
+          }
         } else {
           pulsionGroupRef.current.visible = false;
         }
@@ -867,6 +1256,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
+    if (isAnimatingDeformRef.current) return;
 
     // Clean up previous meshes
     if (standardMeshRef.current) scene.remove(standardMeshRef.current);
@@ -881,6 +1271,12 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     if (pulsionGroupRef.current) scene.remove(pulsionGroupRef.current);
     if (curveSigmaRef.current) scene.remove(curveSigmaRef.current);
     if (fantasyMeshRef.current) scene.remove(fantasyMeshRef.current);
+    if (prccPointsRef.current) {
+      scene.remove(prccPointsRef.current);
+      prccPointsRef.current.geometry.dispose();
+      (prccPointsRef.current.material as THREE.Material).dispose();
+      prccPointsRef.current = null;
+    }
     if (interiorLightRef.current) scene.remove(interiorLightRef.current);
 
     const isCut = viewMode === 'cross_section';
@@ -919,12 +1315,16 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       side: THREE.DoubleSide,
       clippingPlanes,
       clipShadows: true,
-      transparent: isTranslucent,
-      opacity: isInteriorMode ? effectiveCcOpacity : (viewMode === 'comparison' ? 0.35 : effectiveCcOpacity),
+      transparent: true,
+      opacity: (viewMode === 'standard' || isInteriorMode)
+        ? (isInteriorMode ? Math.min(effectiveCcOpacity, 0.22) : effectiveCcOpacity)
+        : (viewMode === 'comparison' ? 0.35 : 0.0),
       depthWrite: !isTranslucent,
       wireframe: false
     });
+    standardMaterialRef.current = stdMat;
     const stdMesh = new THREE.Mesh(stdGeo, stdMat);
+    stdMesh.visible = (viewMode === 'standard' || isInteriorMode || viewMode === 'comparison');
     standardMeshRef.current = stdMesh;
 
     // 2. Deformed Horn Torus Geometry
@@ -945,112 +1345,111 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       side: THREE.DoubleSide,
       clippingPlanes,
       clipShadows: true,
-      transparent: isTranslucent,
-      opacity: isInteriorMode ? effectiveCcOpacity : effectiveCcOpacity,
+      transparent: true,
+      opacity: (viewMode === 'deformed' || viewMode === 'cross_section' || viewMode === 'comparison')
+        ? effectiveCcOpacity
+        : 0.0,
       depthWrite: !isTranslucent,
       wireframe: false
     });
+    deformedMaterialRef.current = defMat;
     const defMesh = new THREE.Mesh(defGeo, defMat);
+    defMesh.visible = (viewMode === 'deformed' || viewMode === 'cross_section' || viewMode === 'comparison');
     deformedMeshRef.current = defMesh;
 
-    // Surface and X-Ray Configuration
-    if (isXRayMode) {
-      // Vista de Rayos X: la MISMA superficie Icc se muestra partida en dos caras.
-      // Piel externa (la cara que mira afuera, hacia la Cc) semitransparente con sutil carcasa holográfica.
-      const targetData = (params.deformation_factor > 0 ? defData : stdData);
-      const xrayCcGeo = new THREE.BufferGeometry();
-      xrayCcGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
-      xrayCcGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
-      xrayCcGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
-      xrayCcGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
-      xrayCcGeo.setIndex(new THREE.BufferAttribute(targetData.outerFaceIndices, 1));
+    // Surface and X-Ray Configuration:
+    // We instantiate both the Standard/Deformed surfaces AND the X-Ray components
+    // so mode changes cross-fade smoothly at 60 FPS without destroying/recreating meshes.
+    const targetData = (params.deformation_factor > 0 ? defData : stdData);
+    const xrayCcGeo = new THREE.BufferGeometry();
+    xrayCcGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
+    xrayCcGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
+    xrayCcGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
+    xrayCcGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
+    xrayCcGeo.setIndex(new THREE.BufferAttribute(targetData.outerFaceIndices, 1));
 
-      const xrayCcMat = new THREE.MeshPhysicalMaterial({
-        vertexColors: true,
-        color: 0x38bdf8,
-        metalness: 0.12,
-        roughness: 0.20,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.1,
-        transparent: true,
-        opacity: effectiveCcOpacity,
-        depthWrite: false, // Fundamental: evita oclusión Z de las cintas interiores
-        side: THREE.DoubleSide,
-        clippingPlanes,
-        clipShadows: true
-      });
-      xrayCcMaterialRef.current = xrayCcMat;
+    const xrayCcMat = new THREE.MeshPhysicalMaterial({
+      vertexColors: true,
+      color: 0x38bdf8,
+      metalness: 0.12,
+      roughness: 0.20,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.1,
+      transparent: true,
+      opacity: isXRayMode ? effectiveCcOpacity : 0.0,
+      depthWrite: false, // Fundamental: evita oclusión Z de las cintas interiores
+      side: THREE.DoubleSide,
+      clippingPlanes,
+      clipShadows: true
+    });
+    xrayCcMaterialRef.current = xrayCcMat;
 
-      const xrayCcMesh = new THREE.Mesh(xrayCcGeo, xrayCcMat);
-      xrayCcMesh.renderOrder = 10;
-      xrayCcMeshRef.current = xrayCcMesh;
-      scene.add(xrayCcMesh);
+    const xrayCcMesh = new THREE.Mesh(xrayCcGeo, xrayCcMat);
+    xrayCcMesh.renderOrder = 10;
+    xrayCcMesh.visible = isXRayMode;
+    xrayCcMeshRef.current = xrayCcMesh;
+    scene.add(xrayCcMesh);
 
-      // Crystalline structural wireframe outlining the conscious outer shell
-      const wireCcGeo = new THREE.WireframeGeometry(xrayCcGeo);
-      const wireCcMat = new THREE.LineBasicMaterial({
-        color: 0x38bdf8,
-        transparent: true,
-        opacity: Math.max(0.06, Math.min(0.40, effectiveCcOpacity * 0.45 + 0.08)),
-        clippingPlanes
-      });
-      const xrayWire = new THREE.LineSegments(wireCcGeo, wireCcMat);
-      xrayWire.renderOrder = 11;
-      xrayWireframeRef.current = xrayWire;
-      scene.add(xrayWire);
+    // Crystalline structural wireframe outlining the conscious outer shell
+    const wireCcGeo = new THREE.WireframeGeometry(xrayCcGeo);
+    const wireCcMat = new THREE.LineBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: isXRayMode ? Math.max(0.06, Math.min(0.40, effectiveCcOpacity * 0.45 + 0.08)) : 0.0,
+      clippingPlanes
+    });
+    const xrayWire = new THREE.LineSegments(wireCcGeo, wireCcMat);
+    xrayWire.renderOrder = 11;
+    xrayWire.visible = isXRayMode;
+    xrayWireframeRef.current = xrayWire;
+    scene.add(xrayWire);
 
-      // Pared interna Prcc (espesor de la pared): cara que mira al volumen interior,
-      // convergiendo a la cúspide singular v = π. La superficie SIEMPRE es Icc.
-      const xrayIccGeo = new THREE.BufferGeometry();
-      xrayIccGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
-      xrayIccGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
-      xrayIccGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
-      xrayIccGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
-      xrayIccGeo.setIndex(new THREE.BufferAttribute(targetData.prccIndices, 1));
+    // Cara interna de la pared (la que mira al volumen), convergiendo a p (v = π). La superficie SIEMPRE es Icc.
+    const xrayIccGeo = new THREE.BufferGeometry();
+    xrayIccGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
+    xrayIccGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
+    xrayIccGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
+    xrayIccGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
+    xrayIccGeo.setIndex(new THREE.BufferAttribute(targetData.prccIndices, 1));
 
-      const xrayIccMat = new THREE.MeshPhysicalMaterial({
-        vertexColors: true,
-        metalness: 0.25,
-        roughness: 0.35,
-        clearcoat: 0.5,
-        transparent: true,
-        opacity: 0.36,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        clippingPlanes,
-        clipShadows: true
-      });
-      const xrayIccMesh = new THREE.Mesh(xrayIccGeo, xrayIccMat);
-      xrayIccMesh.renderOrder = 1;
-      xrayIccMeshRef.current = xrayIccMesh;
-      scene.add(xrayIccMesh);
-    } else {
-      // 3. Wireframe Overlay
-      if (showWireframe) {
-        const targetGeo = (viewMode === 'standard' || isInteriorMode) ? stdGeo : defGeo;
-        const wire = new THREE.LineSegments(
-          new THREE.WireframeGeometry(targetGeo),
-          new THREE.LineBasicMaterial({
-            color: 0x94a3b8,
-            transparent: true,
-            opacity: isInteriorMode ? 0.18 : 0.25,
-            clippingPlanes
-          })
-        );
-        wireframeRef.current = wire;
-        scene.add(wire);
-      }
+    const xrayIccMat = new THREE.MeshPhysicalMaterial({
+      vertexColors: true,
+      metalness: 0.25,
+      roughness: 0.35,
+      clearcoat: 0.5,
+      transparent: true,
+      opacity: isXRayMode ? 0.36 : 0.0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      clippingPlanes,
+      clipShadows: true
+    });
+    xrayIccMaterialRef.current = xrayIccMat;
+    const xrayIccMesh = new THREE.Mesh(xrayIccGeo, xrayIccMat);
+    xrayIccMesh.renderOrder = 1;
+    xrayIccMesh.visible = isXRayMode;
+    xrayIccMeshRef.current = xrayIccMesh;
+    scene.add(xrayIccMesh);
 
-      // Add surface to scene
-      if (viewMode === 'standard' || isInteriorMode) {
-        scene.add(stdMesh);
-      } else if (viewMode === 'deformed' || viewMode === 'cross_section') {
-        scene.add(defMesh);
-      } else if (viewMode === 'comparison') {
-        scene.add(stdMesh);
-        scene.add(defMesh);
-      }
+    // 3. Wireframe Overlay
+    if (showWireframe) {
+      const targetGeo = (viewMode === 'standard' || isInteriorMode) ? stdGeo : defGeo;
+      const wire = new THREE.LineSegments(
+        new THREE.WireframeGeometry(targetGeo),
+        new THREE.LineBasicMaterial({
+          color: 0x94a3b8,
+          transparent: true,
+          opacity: isInteriorMode ? 0.18 : 0.25,
+          clippingPlanes
+        })
+      );
+      wireframeRef.current = wire;
+      scene.add(wire);
     }
+
+    // Add standard and deformed meshes to scene (both persisted for instantaneous or smooth transitions)
+    scene.add(stdMesh);
+    scene.add(defMesh);
 
     // 4. Lacanian Ribbons & Curves: S, I, Hilo Pulsional, Sigma (entrecruzadas en el interior)
     // Tras la ruptura psicótica, la reconfiguración ('covered') persiste en las
@@ -1174,8 +1573,8 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
       for (let i = 0; i < tracerCount; i++) {
         tracerU[i] = Math.random() * 2 * Math.PI;
-        // Interior surface domain: v in [pi/2, 3*pi/2]
-        tracerV[i] = Math.PI * 0.5 + Math.random() * Math.PI;
+        // Monismo de superficie: los VR cubren toda la variedad del Icc (v in [0, 2*pi])
+        tracerV[i] = Math.random() * 2 * Math.PI;
         tracerSpeeds[i] = 0.45 + Math.random() * 0.55;
       }
       pulsionTracersStateRef.current = {
@@ -1215,6 +1614,41 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       const tracersPoints = new THREE.Points(pointsGeo, pointsMat);
       pulsionGroup.add(tracersPoints);
       pulsionTracersPointsRef.current = tracersPoints;
+
+      // 4. Intrusión Éxtima de la Pulsión Voz (Superyó / Objeto a):
+      // El único "afuera" que contacta con el toro es la Voz penetrando verticalmente por el eje central hacia el origen (v = pi).
+      const voiceConeGeo = new THREE.ConeGeometry(0.38, 1.4, 24, 1, true);
+      voiceConeGeo.rotateX(Math.PI / 2); // Apunta hacia el centro singular (0, 0, 0)
+      const voiceConeMat = new THREE.MeshBasicMaterial({
+        color: 0xec4899,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.55,
+        side: THREE.DoubleSide,
+        clippingPlanes
+      });
+      const voiceCone = new THREE.Mesh(voiceConeGeo, voiceConeMat);
+      voiceCone.position.set(0, 0, 0.95);
+      pulsionGroup.add(voiceCone);
+      voiceConeRef.current = voiceCone;
+
+      // Ondas acústicas concéntricas descendiendo hacia la cúspide
+      const waveRings: THREE.Mesh[] = [];
+      for (let w = 0; w < 3; w++) {
+        const ringGeo = new THREE.RingGeometry(0.12 + w * 0.1, 0.16 + w * 0.1, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xf43f5e,
+          transparent: true,
+          opacity: 0.65,
+          side: THREE.DoubleSide,
+          clippingPlanes
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.set(0, 0, 0.45 + w * 0.35);
+        pulsionGroup.add(ringMesh);
+        waveRings.push(ringMesh);
+      }
+      voiceRingsRef.current = waveRings;
 
       pulsionGroup.visible = showPulsion;
       if (isXRayMode) pulsionGroup.renderOrder = 6;
@@ -1282,6 +1716,39 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       scene.add(fantasyGroup);
     }
 
+    // 6. Campo Prcc (tesis V22, AXIOMA): lo que entra por la voz. Nube de puntos fuera
+    // del volumen interior, más densa en el embudo del eje alrededor de p y sin borde
+    // (se degrada con la distancia). El brillo de cada punto sigue la intensidad del campo.
+    // En la escena, el eje de revolución es z y p está en el origen.
+    if (showPrcc) {
+      const R = lacanian.a * 25.0;
+      const { positions, intensities } = generatePrccFieldPoints(R, 1800);
+      const cols = new Float32Array(positions.length);
+      const base = new THREE.Color(0x2bb5c0);
+      for (let k = 0; k < intensities.length; k++) {
+        const f = 0.25 + 0.75 * intensities[k];
+        cols[k * 3] = base.r * f;
+        cols[k * 3 + 1] = base.g * f;
+        cols[k * 3 + 2] = base.b * f;
+      }
+      const prccGeo = new THREE.BufferGeometry();
+      prccGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      prccGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      const prccMat = new THREE.PointsMaterial({
+        size: Math.max(0.035, R * 0.018),
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        clippingPlanes
+      });
+      const prccPoints = new THREE.Points(prccGeo, prccMat);
+      prccPoints.renderOrder = 2;
+      prccPointsRef.current = prccPoints;
+      scene.add(prccPoints);
+    }
+
     // Auto-encuadre durante la ruptura (esfera envolvente real; se respeta el zoom
     // manual: rueda o 'Ver orificio' no se pisan).
     if (ruptureVisual !== 'idle' && !userCameraRef.current) autoFrameRupture();
@@ -1296,6 +1763,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     showPulsion,
     showCurveSigma,
     showFantasyPoint,
+    showPrcc,
     showRibbons,
     ccOpacity,
     ruptureVisual
@@ -1303,6 +1771,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
   // Real-time dynamic opacity adjustment for the outer skin of the Icc surface in X-Ray mode
   useEffect(() => {
+    previousCcOpacityRef.current = ccOpacity;
     if (viewMode === 'xray_icc' && xrayCcMaterialRef.current) {
       xrayCcMaterialRef.current.opacity = Math.max(0.04, Math.min(1.0, ccOpacity));
       xrayCcMaterialRef.current.needsUpdate = true;
@@ -1451,7 +1920,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               </span>
               <span className="text-slate-500">|</span>
               <span className="text-emerald-300 font-mono">
-                Pared interna Prcc visible
+                Cara interna de la pared visible
               </span>
             </>
           ) : viewMode === 'interior_icc' ? (
@@ -1630,6 +2099,148 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             </button>
           )}
 
+          {/* Deformation Animation Controls */}
+          <div className="relative flex items-center">
+            <button
+              id="btn-animate-deformation"
+              onClick={handleToggleDeformationAnimation}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+                isAnimatingDeformation
+                  ? 'bg-amber-500 text-slate-950 border border-amber-300 ring-2 ring-amber-400/40 animate-pulse'
+                  : 'bg-amber-950/80 hover:bg-amber-900 text-amber-200 border border-amber-700/80 hover:border-amber-500'
+              }`}
+              title="Animar la transición suave del parámetro 'deformation_factor' desde el toro geométrico estándar (δ=0) hasta el estado deformado psicométrico"
+            >
+              {isAnimatingDeformation ? (
+                <Pause className="w-3.5 h-3.5 text-slate-950 fill-current" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              )}
+              <span>
+                {isAnimatingDeformation
+                  ? `Pausar (δ: ${animatedDeformFactor.toFixed(2)})`
+                  : `Animar δ (${animatedDeformFactor.toFixed(2)})`}
+              </span>
+            </button>
+
+            <button
+              id="btn-deformation-settings-toggle"
+              onClick={() => setShowDeformPanel(!showDeformPanel)}
+              className={`ml-0.5 p-1.5 rounded-md border text-xs transition-colors ${
+                showDeformPanel
+                  ? 'bg-amber-900 text-amber-200 border-amber-600'
+                  : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border-slate-700'
+              }`}
+              title="Ajustes de animación: velocidad, modo bucle/único, saltos directos a δ=0 y δ nominal"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Floating Dropdown / Settings Panel for Deformation Animation */}
+            {showDeformPanel && (
+              <div className="absolute top-full mt-1.5 right-0 bg-slate-900/98 backdrop-blur-md border border-amber-500/60 rounded-xl p-3 shadow-2xl text-xs font-mono text-slate-200 z-50 w-72 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                  <span className="font-semibold text-amber-300 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    Transición deformation_factor (δ)
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-200 border border-amber-800">
+                    δ: {animatedDeformFactor.toFixed(3)}
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>Estándar (δ=0.0)</span>
+                    <span>Deformado (δ={targetMaxDeformationRef.current.toFixed(2)})</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-400 via-amber-400 to-rose-500 rounded-full transition-all duration-75"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, (animatedDeformFactor / (targetMaxDeformationRef.current || 0.3)) * 100))}%`
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Mode Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400">Modo de Animación:</label>
+                  <div className="grid grid-cols-2 gap-1 text-[11px]">
+                    <button
+                      onClick={() => setDeformAnimMode('loop')}
+                      className={`py-1 px-2 rounded border flex items-center justify-center gap-1 transition-colors ${
+                        deformAnimMode === 'loop'
+                          ? 'bg-amber-950 text-amber-200 border-amber-600 font-semibold'
+                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <Repeat className="w-3 h-3" />
+                      <span>Bucle Continuo</span>
+                    </button>
+                    <button
+                      onClick={() => setDeformAnimMode('once')}
+                      className={`py-1 px-2 rounded border flex items-center justify-center gap-1 transition-colors ${
+                        deformAnimMode === 'once'
+                          ? 'bg-amber-950 text-amber-200 border-amber-600 font-semibold'
+                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <span>Transición 1x</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Speed Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400">Velocidad de Morfología:</label>
+                  <div className="grid grid-cols-3 gap-1 text-[10px]">
+                    {[0.5, 1.0, 2.0].map((spd) => (
+                      <button
+                        key={spd}
+                        onClick={() => setDeformAnimSpeed(spd)}
+                        className={`py-1 rounded border transition-colors ${
+                          deformAnimSpeed === spd
+                            ? 'bg-cyan-950 text-cyan-200 border-cyan-500 font-semibold'
+                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                        }`}
+                      >
+                        {spd}x {spd === 0.5 ? '(Lento)' : spd === 2.0 ? '(Rápido)' : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Instant Jump & Replay buttons */}
+                <div className="pt-1 border-t border-slate-800 flex items-center justify-between gap-1 text-[10px]">
+                  <button
+                    onClick={handleResetToStandard}
+                    className="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors text-center"
+                    title="Fijar δ = 0 inmediatamente (Toro Estándar puro)"
+                  >
+                    δ = 0 (Estándar)
+                  </button>
+                  <button
+                    onClick={handleRestartDeformTransition}
+                    className="flex-1 py-1 rounded bg-amber-950 hover:bg-amber-900 text-amber-200 border border-amber-700 transition-colors text-center font-medium"
+                    title="Reiniciar morfología suave desde 0 hasta el valor deformado"
+                  >
+                    0 ➔ δ (Animar)
+                  </button>
+                  <button
+                    onClick={handleSetToDeformed}
+                    className="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors text-center"
+                    title="Fijar δ = nominal (Deformado clínico)"
+                  >
+                    δ = Nominal
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             id="toggle-rotation-btn"
             onClick={() => setIsRotating(!isRotating)}
@@ -1680,6 +2291,54 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         </div>
       </div>
 
+      {/* Live Deformation Morphing HUD Indicator when animation is active */}
+      {isAnimatingDeformation && (
+        <div className="absolute top-14 left-3.5 pointer-events-auto bg-slate-900/95 backdrop-blur-md border border-amber-500/80 rounded-xl p-2.5 shadow-2xl text-xs font-mono z-30 max-w-xs animate-in fade-in duration-200 space-y-1.5">
+          <div className="flex items-center justify-between text-amber-300 font-bold border-b border-slate-800 pb-1.5">
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+              <span>Morfología Psicométrica Activa</span>
+            </span>
+            <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-200 border border-amber-700 text-[10px]">
+              δ = {animatedDeformFactor.toFixed(3)}
+            </span>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex justify-between text-[9.5px] text-slate-400">
+              <span className={animatedDeformFactor < 0.05 ? 'text-cyan-300 font-bold' : ''}>Toro Estándar (δ=0)</span>
+              <span className={animatedDeformFactor > (targetMaxDeformationRef.current || 0.3) * 0.95 ? 'text-rose-400 font-bold' : ''}>
+                Deformado (δ={(targetMaxDeformationRef.current || 0.3).toFixed(2)})
+              </span>
+            </div>
+            <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-400 via-amber-400 to-rose-500 rounded-full transition-all duration-75"
+                style={{
+                  width: `${Math.min(100, Math.max(0, (animatedDeformFactor / (targetMaxDeformationRef.current || 0.3)) * 100))}%`
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-[9.5px] text-slate-400 pt-0.5 border-t border-slate-800/80">
+            <span>Modo: <span className="text-cyan-300">{deformAnimMode === 'loop' ? 'Bucle Continuo' : 'Paso Único'}</span></span>
+            <span>Velocidad: <span className="text-amber-300">{deformAnimSpeed}x</span></span>
+          </div>
+        </div>
+      )}
+
+      {/* Fluid ViewMode Morphing HUD Badge (active during transition between Standard, X-Ray, etc.) */}
+      {isTransitioningViewMode && (
+        <div className="absolute top-14 right-3.5 pointer-events-auto bg-slate-900/95 backdrop-blur-md border border-cyan-500/70 rounded-lg px-3 py-1.5 shadow-xl text-xs font-mono z-30 flex items-center gap-2 animate-in fade-in duration-150">
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+          <span className="text-cyan-200 font-semibold">Transición Fluida Topológica...</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+            {displayViewMode === 'xray_icc' ? 'Rayos X' : displayViewMode === 'interior_icc' ? 'Interior Icc' : displayViewMode === 'standard' ? 'Estándar' : 'Deformado'}
+          </span>
+        </div>
+      )}
+
       {/* Bottom Floating Lacanian & Differential Stress Legend */}
       <div className="absolute bottom-3.5 left-3.5 pointer-events-none flex flex-col gap-2">
         {colorMap === 'differential_stress' && (
@@ -1724,7 +2383,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             </div>
 
             <p className="text-[10px] text-slate-300 leading-relaxed">
-              La piel externa de la <span className="text-cyan-300 font-semibold">superficie Icc</span> se atenúa mediante transparencia dinámica (<span className="text-cyan-400 font-bold">{(ccOpacity * 100).toFixed(0)}%</span>): quedan visibles la pared interna <span className="text-fuchsia-300 font-semibold">Prcc</span> (espesor de la pared) y las cintas <span className="text-red-400 font-bold">S</span>, <span className="text-emerald-400 font-bold">I</span>, el <span className="text-amber-300 font-bold">Hilo Pulsional</span> y el síntoma <span className="text-blue-400 font-bold">Σ</span>. La <span className="text-cyan-300 font-semibold">Cc</span> (consciente) es el espacio exterior al toro.
+              La piel externa de la <span className="text-cyan-300 font-semibold">superficie Icc</span> se atenúa mediante transparencia dinámica (<span className="text-cyan-400 font-bold">{(ccOpacity * 100).toFixed(0)}%</span>): quedan visibles la cara interna de la pared —la <span className="text-fuchsia-300 font-semibold">censura</span> Icc/Prcc— y las cintas <span className="text-red-400 font-bold">S</span>, <span className="text-emerald-400 font-bold">I</span>, el <span className="text-amber-300 font-bold">Hilo Pulsional</span> y el síntoma <span className="text-blue-400 font-bold">Σ</span>. Afuera, el campo <span className="text-teal-300 font-semibold">Prcc</span> entra por la voz; la <span className="text-cyan-300 font-semibold">Cc</span> es un umbral dentro de ese campo, no un lugar.
             </p>
 
             <div className="grid grid-cols-2 gap-1.5 text-[9.5px] bg-slate-950/80 p-2 rounded-lg border border-slate-800">
@@ -1732,10 +2391,10 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
                 <span className="text-amber-400 font-bold">Icc:</span> toda la superficie
               </div>
               <div className="text-slate-300">
-                <span className="text-emerald-400 font-bold">Prcc:</span> espesor de la pared (cara interna)
+                <span className="text-emerald-400 font-bold">Prcc:</span> campo que entra por la voz, sin borde
               </div>
               <div className="text-slate-300">
-                <span className="text-cyan-400 font-bold">Cc:</span> espacio exterior al toro
+                <span className="text-cyan-400 font-bold">Cc:</span> umbral de sobreinvestidura, no un lugar
               </div>
               <div className="text-slate-300">
                 <span className="text-fuchsia-400 font-bold">Singularidad:</span> v = π (la voz · AXIOMA)
@@ -1767,7 +2426,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             </div>
             <div className={`flex items-center gap-1.5 ${showPulsion ? 'text-amber-300 font-semibold' : 'text-slate-500 line-through'}`}>
               <span className={`w-2.5 h-1.5 rounded-sm ${showPulsion ? 'bg-amber-400 shadow-sm animate-pulse' : 'bg-slate-700'}`} />
-              <span>Pulsión (Flujo Vectorial)</span>
+              <span>Hilo pulsional (borde de I)</span>
             </div>
             <div className="flex items-center gap-1.5 text-blue-400">
               <span className="w-2.5 h-1.5 rounded-sm bg-blue-500 shadow-sm" />
@@ -1780,14 +2439,14 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               <div className="flex items-center justify-between text-amber-300 font-semibold text-[10.5px]">
                 <span className="flex items-center gap-1">
                   <Waves className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Campo Vectorial Trieb (Drang)</span>
+                  <span>Campo vectorial Trieb (Drang)</span>
                 </span>
                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/60 text-amber-200 border border-amber-700/60">
-                  Flujo Animado Interior
+                  Superficie = Icc
                 </span>
               </div>
               <p className="text-[9.5px] text-slate-300 leading-tight">
-                Vectores de flujo direccional en el interior <span className="text-amber-400 font-mono">v ∈ [π/2, 3π/2]</span> convergiendo helicoidalmente hacia la cúspide <span className="text-cyan-300 font-mono">v=π</span> (la voz), pegados al borde de <span className="text-emerald-400 font-mono">I</span> (imagen del cuerpo) — AXIOMA.
+                Vectores de flujo direccional en el interior <span className="text-amber-400 font-mono">v ∈ [π/2, 3π/2]</span> convergiendo helicoidalmente hacia la cúspide <span className="text-cyan-300 font-mono">v=π</span> (la voz), pegados al borde de <span className="text-emerald-400 font-mono">I</span> (imagen del cuerpo) — AXIOMA. Por p, de doble sentido, entra lo oído: el campo <span className="text-teal-300 font-mono">Prcc</span>.
               </p>
               <div className="flex justify-between text-[9px] text-slate-400 pt-0.5">
                 <span>Adherencia al borde de I: <span className="text-amber-300 font-bold">{(lacanian.pulsionAttachmentStrength * 100).toFixed(0)}%</span></span>
@@ -1801,6 +2460,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               <span className="text-rose-400 font-medium">Marcas de fantasía ({lacanian.fantasyMarks.length}):</span>
               <span className="text-rose-300 font-bold">(π, 3π/4) — pared</span>
             </div>
+            <p className="text-[9.5px] text-slate-300 leading-tight">
+              Marcas Icc de trauma sobre la cara interna de la pared: la angustia surge por proximidad (aproximación: señal; pasaje: situación traumática) — AXIOMA.
+            </p>
             <div className="flex justify-between text-slate-400">
               <span>Adherencia al borde de I:</span>
               <span className="text-amber-300 font-bold">{(lacanian.pulsionAttachmentStrength * 100).toFixed(0)}%</span>
@@ -1828,14 +2490,14 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               value={ccOpacity}
               onChange={(e) => onCcOpacityChange(parseFloat(e.target.value))}
               className="w-20 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
-              title="Ajusta la opacidad de la piel externa de la superficie Icc para revelar la pared interna Prcc"
+              title="Ajusta la opacidad de la cara externa de la superficie Icc para revelar la cara interna de la pared"
             />
             <span className="text-cyan-300 font-bold w-8 text-right">{(ccOpacity * 100).toFixed(0)}%</span>
           </div>
         )}
 
         <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 px-2.5 py-1 rounded text-[10px] text-slate-400 font-mono">
-          Superficie = Icc · Prcc = espesor · Cc = exterior | Arrastrar: rotar | Rueda: zoom
+          Superficie = Icc · pared = censura · Prcc = campo que entra por la voz · Cc = umbral | Arrastrar: rotar | Rueda: zoom
         </div>
       </div>
     </div>

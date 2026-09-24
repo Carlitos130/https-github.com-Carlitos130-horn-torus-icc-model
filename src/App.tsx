@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { SCL90RData, ModelParams, ViewMode, ColorMapMode } from './types';
-import { DEFAULT_SCL90R_DATA, computeTopologicalMetrics, CLINICAL_PRESETS } from './utils/hornTorusMath';
+import { SCL90RData, ModelParams, ViewMode, ColorMapMode, SCL90RInputMode } from './types';
+import { DEFAULT_SCL90R_DATA, computeTopologicalMetrics, CLINICAL_PRESETS, sclDataToTScores } from './utils/hornTorusMath';
 import { formatMetricSafe } from './utils/formatMetric';
 import { HornTorusCanvas } from './components/HornTorusCanvas';
 import { Scl90rForm } from './components/Scl90rForm';
 import { ModelSummaryModal } from './components/ModelSummaryModal';
 import { PythonCodeExport } from './components/PythonCodeExport';
+import { TheoreticalManual } from './components/TheoreticalManualModal';
+import { SpectralSingularityPanel } from './components/SpectralSingularityPanel';
 import {
   Boxes,
   Sliders,
@@ -22,13 +24,19 @@ import {
   Palette,
   Activity,
   Radio,
-  Scan
+  Scan,
+  BookOpen,
+  Zap,
+  AlertTriangle
 } from 'lucide-react';
 import type { RuptureVisualState } from './types';
 
 export default function App() {
   // SCL-90-R Psychometric Data from user prompt
   const [sclData, setSclData] = useState<SCL90RData>(DEFAULT_SCL90R_DATA);
+  // Modo de carga del SCL-90-R y los T tal como se cargaron (pueden superar T = 80).
+  const [inputMode, setInputMode] = useState<SCL90RInputMode>('pd');
+  const [tScores, setTScores] = useState<Record<keyof SCL90RData, number>>(() => sclDataToTScores(DEFAULT_SCL90R_DATA));
 
   // Model Parameters: a_scale=0.1, u_scale=2*pi, v_scale=pi, A_cr=pi/4, deformation_factor=0.3, rOverR=1.0
   const [params, setParams] = useState<ModelParams>({
@@ -53,6 +61,7 @@ export default function App() {
   const [showPulsion, setShowPulsion] = useState<boolean>(true);
   const [showCurveSigma, setShowCurveSigma] = useState<boolean>(true);
   const [showFantasyPoint, setShowFantasyPoint] = useState<boolean>(true);
+  const [showPrcc, setShowPrcc] = useState<boolean>(true);
   const [showRibbons, setShowRibbons] = useState<boolean>(true);
   const [ccOpacity, setCcOpacity] = useState<number>(0.92);
 
@@ -62,9 +71,11 @@ export default function App() {
   const [ruptureClock, setRuptureClock] = useState(0);
   const [rupturePlaying, setRupturePlaying] = useState(true);
   const [scrubTime, setScrubTime] = useState(0);
+  // Deformation Animation State
+  const [isAnimatingDeformation, setIsAnimatingDeformation] = useState<boolean>(false);
 
   // UI Active Sidebar Tab
-  const [activeTab, setActiveTab] = useState<'parameters' | 'summary' | 'python' | 'gallery'>('parameters');
+  const [activeTab, setActiveTab] = useState<'parameters' | 'singularities' | 'summary' | 'python' | 'gallery' | 'manual'>('parameters');
 
   // Captured snapshots gallery
   const [gallery, setGallery] = useState<{ type: string; url: string; time: string }[]>([]);
@@ -72,6 +83,9 @@ export default function App() {
 
   // Computed topological invariants & clinical metrics
   const metrics = computeTopologicalMetrics(params, sclData, params.baremoId);
+  // La "ruptura" no es un estado aparte: la calcula el motor (IGS ≥ 3× el corte T=60
+  // de la población, con Wegbreite suficiente). Secuencia AXIOMA, no diagnóstico.
+  const isPsychoticBreakActive = metrics.psychoticRupture;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -103,10 +117,34 @@ export default function App() {
 
   // Volver al perfil estable: abandona la ruptura y restablece el reloj.
   const resetToStable = () => {
+    setInputMode('pd');
     setSclData({ ...DEFAULT_SCL90R_DATA });
     setRuptureClock(0);
     setScrubTime(0);
     setRupturePlaying(true);
+  };
+
+  const handleDeformationFactorChange = (factor: number) => {
+    setParams((prev) => ({ ...prev, deformation_factor: parseFloat(factor.toFixed(3)) }));
+  };
+
+  const handleToggleDeformationAnimation = () => {
+    setIsAnimatingDeformation((prev) => !prev);
+  };
+
+  // Botones heredados de la versión de GitHub: disparan la secuencia de ruptura del
+  // modelo (Corolario II: eyección por la voz y reconfiguración) y la vista de rayos X.
+  const handleTriggerPsychoticBreak = () => {
+    launchPsychoticRupture();
+    setViewMode('xray_icc');
+    setCcOpacity(0.18);
+  };
+
+  const handleResetPsychoticBreak = () => {
+    resetToStable();
+    setParams((prev) => ({ ...prev, deformation_factor: 0.3 }));
+    setViewMode('deformed');
+    setCcOpacity(0.92);
   };
 
   const handleCapturePng = (type: 'standard' | 'deformed', dataUrl: string) => {
@@ -257,21 +295,71 @@ export default function App() {
             </button>
           </div>
 
-          {/* ColorMap Mode Switcher */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-            <button
-              id="btn-colormap-angustia"
-              onClick={() => setColorMap('angustia')}
-              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${
-                colorMap === 'angustia'
-                  ? 'bg-rose-950 text-rose-300 border border-rose-700 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Campo de Angustia A(u, v) y Umbral Crítico A_cr=π/4"
-            >
-              <Flame className="w-3 h-3 text-rose-400" />
-              <span>Angustia</span>
-            </button>
+          {/* ColorMap Mode Switcher & a_critical Live Control */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+            <div className="flex items-center gap-1">
+              <button
+                id="btn-colormap-angustia"
+                onClick={() => setColorMap('angustia')}
+                className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${
+                  colorMap === 'angustia'
+                    ? 'bg-rose-950 text-rose-300 border border-rose-700 font-semibold shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Campo de Angustia A(u, v) y Umbral Crítico A_cr"
+              >
+                <Flame className="w-3 h-3 text-rose-400" />
+                <span>Angustia</span>
+              </button>
+
+              {/* Real-time a_critical slider and numeric input */}
+              <div
+                id="panel-a-critical-control"
+                className="flex items-center gap-1.5 bg-slate-900/90 px-2 py-0.5 rounded-lg border border-rose-900/50 text-[10.5px] font-mono shadow-inner"
+                title="Modificar en tiempo real el valor de 'a_critical' (actualmente π/4 ≈ 0.785) para observar la topología de la zona de angustia"
+              >
+                <span className="text-rose-300/90 font-semibold text-[10px]">A_cr:</span>
+                <input
+                  id="slider-a-critical-colormap"
+                  type="range"
+                  min="0.10"
+                  max="2.50"
+                  step="0.01"
+                  value={params.a_critical}
+                  onChange={(e) => setParams((prev) => ({ ...prev, a_critical: parseFloat(e.target.value) }))}
+                  className="w-16 accent-rose-400 h-1 cursor-pointer"
+                  title="Deslizador a_critical"
+                />
+                <input
+                  id="input-a-critical-colormap"
+                  type="number"
+                  min="0.05"
+                  max="3.14"
+                  step="0.01"
+                  value={parseFloat(params.a_critical.toFixed(3))}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val) && val >= 0.01 && val <= 3.14) {
+                      setParams((prev) => ({ ...prev, a_critical: val }));
+                    }
+                  }}
+                  className="w-12 bg-slate-950 border border-slate-700 text-rose-300 font-mono text-[10px] rounded px-1 py-0.5 text-center focus:border-rose-500 focus:outline-none"
+                  title="Valor exacto de a_critical (rad)"
+                />
+                <button
+                  id="btn-preset-pi-4"
+                  onClick={() => setParams((prev) => ({ ...prev, a_critical: Math.PI / 4 }))}
+                  className={`px-1 py-0.5 rounded text-[9px] border transition-colors ${
+                    Math.abs(params.a_critical - Math.PI / 4) < 0.01
+                      ? 'bg-rose-950 text-rose-200 border-rose-600 font-bold'
+                      : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                  }`}
+                  title="Restablecer A_cr = π/4 (0.785 rad)"
+                >
+                  π/4
+                </button>
+              </div>
+            </div>
 
             <button
               id="btn-colormap-diff-stress"
@@ -299,6 +387,21 @@ export default function App() {
             >
               <Palette className="w-3 h-3 text-amber-400" />
               <span>Estrés</span>
+            </button>
+
+            {/* Demostración de Brote Psicótico Trigger Button */}
+            <button
+              id="btn-trigger-psychotic-simulation"
+              onClick={isPsychoticBreakActive ? handleResetPsychoticBreak : handleTriggerPsychoticBreak}
+              className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all text-xs font-semibold border ${
+                isPsychoticBreakActive
+                  ? 'bg-rose-600 text-white border-rose-400 shadow-md shadow-rose-600/30 animate-pulse'
+                  : 'bg-rose-950/70 hover:bg-rose-900 text-rose-200 border-rose-700/80 hover:border-rose-500'
+              }`}
+              title="Ruptura del modelo: IGS ≥ 3× el corte T=60 con Wegbreite suficiente — la cinta sale por la voz y se reconfigura (Corolario II, AXIOMA; no es un diagnóstico)"
+            >
+              <Zap className="w-3.5 h-3.5 text-rose-400 fill-current" />
+              <span>{isPsychoticBreakActive ? 'Volver al perfil estable' : '⚡ Ruptura del modelo'}</span>
             </button>
           </div>
         </div>
@@ -381,6 +484,21 @@ export default function App() {
             >
               <span className="w-2 h-2 rounded-full bg-rose-400" />
               <span>Marca de fantasía</span>
+            </button>
+
+            {/* Campo Prcc: lo que entra por la voz */}
+            <button
+              id="toggle-prcc-btn"
+              onClick={() => setShowPrcc(!showPrcc)}
+              className={`px-2 py-0.5 rounded border transition-colors flex items-center gap-1.5 ${
+                showPrcc
+                  ? 'bg-teal-950/80 text-teal-300 border-teal-700'
+                  : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
+              }`}
+              title="Prcc: campo de representaciones-palabra que entra por la voz (p), concentrado en el embudo del eje y sin borde. La pared es la censura Icc/Prcc; la Cc es un umbral, no un lugar — AXIOMA (GW XIII, GW X)"
+            >
+              <span className="w-2 h-2 rounded-full bg-teal-400" />
+              <span>Prcc (campo)</span>
             </button>
           </div>
 
@@ -476,6 +594,47 @@ export default function App() {
         </div>
       </header>
 
+      {/* Dynamic Alert Banner for Psychotic Outbreak Simulation */}
+      {isPsychoticBreakActive && (
+        <div className="bg-gradient-to-r from-rose-950/95 via-red-950/95 to-rose-950/95 border-b border-rose-500/80 px-4 py-2.5 text-xs font-mono flex flex-wrap items-center justify-between gap-3 text-rose-200 shadow-xl backdrop-blur-md animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 max-w-4xl">
+            <Flame className="w-4 h-4 text-rose-400 animate-pulse flex-shrink-0" />
+            <span className="leading-relaxed">
+              <strong className="text-white">RUPTURA DEL MODELO:</strong>{' '}
+              IGS ≥ 3× el corte T=60 con Wegbreite suficiente: la cinta S-I-Σ sale por la voz (p) y se reconfigura sobre la superficie (Corolario II). Secuencia AXIOMA — no es un diagnóstico de estructura.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              id="btn-banner-view-singularities"
+              onClick={() => {
+                setActiveTab('singularities');
+                setColorMap('curvature');
+              }}
+              className="px-2.5 py-1 rounded-md bg-cyan-950/90 hover:bg-cyan-900 text-cyan-200 border border-cyan-700/80 text-[11px] transition-all flex items-center gap-1 font-semibold"
+            >
+              <Activity className="w-3 h-3 text-cyan-400" />
+              <span>Ver Espectral K</span>
+            </button>
+            <button
+              id="btn-banner-view-manual"
+              onClick={() => setActiveTab('manual')}
+              className="px-2.5 py-1 rounded-md bg-rose-900/90 hover:bg-rose-800 text-rose-100 border border-rose-500 text-[11px] transition-all flex items-center gap-1 font-semibold"
+            >
+              <BookOpen className="w-3 h-3 text-rose-300" />
+              <span>Ver manual teórico</span>
+            </button>
+            <button
+              id="btn-banner-reset-structure"
+              onClick={handleResetPsychoticBreak}
+              className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-600 text-[11px] transition-all font-bold"
+            >
+              Volver al perfil estable
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col lg:flex-row gap-5">
         {/* Left Column: 3D Horn Torus Viewport */}
@@ -492,8 +651,10 @@ export default function App() {
             showPulsion={showPulsion}
             showCurveSigma={showCurveSigma}
             showFantasyPoint={showFantasyPoint}
+            showPrcc={showPrcc}
             showRibbons={showRibbons}
             ccOpacity={ccOpacity}
+            isAnimatingDeformationExternal={isAnimatingDeformation}
             onCcOpacityChange={setCcOpacity}
             ruptureVisual={ruptureVisual}
             onRuptureVisualChange={setRuptureVisual}
@@ -507,6 +668,8 @@ export default function App() {
             onRupturePlayingChange={setRupturePlaying}
             onRuptureReplay={launchPsychoticRupture}
             onResetToStable={resetToStable}
+            onDeformationFactorChange={handleDeformationFactorChange}
+            onToggleDeformationAnimation={handleToggleDeformationAnimation}
             onViewModeChange={(m) => {
               setViewMode(m);
               if (m === 'interior_icc' && ccOpacity > 0.3) setCcOpacity(0.20);
@@ -531,6 +694,19 @@ export default function App() {
             >
               <Sliders className="w-3.5 h-3.5" />
               <span>SCL-90-R</span>
+            </button>
+
+            <button
+              id="tab-singularities-btn"
+              onClick={() => setActiveTab('singularities')}
+              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                activeTab === 'singularities'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Espectral K</span>
             </button>
 
             <button
@@ -559,6 +735,19 @@ export default function App() {
               <span>Python</span>
             </button>
 
+            <button
+              id="tab-manual-btn"
+              onClick={() => setActiveTab('manual')}
+              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                activeTab === 'manual'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Manual & Lacan</span>
+            </button>
+
             {gallery.length > 0 && (
               <button
                 id="tab-gallery-btn"
@@ -584,6 +773,24 @@ export default function App() {
                 onChangeSclData={setSclData}
                 params={params}
                 onChangeParams={setParams}
+                inputMode={inputMode}
+                onChangeInputMode={setInputMode}
+                tScores={tScores}
+                onChangeTScores={setTScores}
+                isAnimatingDeformation={isAnimatingDeformation}
+                onToggleDeformationAnimation={handleToggleDeformationAnimation}
+              />
+            )}
+
+            {activeTab === 'singularities' && (
+              <SpectralSingularityPanel
+                params={params}
+                sclData={sclData}
+                colorMap={colorMap}
+                onSetColorMap={setColorMap}
+                onSetViewMode={setViewMode}
+                onTriggerPsychoticBreak={handleTriggerPsychoticBreak}
+                isPsychoticBreakActive={isPsychoticBreakActive}
               />
             )}
 
@@ -599,6 +806,12 @@ export default function App() {
               <PythonCodeExport
                 sclData={sclData}
                 params={params}
+              />
+            )}
+
+            {activeTab === 'manual' && (
+              <TheoreticalManual
+                onTriggerPsychoticBreak={handleTriggerPsychoticBreak}
               />
             )}
 

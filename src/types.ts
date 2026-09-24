@@ -1,3 +1,5 @@
+import type { BaremoId } from './utils/baremos';
+
 export interface SCL90RData {
   "Somatización": number;
   "Obsesión-Compulsión": number;
@@ -11,6 +13,20 @@ export interface SCL90RData {
   "GSI": number; // Global Severity Index
   "PST": number; // Positive Symptom Total
   "PSDI": number; // Positive Symptom Distress Index
+}
+
+/** Modo de carga del SCL-90-R: puntajes directos (PD, con validación de consistencia)
+ *  o puntajes T del baremo (protocolos que solo informan T). Internamente todo es PD. */
+export type SCL90RInputMode = 'pd' | 't_scores';
+
+export interface TScoreCategory {
+  tier: 'Normal' | 'Leve' | 'Moderado' | 'Severo' | 'Extremo';
+  rangeLabel: string;
+  badgeClass: string;
+  textColor: string;
+  description: string;
+  isRisk?: boolean;
+  isAlert?: boolean;
 }
 
 export interface ModelParams {
@@ -29,6 +45,26 @@ export interface ModelParams {
    *  adelgazamiento de la pared (la censura Icc/Prcc). Sin anchura suficiente el
    *  cruce se disipa aunque la cantidad (IGS) alcance el umbral. Default false. */
   wegbreiteAplicada?: boolean;
+  /** Pregunta abierta de la tesis (Cap. 7): ¿Σ opera como pantalla que aleja los
+   *  cruces de las marcas de fantasía (true) o como mero anudamiento que no incide
+   *  en dónde se producen los cruces (false, default)? */
+  sigmaPantalla?: boolean;
+}
+
+export interface CasulloPerezNormRow {
+  T: number;
+  SOM: number;
+  OBS: number;
+  SI: number;
+  DEP: number;
+  ANS: number;
+  HOS: number;
+  FOB: number;
+  PAR: number;
+  PSIC: number;
+  IGS: number;
+  TSP: number;
+  IMSP: number;
 }
 
 export interface LacanianCoordinates {
@@ -56,9 +92,20 @@ export interface LacanianCoordinates {
   fantasyMarks3D: [number, number, number][];
   ruptureCount: number;
   ruptureAreaPercent: number;
+  // Proximidad de la cinta S a la marca de fantasía más cercana (Axioma 4: aproximación)
+  distanceSignifierToFantasy: number;
+  isTraumaReactivated: boolean; // la cinta S pasa dentro de la vecindad A_cr de una marca
+  earCuspActivity: number; // actividad en p (la voz), 0–1
+  // p es de doble sentido: por él entra lo oído (el Prcc) y sale la voz (tesis V22)
+  voiceIntrusionVector: [number, number, number];
+  extimacyDescription: string;
+  /** Medición del régimen de Σ (Cap. 7): con Σ como pantalla, fracción de la
+   *  zona de angustia que su banda intercepta y desvía (0–1); y el % del área
+   *  que quedaría sin la pantalla, para comparar regímenes. */
+  sigmaPantallaFraccion?: number;
+  ruptureAreaPercentSinPantalla?: number;
 }
 
-import type { BaremoId } from './utils/baremos';
 
 export type ViewMode = 'standard' | 'deformed' | 'comparison' | 'cross_section' | 'interior_icc' | 'xray_icc';
 
@@ -135,4 +182,65 @@ export interface TopologicalMetrics {
   postEpisode: PostEpisodeState | null;
   lacanian: LacanianCoordinates;
 }
+
+export interface SingularityCriticalPoint {
+  id: string;
+  name: string;
+  lacanianLabel: string;
+  u: number;
+  v: number;
+  uDeg: number;
+  vDeg: number;
+  K0: number; // Curvatura Gaussiana en el Toro Horn estándar
+  K_def: number; // Curvatura Gaussiana con deformación sintomática
+  deltaK: number; // K_def - K0
+  deltaKPercent: number;
+  H0: number; // Curvatura Media estándar
+  H_def: number; // Curvatura Media deformada
+  angustia: number;
+  isAnguishOverflow: boolean; // dentro de la vecindad A_cr de una marca de fantasía
+  anguishRatio: number;
+  stress: number;
+  differentialTension: number;
+  classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular';
+  clinicalMeaning: string;
+  position3D: [number, number, number];
+}
+
+export interface SpectralSingularityReport {
+  criticalPoints: SingularityCriticalPoint[];
+  pearsonCorrelationCurvatureAnguish: number;
+  highCurvatureAnguishOverlapPercent: number;
+  maxHyperbolicCurvature: number;
+  maxEllipticCurvature: number;
+  fantasyPointDistortion: {
+    K0: number;
+    K_def: number;
+    deltaK: number;
+    angustia: number;
+    isRuptured: boolean;
+    structuralIntegrity: 'Integra' | 'Tensa' | 'Desbordada' | 'Colapsada';
+  };
+  cuspSingularityDistortion: {
+    K_def: number;
+    strain: number;
+    shearTension: number;
+    status: 'Compensada' | 'Cizalladura Leve' | 'Estrangulamiento' | 'Tensión extrema';
+  };
+  curvatureSpectrum: {
+    binCenter: number;
+    count: number;
+    avgAngustia: number;
+    criticalAnguishCount: number;
+    type: 'hiperbolica' | 'parabolica' | 'eliptica';
+  }[];
+  samplePoints: {
+    u: number;
+    v: number;
+    K: number;
+    angustia: number;
+    isOverflow: boolean;
+  }[];
+}
+
 
