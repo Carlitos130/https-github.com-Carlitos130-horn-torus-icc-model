@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SCL90RData, ModelParams, ViewMode, ColorMapMode } from './types';
-import { DEFAULT_SCL90R_DATA, computeTopologicalMetrics } from './utils/hornTorusMath';
+import { DEFAULT_SCL90R_DATA, computeTopologicalMetrics, CLINICAL_PRESETS } from './utils/hornTorusMath';
+import { formatMetricSafe } from './utils/formatMetric';
 import { HornTorusCanvas } from './components/HornTorusCanvas';
 import { Scl90rForm } from './components/Scl90rForm';
 import { ModelSummaryModal } from './components/ModelSummaryModal';
@@ -23,12 +24,13 @@ import {
   Radio,
   Scan
 } from 'lucide-react';
+import type { RuptureVisualState } from './types';
 
 export default function App() {
   // SCL-90-R Psychometric Data from user prompt
   const [sclData, setSclData] = useState<SCL90RData>(DEFAULT_SCL90R_DATA);
 
-  // Model Parameters: a_scale=0.1, u_scale=2*pi, v_scale=pi, A_cr=pi/4, deformation_factor=0.3
+  // Model Parameters: a_scale=0.1, u_scale=2*pi, v_scale=pi, A_cr=pi/4, deformation_factor=0.3, rOverR=1.0
   const [params, setParams] = useState<ModelParams>({
     a_scale: 0.1,
     u_scale: 2 * Math.PI,
@@ -36,6 +38,7 @@ export default function App() {
     deformation_factor: 0.3,
     gridResolution: 80,
     a_critical: Math.PI / 4,
+    rOverR: 1.0,
   });
 
   // Visualization options
@@ -53,6 +56,13 @@ export default function App() {
   const [showRibbons, setShowRibbons] = useState<boolean>(true);
   const [ccOpacity, setCcOpacity] = useState<number>(0.92);
 
+  // Secuencia visual de la ruptura psicótica: idle → ejected → covered
+  const [ruptureVisual, setRuptureVisual] = useState<RuptureVisualState>('idle');
+  // Reloj de la secuencia de ruptura: scrub temporal, pausa y replay (explorable).
+  const [ruptureClock, setRuptureClock] = useState(0);
+  const [rupturePlaying, setRupturePlaying] = useState(true);
+  const [scrubTime, setScrubTime] = useState(0);
+
   // UI Active Sidebar Tab
   const [activeTab, setActiveTab] = useState<'parameters' | 'summary' | 'python' | 'gallery'>('parameters');
 
@@ -61,11 +71,42 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Computed topological invariants & clinical metrics
-  const metrics = computeTopologicalMetrics(params, sclData);
+  const metrics = computeTopologicalMetrics(params, sclData, params.baremoId);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Lanzar la ruptura psicótica: carga el perfil fuera de baremo (IGS 3.30 = 3×
+  // el corte T=60) con la Wegbreite suficiente (Corolario I: la pared se adelgaza a
+  // δ = 0.55 ≥ π/6). El canvas dispara la secuencia: eyección de S, I y Pulsión por
+  // el orificio (v=π, sale la voz) y reconfiguración cubriendo toda la superficie.
+  const launchPsychoticRupture = () => {
+    const preset = CLINICAL_PRESETS.find(p => p.name === 'Ruptura del modelo (IGS extremo)');
+    if (preset) {
+      setSclData({ ...preset.data }); // objeto nuevo: el efecto del canvas re-dispara la secuencia
+      setParams(prev => ({ ...prev, deformation_factor: 0.55 }));
+      setRuptureClock(0);
+      setScrubTime(0);
+      setRupturePlaying(true);
+      showToast('⚠ Ruptura psicótica: IGS ' + preset.data["GSI"].toFixed(2) + ' = 3× el corte T=60 + Wegbreite (δ 0.55)');
+    }
+  };
+
+  // Scrub temporal: fijar el reloj de la secuencia (pausa mientras se explora).
+  const handleRuptureTimeChange = (t: number) => {
+    setRuptureClock(t);
+    setScrubTime(t);
+    setRupturePlaying(false);
+  };
+
+  // Volver al perfil estable: abandona la ruptura y restablece el reloj.
+  const resetToStable = () => {
+    setSclData({ ...DEFAULT_SCL90R_DATA });
+    setRuptureClock(0);
+    setScrubTime(0);
+    setRupturePlaying(true);
   };
 
   const handleCapturePng = (type: 'standard' | 'deformed', dataUrl: string) => {
@@ -109,7 +150,7 @@ export default function App() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Exterior Cc vs Interior Icc: S, I, Hilo Pulsional (pegado a I), Σ y Fantasía=Angustia
+                Superficie Icc: S, I, Hilo Pulsional (pegado a I), Σ y marca de fantasía — Cc = espacio exterior
               </p>
             </div>
           </div>
@@ -127,10 +168,10 @@ export default function App() {
                   ? 'bg-cyan-900/80 text-cyan-200 shadow-sm border border-cyan-700/60 font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Exterior Cc: Vista exterior estándar del Horn Torus"
+              title="Vista exterior del Horn Torus: la superficie completa es Icc; la Cc (consciente) es el espacio exterior"
             >
               <Eye className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Exterior (Cc)</span>
+              <span>Exterior</span>
             </button>
 
             <button
@@ -150,10 +191,10 @@ export default function App() {
                   ? 'bg-cyan-950/90 text-cyan-200 shadow-md border border-cyan-400 font-semibold ring-2 ring-cyan-500/40'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Vista de Rayos X del Icc: Transparencia dinámica a las porciones Cc manteniendo la envolvente semitransparente"
+              title="Rayos X: piel externa de la superficie Icc semitransparente que revela la pared Prcc y las cintas"
             >
               <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-              <span>Rayos X Icc</span>
+              <span>Rayos X</span>
             </button>
 
             <button
@@ -167,10 +208,10 @@ export default function App() {
                   ? 'bg-amber-950/90 text-amber-200 shadow-sm border border-amber-600 font-semibold ring-1 ring-amber-500/30'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Ver el interior del Horn Torus (Icc): Cintas entrecruzadas, pulsión pegada a I y fantasía"
+              title="Ver el interior de la superficie Icc: cintas entrecruzadas, pulsión pegada a I y marca de fantasía"
             >
               <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span>Interior (Icc)</span>
+              <span>Interior</span>
             </button>
 
             <button
@@ -265,7 +306,7 @@ export default function App() {
         {/* Lacanian Curves, Hilo Pulsional & Visual Layers Quick Strip */}
         <div className="max-w-7xl mx-auto mt-2 pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-slate-500 text-[11px]">Cintas Interiores (Icc):</span>
+            <span className="text-slate-500 text-[11px]">Cintas sobre la superficie Icc:</span>
             
             {/* Curve S toggle */}
             <button
@@ -306,7 +347,7 @@ export default function App() {
                   ? 'bg-amber-950/90 text-amber-300 border-amber-600 font-semibold shadow-sm'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Hilo Pulsional (Trieb / Vorstellungrepräsentanz): Visualiza el campo vectorial animado de flujo interior (Drang) anclado a I"
+              title="Hilo Pulsional (Trieb · Drang constante): campo vectorial animado, pegado al borde de I — AXIOMA"
             >
               <span className={`w-2 h-2 rounded-full ${showPulsion ? 'bg-amber-400 animate-ping' : 'bg-slate-600'}`} />
               <span>Pulsión (Campo Vectorial)</span>
@@ -321,7 +362,7 @@ export default function App() {
                   ? 'bg-blue-950/80 text-blue-300 border-blue-700'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Curva/Cinta Σ (Síntoma / Sinthome): basada en Psicoticismo + Hostilidad"
+              title="Curva/Cinta Σ (Síntoma): asignada a Psicoticismo + Hostilidad — AXIOMA"
             >
               <span className="w-2 h-2 rounded-full bg-blue-500" />
               <span>Σ (Síntoma)</span>
@@ -336,10 +377,10 @@ export default function App() {
                   ? 'bg-rose-950/80 text-rose-300 border-rose-700'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Punto de Fantasía (π, π/2) - Foco de Angustia Máxima"
+              title="Marca de fantasía (π, 3π/4), en la pared: la angustia surge cuando la pulsión pasa cerca — AXIOMA. En el desencadenamiento la marca queda en el medio (el orificio)"
             >
               <span className="w-2 h-2 rounded-full bg-rose-400" />
-              <span>Fantasía=Angustia</span>
+              <span>Marca de fantasía</span>
             </button>
           </div>
 
@@ -365,7 +406,7 @@ export default function App() {
                 : 'bg-slate-950 border-slate-800'
             }`}>
               <span className={viewMode === 'xray_icc' ? 'text-cyan-200 font-semibold' : 'text-slate-400'}>
-                {viewMode === 'xray_icc' ? 'Transparencia Cc:' : 'Opacidad Cc:'}
+                {viewMode === 'xray_icc' ? 'Transparencia de la piel:' : 'Opacidad de la piel:'}
               </span>
               <input
                 id="slider-cc-opacity"
@@ -454,6 +495,18 @@ export default function App() {
             showRibbons={showRibbons}
             ccOpacity={ccOpacity}
             onCcOpacityChange={setCcOpacity}
+            ruptureVisual={ruptureVisual}
+            onRuptureVisualChange={setRuptureVisual}
+            onLaunchRupture={launchPsychoticRupture}
+            ruptureClock={ruptureClock}
+            rupturePlaying={rupturePlaying}
+            onRuptureTime={(t) => { setRuptureClock(t); setScrubTime(t); }}
+            onRuptureEnd={() => setRupturePlaying(false)}
+            scrubTime={scrubTime}
+            onRuptureTimeChange={handleRuptureTimeChange}
+            onRupturePlayingChange={setRupturePlaying}
+            onRuptureReplay={launchPsychoticRupture}
+            onResetToStable={resetToStable}
             onViewModeChange={(m) => {
               setViewMode(m);
               if (m === 'interior_icc' && ccOpacity > 0.3) setCcOpacity(0.20);
@@ -600,9 +653,9 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div>
             <span>Horn Torus Icc: </span>
-            <span className="text-cyan-400">R = r = a = a_scale · GSI</span>
+            <span className="text-cyan-400">R = {params.rOverR === 1 ? 'r' : `r = ${(params.rOverR * 100).toFixed(0)}%·R`} = a = a_scale · GSI</span>
             <span className="text-slate-600"> | </span>
-            <span className="text-rose-400">Fantasía: (π, π/2)</span>
+            <span className="text-rose-400">Fantasía: (π, 3π/4) · pared</span>
             <span className="text-slate-600"> | </span>
             <span className="text-amber-400">A_cr = π/4</span>
           </div>
@@ -611,9 +664,9 @@ export default function App() {
             <span className="text-slate-600">•</span>
             <span>ΔE Tensión: <span className="text-fuchsia-400 font-bold">{(metrics.avgDifferentialTension * 100).toFixed(1)}%</span></span>
             <span className="text-slate-600">•</span>
-            <span>Willmore W: <span className="text-amber-400 font-bold">{metrics.willmoreEnergyDeformed.toFixed(2)}</span></span>
+            <span>Willmore W: <span className="text-amber-400 font-bold">{formatMetricSafe(metrics.willmoreEnergyDeformed, 2)}</span></span>
             <span className="text-slate-600">•</span>
-            <span>ICC Coherencia: <span className="text-cyan-400 font-bold">{metrics.iccIndex.toFixed(1)}%</span></span>
+            <span>Índice ICC (AXIOMA): <span className="text-cyan-400 font-bold">{metrics.iccIndex.toFixed(1)}%</span></span>
           </div>
         </div>
       </footer>

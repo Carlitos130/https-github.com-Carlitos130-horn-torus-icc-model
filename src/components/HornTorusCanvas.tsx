@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { ModelParams, SCL90RData, ViewMode, ColorMapMode } from '../types';
+import { ModelParams, SCL90RData, ViewMode, ColorMapMode, RuptureVisualState } from '../types';
 import {
   generateHornTorusGeometry,
   getLacanianCurves,
@@ -8,8 +8,14 @@ import {
   generateRibbonGeometryData,
   generatePulsionVectorFieldData,
   PulsionVectorItem,
-  computeSclDeformation
+  computeSclDeformation,
+  isPsychoticRupture,
+  ruptureThresholdGsi,
+  PSYCHOTIC_RUPTURE_FACTOR,
+  BAREMO_T60_GSI,
+  RibbonMode
 } from '../utils/hornTorusMath';
+import { RUPTURE_TIMELINE, RUPTURE_VISUAL_PARAMS, rupturePhaseAt } from '../utils/ruptureSequence';
 import {
   RotateCcw,
   Play,
@@ -23,8 +29,32 @@ import {
   Waves,
   ArrowRight,
   Radio,
-  Scan
+  Scan,
+  Flame
 } from 'lucide-react';
+
+/**
+ * Reemplaza la geometría de un mesh/line de cinta con nuevos puntos. Usada por la
+ * reconfiguración 'covered' y por la restauración 'stable' al hacer scrub hacia atrás.
+ */
+function applyCurveGeometry(obj: THREE.Object3D | null, pts: [number, number, number][]): void {
+  if (!obj) return;
+  const mesh = obj as THREE.Mesh;
+  if (mesh.isMesh) {
+    const gd = generateRibbonGeometryData(pts, 0.085);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(gd.positions, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(gd.normals, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(gd.uvs, 2));
+    g.setIndex(new THREE.BufferAttribute(gd.indices, 1));
+    mesh.geometry.dispose();
+    mesh.geometry = g;
+  } else {
+    const g = new THREE.BufferGeometry().setFromPoints(pts.map(p => new THREE.Vector3(p[0], p[1], p[2])));
+    (obj as THREE.Line).geometry.dispose();
+    (obj as THREE.Line).geometry = g;
+  }
+}
 
 /**
  * Creates a single combined BufferGeometry for a 3D directional arrow (shaft + conical head)
@@ -96,6 +126,80 @@ interface HornTorusCanvasProps {
   onCcOpacityChange?: (opacity: number) => void;
   onViewModeChange?: (mode: ViewMode) => void;
   onCapturePng: (type: 'standard' | 'deformed', dataUrl: string) => void;
+  ruptureVisual?: RuptureVisualState;
+  onRuptureVisualChange?: (state: RuptureVisualState) => void;
+  onLaunchRupture?: () => void;
+  /** Reloj de la secuencia (s), controlado desde la UI para hacerla replicable/explorable. */
+  ruptureClock?: number;
+  /** Play/pausa del reloj de la secuencia. */
+  rupturePlaying?: boolean;
+  /** El canvas reporta el reloj (~10 Hz) mientras la secuencia corre. */
+  onRuptureTime?: (t: number) => void;
+  /** La secuencia cruzó la reconfiguración (t ≥ 6 s): pausar el reloj al final. */
+  onRuptureEnd?: () => void;
+  /** Tiempo mostrado en el scrub (s), mantenido por la App (~10 Hz). */
+  scrubTime?: number;
+  /** Scrub: fijar el reloj de la secuencia. */
+  onRuptureTimeChange?: (t: number) => void;
+  /** Play/pausa desde la UI. */
+  onRupturePlayingChange?: (playing: boolean) => void;
+  /** Reiniciar la secuencia desde t = 0. */
+  onRuptureReplay?: () => void;
+  /** Volver al perfil estable (fuera de ruptura). */
+  onResetToStable?: () => void;
+}
+
+/**
+ * Crea el haz de partículas de la "voz" que sale por el orificio del horn torus
+ * (cúspide v = π en el origen) durante la ruptura psicótica.
+ */
+function createVoiceStream(): { group: THREE.Group; phases: Float32Array; drifts: Float32Array; speeds: Float32Array; count: number } {
+  const group = new THREE.Group();
+  group.name = 'ruptureVoice';
+  const count = 260;
+  const positions = new Float32Array(count * 3);
+  const phases = new Float32Array(count);
+  const drifts = new Float32Array(count);
+  const speeds = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    phases[i] = Math.random();          // ciclo de vida desfasado 0..1
+    drifts[i] = Math.random() * Math.PI * 2; // ángulo toroidal de eyección
+    speeds[i] = 0.55 + Math.random() * 0.9;  // velocidad de emisión
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({
+    color: 0xfda4af,
+    size: 0.11,
+    transparent: true,
+    opacity: 0.92,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const points = new THREE.Points(geo, mat);
+  points.renderOrder = 12;
+  group.add(points);
+
+  // Rótulo "voz" anclado sobre el orificio
+  const canvas = document.createElement('canvas');
+  canvas.width = 192;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d')!;
+  ctx.font = 'bold 30px Consolas, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = '#fb7185';
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = '#fecdd3';
+  ctx.fillText('« voz »', 96, 32);
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sprite.scale.set(2.4, 0.8, 1);
+  sprite.position.set(0, 0, 1.7);
+  sprite.renderOrder = 13;
+  group.add(sprite);
+
+  return { group, phases, drifts, speeds, count };
 }
 
 export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
@@ -114,7 +218,19 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   ccOpacity = 0.95,
   onCcOpacityChange,
   onViewModeChange,
-  onCapturePng
+  onCapturePng,
+  ruptureVisual = 'idle',
+  onRuptureVisualChange,
+  onLaunchRupture,
+  ruptureClock = 0,
+  rupturePlaying = true,
+  onRuptureTime,
+  onRuptureEnd,
+  scrubTime = 0,
+  onRuptureTimeChange,
+  onRupturePlayingChange,
+  onRuptureReplay,
+  onResetToStable
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -130,7 +246,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   const clippingPlaneRef = useRef<THREE.Plane | null>(null);
   const interiorLightRef = useRef<THREE.PointLight | null>(null);
 
-  // X-Ray Mode refs (Cc semitransparent outer envelope & Icc interior core)
+  // X-Ray Mode refs (piel externa de la superficie Icc semitransparente & pared interna Prcc)
   const xrayCcMeshRef = useRef<THREE.Mesh | null>(null);
   const xrayIccMeshRef = useRef<THREE.Mesh | null>(null);
   const xrayWireframeRef = useRef<THREE.LineSegments | null>(null);
@@ -198,6 +314,130 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     viewModeRef.current = viewMode;
   }, [sclData, params, viewMode]);
 
+  // --- Ruptura psicótica: estado de la secuencia visual de las cintas ---
+  // La secuencia es una función pura del reloj de ruptura (scrub temporal):
+  // pausable, explorable y repetible sin perder determinismo.
+  const RUPTURE_COVER_AT = RUPTURE_TIMELINE.reconfigurationAt; // s: reconfiguración total
+  const ruptureClockProp = ruptureClock;
+  const isPlayingRef = useRef(true);
+  const coveredRebuiltRef = useRef(false);
+  const lastSyncedClockPropRef = useRef<number | null | 'unset'>('unset');
+  const lastRuptureReportRef = useRef(0);
+  const onRuptureTimeRef = useRef<((t: number) => void) | null>(null);
+  const onRuptureEndRef = useRef<(() => void) | null>(null);
+  useEffect(() => { onRuptureTimeRef.current = onRuptureTime ?? null; }, [onRuptureTime]);
+  useEffect(() => { onRuptureEndRef.current = onRuptureEnd ?? null; }, [onRuptureEnd]);
+  const rupturePhaseRef = useRef<RuptureVisualState>('idle');
+  const ruptureTimerRef = useRef(0);
+  const preRuptureRadiusRef = useRef<number | null>(null); // radio de cámara antes del auto-encuadre
+  const userCameraRef = useRef(false); // el usuario fijó la cámara (rueda o Ver orificio): el auto-encuadre no la pisa
+  const ribbonsDetachedRef = useRef(false); // S, I y Pulsión colapsando hacia el orificio
+  const voiceGroupRef = useRef<THREE.Group | null>(null);
+  const voiceStateRef = useRef<{ phases: Float32Array; drifts: Float32Array; speeds: Float32Array; count: number } | null>(null);
+  // Posiciones originales de las cintas S, I y Pulsión al iniciar la eyección
+  // (para animar el colapso hacia el orificio en vez de un salto instantáneo).
+  const ruptureOrigRef = useRef<{ S: Float32Array | null; I: Float32Array | null; P: Float32Array | null }>({ S: null, I: null, P: null });
+
+  // Máquina de estados: idle → ejected (eyección por el orificio + voz) → covered
+  // (reconfiguración cubriendo toda la superficie). Todo el estado se deriva del
+  // reloj de ruptura (ruptureClock), controlable desde la UI (scrub temporal).
+  useEffect(() => {
+    const rupturing = isPsychoticRupture(sclData, params);
+    if (!rupturing) {
+      if (rupturePhaseRef.current !== 'idle') {
+        rupturePhaseRef.current = 'idle';
+        ruptureTimerRef.current = 0;
+        lastRuptureReportRef.current = 0;
+        ribbonsDetachedRef.current = false;
+        coveredRebuiltRef.current = false;
+        lastSyncedClockPropRef.current = 'unset';
+        userCameraRef.current = false;
+        if (preRuptureRadiusRef.current !== null) {
+          rotationAngles.current.radius = preRuptureRadiusRef.current;
+          preRuptureRadiusRef.current = null;
+          updateCameraPosition();
+        }
+        if (voiceGroupRef.current && sceneRef.current) {
+          sceneRef.current.remove(voiceGroupRef.current);
+          voiceGroupRef.current = null;
+          voiceStateRef.current = null;
+        }
+        onRuptureVisualChange?.('idle');
+      }
+      return;
+    }
+    if (rupturePhaseRef.current === 'idle') {
+      rupturePhaseRef.current = 'ejected';
+      ruptureTimerRef.current = 0;
+      lastRuptureReportRef.current = 0;
+      ribbonsDetachedRef.current = true;
+      coveredRebuiltRef.current = false;
+      lastSyncedClockPropRef.current = 'unset';
+      userCameraRef.current = false; // secuencia nueva: el auto-encuadre vuelve a mandar
+      // El auto-encuadre por esfera envolvente vive en el efecto de reconstrucción
+      // (allí se conoce la geometría real de cada modo de vista).
+      const scene = sceneRef.current;
+      if (scene && !voiceGroupRef.current) {
+        const { group, phases, drifts, speeds, count } = createVoiceStream();
+        // La voz es un penacho simbólico, no una superficie: escala con tope moderado
+        // (×3) para crecer con el toro dilatado sin engullir la escena.
+        const aScene = calculateLacanianParameters(sclData, params).a * 25.0;
+        group.scale.setScalar(Math.min(RUPTURE_VISUAL_PARAMS.voiceScaleCap, Math.max(1, aScene / 2.1)));
+        voiceGroupRef.current = group;
+        voiceStateRef.current = { phases, drifts, speeds, count };
+        scene.add(group);
+      }
+      onRuptureVisualChange?.('ejected');
+    }
+  }, [sclData, params, onRuptureVisualChange]);
+
+  // Reflejar el reloj externo (App) en el reloj interno: pausa, scrub y replay.
+  // Sincronización directa: los reportes propios (~10 Hz) son idempotentes y el
+  // scrub fija el reloj exactamente donde el usuario lo puso.
+  useEffect(() => {
+    isPlayingRef.current = rupturePlaying;
+    if (rupturePhaseRef.current === 'idle') return;
+    if (lastSyncedClockPropRef.current !== 'unset' && Math.abs(ruptureClockProp - lastSyncedClockPropRef.current) < 1e-6) return;
+    lastSyncedClockPropRef.current = ruptureClockProp;
+    ruptureTimerRef.current = ruptureClockProp;
+    lastRuptureReportRef.current = ruptureClockProp; // el reporte retoma 0.1 s después del punto de scrub
+
+    // Transiciones discretas de fase, deterministas en el reloj (no dependen de
+    // requestAnimationFrame: el scrub responde aunque la pestaña esté en segundo plano).
+    if (rupturePhaseRef.current === 'ejected' && ruptureClockProp >= RUPTURE_COVER_AT - 1e-6 && !coveredRebuiltRef.current) {
+      // Eyección → reconfiguración cubriendo toda la superficie
+      coveredRebuiltRef.current = true;
+      ribbonsDetachedRef.current = false;
+      ruptureOrigRef.current = { S: null, I: null, P: null };
+      rupturePhaseRef.current = 'covered';
+      onRuptureVisualChange?.('covered');
+      onRuptureEndRef.current?.();
+      const lacC = calculateLacanianParameters(sclDataRef.current, paramsRef.current);
+      const cov = getLacanianCurves(lacC, 220, 25.0, 'covered');
+      applyCurveGeometry(curveSRef.current, cov.curveS);
+      applyCurveGeometry(curveIRef.current, cov.curveI);
+      applyCurveGeometry(curvePulsionRef.current, cov.curvePulsion);
+    } else if (coveredRebuiltRef.current && ruptureClockProp < RUPTURE_COVER_AT - 1e-6) {
+      // Scrub hacia atrás: restaurar cintas estables (regeneradas, la copia original
+      // quedó inválida tras el rebuild 'covered')
+      coveredRebuiltRef.current = false;
+      ribbonsDetachedRef.current = true;
+      if (
+        ruptureOrigRef.current.S === null &&
+        ruptureOrigRef.current.I === null &&
+        ruptureOrigRef.current.P === null
+      ) {
+        const lacR = calculateLacanianParameters(sclDataRef.current, paramsRef.current);
+        const st = getLacanianCurves(lacR, 220, 25.0, 'stable');
+        applyCurveGeometry(curveSRef.current, st.curveS);
+        applyCurveGeometry(curveIRef.current, st.curveI);
+        applyCurveGeometry(curvePulsionRef.current, st.curvePulsion);
+      }
+      rupturePhaseRef.current = 'ejected';
+      onRuptureVisualChange?.('ejected');
+    }
+  }, [ruptureClockProp, rupturePlaying]);
+
   // Camera spherical angles
   const rotationAngles = useRef({ theta: 0.65, phi: 0.75, radius: 9.0 });
   const isDragging = useRef(false);
@@ -223,7 +463,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     scene.background = new THREE.Color(0x07090e);
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 600); // far amplio: el modelo dilatado visto desde r≈125 supera el 300
     cameraRef.current = camera;
     updateCameraPosition();
 
@@ -312,6 +552,102 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       if (isRotatingRef.current) {
         rotationAngles.current.phi += delta * 0.35;
         updateCameraPosition();
+      }
+
+      // --- Secuencia de ruptura psicótica: colapso de cintas, voz y reconfiguración ---
+      // Función pura del reloj de ruptura: scrub/pausa/replay sin perder determinismo.
+      if (rupturePhaseRef.current !== 'idle') {
+        if (isPlayingRef.current) {
+          ruptureTimerRef.current += delta;
+        }
+        const T = ruptureTimerRef.current;
+        const phase = rupturePhaseRef.current;
+
+        // 1) Eyección: S, I y Pulsión son succionadas por el orificio (cúspide v=π, origen)
+        if (phase === 'ejected' && ribbonsDetachedRef.current) {
+          const t = Math.min(1, T / RUPTURE_TIMELINE.collapseEndsAt);
+          const k = 1 - t * t * (3 - 2 * t); // smoothstep invertido: 1 → 0
+          const targets: (THREE.Object3D | null)[] = [curveSRef.current, curveIRef.current, curvePulsionRef.current];
+          const origKeys: ('S' | 'I' | 'P')[] = ['S', 'I', 'P'];
+          for (let ti = 0; ti < 3; ti++) {
+            const obj = targets[ti];
+            if (!obj) continue;
+            const geo = (obj as THREE.Mesh).geometry;
+            const posAttr = geo?.getAttribute('position') as THREE.BufferAttribute | undefined;
+            if (!posAttr) continue;
+            if (!ruptureOrigRef.current[origKeys[ti]]) {
+              ruptureOrigRef.current[origKeys[ti]] = new Float32Array(posAttr.array as Float32Array);
+            }
+            const orig = ruptureOrigRef.current[origKeys[ti]]!;
+            const arr = posAttr.array as Float32Array;
+            for (let vi = 0; vi < arr.length; vi++) arr[vi] = orig[vi] * k;
+            posAttr.needsUpdate = true;
+          }
+
+          // La transición eyección → 'covered' (reconfiguración cubriendo toda la
+          // superficie) vive en el efecto de sync del reloj: determinista, independiente
+          // de rAF, y única para no duplicar el rebuild.
+        }
+
+        // 2) Voz: partículas en espiral saliendo del orificio hacia arriba
+        const vs = voiceStateRef.current;
+        const vg = voiceGroupRef.current;
+        if (vs && vg) {
+          vg.visible = true;
+          const pts = (vg.children[0] as THREE.Points).geometry.getAttribute('position') as THREE.BufferAttribute;
+          const arr = pts.array as Float32Array;
+          const label = vg.children[1] as THREE.Sprite;
+          const labelMat = label.material as THREE.SpriteMaterial;
+          const fadeIn = Math.min(1, T / 1.0);
+          labelMat.opacity = 0.35 + 0.55 * fadeIn * (0.75 + 0.25 * Math.sin(currentTime * 0.006));
+          for (let i = 0; i < vs.count; i++) {
+            vs.phases[i] += delta * vs.speeds[i] * 0.45;
+            if (vs.phases[i] > 1) {
+              vs.phases[i] = 0;
+              vs.drifts[i] = Math.random() * Math.PI * 2;
+            }
+            vs.drifts[i] += delta * 1.6;
+            const t = vs.phases[i];
+            const rise = t * 5.2;
+            const spread = 0.12 + t * 1.05;
+            arr[i * 3] = Math.cos(vs.drifts[i]) * spread;
+            arr[i * 3 + 1] = Math.sin(vs.drifts[i]) * spread;
+            arr[i * 3 + 2] = rise;
+          }
+          pts.needsUpdate = true;
+
+          // Integración fantasía → voz: en su ventana, el beacon de la Fantasía
+          // (angustia) se contrae hacia el orificio y se funde con el haz, que se
+          // tiñe de ámbar. Determinista en el reloj: el scrub la deshace.
+          const kM = Math.min(1, Math.max(0,
+            (T - RUPTURE_TIMELINE.fantasyMergeStart) / (RUPTURE_TIMELINE.fantasyMergeEnd - RUPTURE_TIMELINE.fantasyMergeStart)
+          ));
+          const fg = fantasyMeshRef.current;
+          if (fg) {
+            fg.visible = kM < 1;
+            // Escalar el grupo contrae el beacon hacia el origen (el orificio):
+            // el viaje de la fantasía hacia la voz es la misma operación.
+            fg.scale.setScalar(Math.max(0.001, 1 - kM));
+          }
+          const voiceMat = (vg.children[0] as THREE.Points)?.material as THREE.PointsMaterial | undefined;
+          if (voiceMat) {
+            // Rosa (0xfda4af) → ámbar de la fantasía (0xfbbf24)
+            voiceMat.color.setRGB(
+              0.992 + (0.984 - 0.992) * kM,
+              0.643 + (0.749 - 0.643) * kM,
+              0.686 + (0.141 - 0.686) * kM
+            );
+          }
+        }
+
+        // Reporte del reloj (~10 Hz) hacia la App (scrub/play en la UI)
+        const reportT = ruptureTimerRef.current;
+        if (reportT - lastRuptureReportRef.current >= 0.1) {
+          lastRuptureReportRef.current = reportT;
+          onRuptureTimeRef.current?.(Math.min(RUPTURE_COVER_AT, reportT));
+        }
+      } else if (voiceGroupRef.current) {
+        voiceGroupRef.current.visible = false;
       }
 
       // Update particle vortex flow
@@ -497,6 +833,36 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     cameraRef.current.lookAt(0, 0, 0);
   };
 
+  // Auto-encuadre de ruptura: distancia que contiene el vértice más lejano al origen
+  // (la cámara mira a la cúspide v=π, en el origen, así el orificio queda en cuadro).
+  const autoFrameRupture = () => {
+    const meshes = [standardMeshRef.current, deformedMeshRef.current, xrayCcMeshRef.current, xrayIccMeshRef.current]
+      .filter(Boolean) as THREE.Mesh[];
+    let maxR = 0;
+    for (const m of meshes) {
+      m.geometry.computeBoundingSphere();
+      const bs = m.geometry.boundingSphere;
+      if (!bs) continue;
+      maxR = Math.max(maxR, bs.center.length() + bs.radius);
+    }
+    if (maxR > 0) {
+      const fovDeg = cameraRef.current?.fov ?? 45;
+      const needed = (maxR / Math.tan((fovDeg / 2) * (Math.PI / 180))) * 1.15;
+      if (preRuptureRadiusRef.current === null) preRuptureRadiusRef.current = rotationAngles.current.radius;
+      rotationAngles.current.radius = Math.max(rotationAngles.current.radius, Math.min(150, needed));
+      updateCameraPosition();
+    }
+  };
+
+  // 'Ver orificio': acercarse al punto de ruptura (cúspide v=π, la voz) durante la secuencia.
+  const handleViewOrifice = () => {
+    const aScene = calculateLacanianParameters(sclDataRef.current, paramsRef.current).a * 25.0;
+    if (preRuptureRadiusRef.current === null) preRuptureRadiusRef.current = rotationAngles.current.radius;
+    rotationAngles.current.radius = Math.max(6.0, Math.min(120, aScene * 3.2));
+    userCameraRef.current = true;
+    updateCameraPosition();
+  };
+
   // Re-build Torus Meshes, Lacanian Ribbons (S, I, Pulsión, Sigma) & Fantasy Beacon
   useEffect(() => {
     const scene = sceneRef.current;
@@ -535,7 +901,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       scene.add(glow);
     }
 
-    // 1. Standard Horn Torus Geometry (Cc Exterior)
+    // 1. Standard Horn Torus Geometry (superficie Icc completa)
     const stdData = generateHornTorusGeometry(params, sclData, false, colorMap);
     const stdGeo = new THREE.BufferGeometry();
     stdGeo.setAttribute('position', new THREE.BufferAttribute(stdData.positions, 3));
@@ -589,15 +955,15 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
     // Surface and X-Ray Configuration
     if (isXRayMode) {
-      // Vista de Rayos X del Icc:
-      // Envolvente Cc externa (v in [0, pi/2) U (3pi/2, 2pi]) con transparencia dinámica y sutil carcasa holográfica
+      // Vista de Rayos X: la MISMA superficie Icc se muestra partida en dos caras.
+      // Piel externa (la cara que mira afuera, hacia la Cc) semitransparente con sutil carcasa holográfica.
       const targetData = (params.deformation_factor > 0 ? defData : stdData);
       const xrayCcGeo = new THREE.BufferGeometry();
       xrayCcGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
       xrayCcGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
       xrayCcGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
       xrayCcGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
-      xrayCcGeo.setIndex(new THREE.BufferAttribute(targetData.ccIndices, 1));
+      xrayCcGeo.setIndex(new THREE.BufferAttribute(targetData.outerFaceIndices, 1));
 
       const xrayCcMat = new THREE.MeshPhysicalMaterial({
         vertexColors: true,
@@ -633,13 +999,14 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       xrayWireframeRef.current = xrayWire;
       scene.add(xrayWire);
 
-      // Núcleo interior Icc (v in [pi/2, 3pi/2]) convergiendo a la cúspide singular v=pi
+      // Pared interna Prcc (espesor de la pared): cara que mira al volumen interior,
+      // convergiendo a la cúspide singular v = π. La superficie SIEMPRE es Icc.
       const xrayIccGeo = new THREE.BufferGeometry();
       xrayIccGeo.setAttribute('position', new THREE.BufferAttribute(targetData.positions, 3));
       xrayIccGeo.setAttribute('normal', new THREE.BufferAttribute(targetData.normals, 3));
       xrayIccGeo.setAttribute('color', new THREE.BufferAttribute(targetData.colors, 3));
       xrayIccGeo.setAttribute('uv', new THREE.BufferAttribute(targetData.uvs, 2));
-      xrayIccGeo.setIndex(new THREE.BufferAttribute(targetData.iccIndices, 1));
+      xrayIccGeo.setIndex(new THREE.BufferAttribute(targetData.prccIndices, 1));
 
       const xrayIccMat = new THREE.MeshPhysicalMaterial({
         vertexColors: true,
@@ -686,8 +1053,11 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     }
 
     // 4. Lacanian Ribbons & Curves: S, I, Hilo Pulsional, Sigma (entrecruzadas en el interior)
+    // Tras la ruptura psicótica, la reconfiguración ('covered') persiste en las
+    // reconstrucciones mientras el IGS siga fuera de baremo (≥ 3× el corte).
+    const ribbonMode: RibbonMode = ruptureVisual === 'covered' ? 'covered' : 'stable';
     const lacanian = calculateLacanianParameters(sclData, params);
-    const { curveS, curveI, curvePulsion, curveSigma, fantasy3D } = getLacanianCurves(lacanian);
+    const { curveS, curveI, curvePulsion, curveSigma, fantasy3D } = getLacanianCurves(lacanian, 220, 25.0, ribbonMode);
 
     const createRibbonOrLine = (
       points: [number, number, number][],
@@ -746,14 +1116,14 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       scene.add(objI);
     }
 
-    // Hilo Pulsional (Trieb / Vorstellungrepräsentanz):
+    // Hilo Pulsional (Trieb · Drang):
     // Animated directional flow vector field moving across the interior surface of the torus,
     // directly linked to the showPulsion toggle state, plus the golden ribbon anchored to I
     if (showPulsion) {
       const pulsionGroup = new THREE.Group();
       pulsionGroup.name = 'pulsionGroup';
 
-      // 1. Central golden ribbon/braid pegado a I (Vorstellungsrepräsentanz)
+      // 1. Central golden ribbon/braid pegado al borde de I
       const objPulsionRibbon = createRibbonOrLine(curvePulsion, 0xf59e0b, 0x78350f, 0.065, true);
       pulsionGroup.add(objPulsionRibbon);
       curvePulsionRef.current = objPulsionRibbon;
@@ -852,61 +1222,69 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       scene.add(pulsionGroup);
     }
 
-    // Curva Sigma (Síntoma / Sinthome) - Blue Ribbon
+    // Curva Sigma (Síntoma) - Blue Ribbon
     if (showCurveSigma) {
       const objSigma = createRibbonOrLine(curveSigma, 0x3b82f6, 0x172554, 0.085);
       curveSigmaRef.current = objSigma;
       scene.add(objSigma);
     }
 
-    // 5. Fantasy Point [La Fantasía es Angustia] (Punto de Angustia Máxima)
+    // 5. Marcas de fantasía (la angustia surge por proximidad — N marcas, §8)
     if (showFantasyPoint) {
       const fantasyGroup = new THREE.Group();
 
-      // Main glowing sphere
-      const sphereGeo = new THREE.SphereGeometry(0.13, 20, 20);
-      const sphereMat = new THREE.MeshStandardMaterial({
-        color: 0xf43f5e,
-        emissive: 0xe11d48,
-        emissiveIntensity: 0.95,
-        roughness: 0.15,
-        depthWrite: !isXRayMode
-      });
-      const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-      sphere.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
-      fantasyGroup.add(sphere);
+      const marks = lacanian.fantasyMarks3D ?? [fantasy3D];
+      for (let mi = 0; mi < marks.length; mi++) {
+        const [mx, my, mz] = marks[mi];
+        // Esfera incandescente (la marca misma)
+        const sphereGeo = new THREE.SphereGeometry(0.13, 20, 20);
+        const sphereMat = new THREE.MeshStandardMaterial({
+          color: 0xf43f5e,
+          emissive: 0xe11d48,
+          emissiveIntensity: 0.95,
+          roughness: 0.15,
+          depthWrite: !isXRayMode
+        });
+        const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+        sphere.position.set(mx, my, mz);
+        fantasyGroup.add(sphere);
 
-      // Outer pulsating ring
-      const ringGeo = new THREE.RingGeometry(0.18, 0.26, 32);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: 0xfb7185,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.85,
-        depthWrite: !isXRayMode
-      });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
-      ring.lookAt(0, 0, 0);
-      fantasyGroup.add(ring);
+        // Anillo pulsante
+        const ringGeo = new THREE.RingGeometry(0.18, 0.26, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xfb7185,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.85,
+          depthWrite: !isXRayMode
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.set(mx, my, mz);
+        ring.lookAt(0, 0, 0);
+        fantasyGroup.add(ring);
 
-      // Critical Anguish Boundary Halo ($ <> a - Umbral A_cr = π/4)
-      const haloGeo = new THREE.SphereGeometry(0.38, 16, 16);
-      const haloMat = new THREE.MeshBasicMaterial({
-        color: 0xf43f5e,
-        transparent: true,
-        opacity: 0.16,
-        wireframe: true,
-        depthWrite: !isXRayMode
-      });
-      const halo = new THREE.Mesh(haloGeo, haloMat);
-      halo.position.set(fantasy3D[0], fantasy3D[1], fantasy3D[2]);
-      fantasyGroup.add(halo);
+        // Halo: vecindad de angustia crítica (radio de proximidad A_cr = π/4)
+        const haloGeo = new THREE.SphereGeometry(0.38, 16, 16);
+        const haloMat = new THREE.MeshBasicMaterial({
+          color: 0xf43f5e,
+          transparent: true,
+          opacity: 0.16,
+          wireframe: true,
+          depthWrite: !isXRayMode
+        });
+        const halo = new THREE.Mesh(haloGeo, haloMat);
+        halo.position.set(mx, my, mz);
+        fantasyGroup.add(halo);
+      }
 
       if (isXRayMode) fantasyGroup.renderOrder = 7;
       fantasyMeshRef.current = fantasyGroup;
       scene.add(fantasyGroup);
     }
+
+    // Auto-encuadre durante la ruptura (esfera envolvente real; se respeta el zoom
+    // manual: rueda o 'Ver orificio' no se pisan).
+    if (ruptureVisual !== 'idle' && !userCameraRef.current) autoFrameRupture();
   }, [
     sclData,
     params,
@@ -919,10 +1297,11 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     showCurveSigma,
     showFantasyPoint,
     showRibbons,
-    ccOpacity
+    ccOpacity,
+    ruptureVisual
   ]);
 
-  // Real-time dynamic opacity adjustment for Cc conscious shell in X-Ray mode
+  // Real-time dynamic opacity adjustment for the outer skin of the Icc surface in X-Ray mode
   useEffect(() => {
     if (viewMode === 'xray_icc' && xrayCcMaterialRef.current) {
       xrayCcMaterialRef.current.opacity = Math.max(0.04, Math.min(1.0, ccOpacity));
@@ -960,13 +1339,19 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const newRadius = rotationAngles.current.radius + e.deltaY * 0.006;
-    rotationAngles.current.radius = Math.max(3.5, Math.min(18.0, newRadius));
+    rotationAngles.current.radius = Math.max(3.5, Math.min(200.0, newRadius));
+    userCameraRef.current = true;
     updateCameraPosition();
   };
 
   const handleResetCamera = () => {
     rotationAngles.current = { theta: 0.65, phi: 0.75, radius: 9.0 };
     updateCameraPosition();
+    // Durante la ruptura, 'Centrar vista' re-encuadra (el radio 9 quedaría dentro del modelo)
+    if (rupturePhaseRef.current !== 'idle') {
+      userCameraRef.current = false;
+      autoFrameRupture();
+    }
   };
 
   // Capture PNG matching model.plot_3d_model & model.plot_deformed_model
@@ -1043,12 +1428,12 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             {viewMode === 'xray_icc' ? (
               <>
                 <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-                <span className="text-cyan-300 font-bold">Vista Rayos X del Icc</span>
+                <span className="text-cyan-300 font-bold">Rayos X: piel translúcida</span>
               </>
             ) : viewMode === 'interior_icc' ? (
-              'Interior (Icc): Cintas Entrecruzadas'
+              'Interior: cintas sobre la superficie Icc'
             ) : viewMode === 'standard' ? (
-              'Horn Torus Cc (Exterior)'
+              'Horn Torus (superficie Icc · Cc = exterior)'
             ) : (
               'Horn Torus Deformado'
             )}
@@ -1062,11 +1447,11 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               <span className="text-slate-500">|</span>
               <span className="text-cyan-300 font-mono flex items-center gap-1 font-semibold">
                 <Scan className="w-3 h-3 text-cyan-400" />
-                <span>Cc Translúcido: {(ccOpacity * 100).toFixed(0)}%</span>
+                <span>Piel translúcida: {(ccOpacity * 100).toFixed(0)}%</span>
               </span>
               <span className="text-slate-500">|</span>
               <span className="text-emerald-300 font-mono">
-                Interior Icc Revelado
+                Pared interna Prcc visible
               </span>
             </>
           ) : viewMode === 'interior_icc' ? (
@@ -1074,7 +1459,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               <span className="text-slate-500">|</span>
               <span className="text-amber-300 font-mono flex items-center gap-1">
                 <Eye className="w-3 h-3 text-amber-400" />
-                <span>Cc Translúcido</span>
+                <span>Piel translúcida</span>
               </span>
             </>
           ) : colorMap === 'differential_stress' ? (
@@ -1089,7 +1474,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             <>
               <span className="text-slate-500">|</span>
               <span className="text-rose-300 font-mono">
-                Fantasía=Angustia
+                Marca de fantasía
               </span>
             </>
           )}
@@ -1102,10 +1487,106 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               </span>
             </>
           )}
+          {ruptureVisual !== 'idle' && (
+            <>
+              <span className="text-slate-500">|</span>
+              <span className={`font-mono flex items-center gap-1 font-bold ${
+                ruptureVisual === 'ejected' ? 'text-rose-300 animate-pulse' : 'text-orange-300'
+              }`}>
+                <AlertCircle className="w-3 h-3 text-rose-400" />
+                <span>
+                  {ruptureVisual === 'ejected'
+                    ? (rupturePhaseAt(ruptureClock) === 'integracion-fantasia'
+                      ? 'COROLARIO II · EYECCIÓN: la fantasía se integra a la voz (orificio v=π)'
+                      : 'COROLARIO II · EYECCIÓN: la cinta S-I sale por la voz (v=π)')
+                    : 'COROLARIO II · UMBAU: cadenas de S e I reenganchadas en orden nuevo — cintas cubren toda la superficie'}
+                </span>
+              </span>
+            </>
+          )}
         </div>
+
+        {/* Exploración temporal de la ruptura: scrub + play/pausa + repetir + volver a estable */}
+        {ruptureVisual !== 'idle' && (onRuptureTimeChange || onRuptureReplay) && (
+          <div className="pointer-events-auto w-full bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-lg shadow-lg px-3 py-2 flex items-center gap-2">
+            {onRupturePlayingChange && (
+              <button
+                id="rupture-scrub-play"
+                onClick={() => onRupturePlayingChange(!rupturePlaying)}
+                className="shrink-0 w-7 h-7 rounded-md bg-slate-800 border border-slate-600 text-slate-200 hover:text-white hover:border-slate-400 flex items-center justify-center transition-colors"
+                title={rupturePlaying ? 'Pausar la secuencia' : 'Reanudar la secuencia'}
+              >
+                {rupturePlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              </button>
+            )}
+            {onRuptureTimeChange && (
+              <input
+                id="rupture-scrub-slider"
+                type="range"
+                min={0}
+                max={6}
+                step={0.1}
+                value={Math.min(6, scrubTime)}
+                onChange={(e) => onRuptureTimeChange(parseFloat(e.target.value))}
+                className="flex-1 h-1.5 accent-rose-500 cursor-pointer"
+                title="Explorar la secuencia: 0–1.4 s colapso de cintas · voz saliendo del orificio (v=π) · 6 s reconfiguración cubriendo toda la superficie"
+              />
+            )}
+            <span className="shrink-0 font-mono text-[10px] text-slate-300 w-20 text-right">
+              {Math.min(6, scrubTime).toFixed(1)} / 6.0 s
+            </span>
+            <button
+              id="rupture-view-orifice-btn"
+              onClick={handleViewOrifice}
+              className="shrink-0 px-2 py-1 rounded-md text-xs bg-slate-800 border border-rose-800/60 text-rose-200 hover:text-white hover:border-rose-500 flex items-center gap-1 transition-colors"
+              title="Acercar la cámara al punto de ruptura: orificio/cúspide v=π (la voz)"
+            >
+              <CircleDot className="w-3 h-3 text-rose-400" />
+              <span>Ver orificio</span>
+            </button>
+            {onRuptureReplay && (
+              <button
+                id="rupture-replay-btn"
+                onClick={onRuptureReplay}
+                className="shrink-0 px-2 py-1 rounded-md text-xs bg-slate-800 border border-slate-600 text-slate-200 hover:text-white hover:border-slate-400 flex items-center gap-1 transition-colors"
+                title="Reiniciar la secuencia desde el colapso (t = 0)"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Repetir</span>
+              </button>
+            )}
+            {onResetToStable && (
+              <button
+                id="rupture-reset-btn"
+                onClick={onResetToStable}
+                className="shrink-0 px-2 py-1 rounded-md text-xs bg-slate-800 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-400 transition-colors"
+                title="Volver al perfil estable (fuera de ruptura)"
+              >
+                <span>Volver a estable</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Action Controls & PNG Export */}
         <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-1 rounded-lg shadow-lg">
+          {/* Lanzar ruptura psicótica (IGS 3× corte, fuera de baremo) */}
+          {onLaunchRupture && (
+            <button
+              id="launch-rupture-btn"
+              onClick={onLaunchRupture}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                ruptureVisual !== 'idle'
+                  ? 'bg-rose-950 text-rose-200 border border-rose-500 font-semibold ring-1 ring-rose-500/40'
+                  : 'text-rose-300 hover:text-white bg-slate-800 border border-rose-900/60 hover:border-rose-600'
+              }`}
+              title={`Ruptura psicótica fuera de baremo: IGS = ${ruptureThresholdGsi(params.baremoId).toFixed(2)} (3× el corte T=60 de la población elegida) + Wegbreite suficiente (Corolario I: δ ≥ π/6). S, I y Pulsión se eyectan por el orificio (v=π), sale la voz y las cadenas de S e I se reenganchan en un orden nuevo (Corolario II, Umbau) con las cintas cubriendo toda la superficie.`}
+            >
+              <Flame className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+              <span>Ruptura 3×</span>
+            </button>
+          )}
+
           {/* Quick Toggle for X-Ray of Icc */}
           {onViewModeChange && (
             <button
@@ -1125,7 +1606,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
                   ? 'bg-cyan-950 text-cyan-200 border border-cyan-400 shadow-sm font-semibold ring-1 ring-cyan-500/40'
                   : 'text-slate-300 hover:text-white bg-slate-800 border border-slate-700'
               }`}
-              title="Alternar Vista de Rayos X del Icc: envolvente semitransparente que revela las cintas interiores"
+              title="Alternar Rayos X: piel externa de la superficie Icc semitransparente que revela la pared Prcc y las cintas"
             >
               <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
               <span>{viewMode === 'xray_icc' ? 'Salir Rayos X' : 'Rayos X Icc'}</span>
@@ -1142,10 +1623,10 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
                   ? 'bg-amber-950 text-amber-300 border border-amber-700 shadow-sm font-semibold'
                   : 'text-slate-300 hover:text-white bg-slate-800 border border-slate-700'
               }`}
-              title="Alternar entre ver el exterior Cc o inspeccionar el interior Icc con las cintas"
+              title="Alternar entre la vista exterior y el interior de la superficie Icc con las cintas"
             >
               <Eye className="w-3.5 h-3.5 text-amber-400" />
-              <span>{viewMode === 'interior_icc' ? 'Ver Exterior (Cc)' : 'Interior (Icc)'}</span>
+              <span>{viewMode === 'interior_icc' ? 'Ver Exterior' : 'Interior'}</span>
             </button>
           )}
 
@@ -1235,29 +1716,32 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
             <div className="flex items-center justify-between font-semibold text-cyan-300 border-b border-cyan-900/60 pb-1.5">
               <span className="flex items-center gap-1.5">
                 <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-                <span>Vista de Rayos X del Icc</span>
+                <span>Rayos X: piel translúcida</span>
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/80 font-bold">
-                Cc Semitransparente
+                Superficie Icc
               </span>
             </div>
 
             <p className="text-[10px] text-slate-300 leading-relaxed">
-              La envolvente exterior <span className="text-cyan-300 font-semibold">Consciente (Cc)</span> se atenúa mediante transparencia dinámica (<span className="text-cyan-400 font-bold">{(ccOpacity * 100).toFixed(0)}%</span>) como carcasa de contención, revelando con nitidez las cintas interiores del <span className="text-amber-300 font-semibold">Inconsciente (Icc)</span>: <span className="text-red-400 font-bold">S</span>, <span className="text-emerald-400 font-bold">I</span>, el <span className="text-amber-300 font-bold">Hilo Pulsional</span> y el síntoma <span className="text-blue-400 font-bold">Σ</span>.
+              La piel externa de la <span className="text-cyan-300 font-semibold">superficie Icc</span> se atenúa mediante transparencia dinámica (<span className="text-cyan-400 font-bold">{(ccOpacity * 100).toFixed(0)}%</span>): quedan visibles la pared interna <span className="text-fuchsia-300 font-semibold">Prcc</span> (espesor de la pared) y las cintas <span className="text-red-400 font-bold">S</span>, <span className="text-emerald-400 font-bold">I</span>, el <span className="text-amber-300 font-bold">Hilo Pulsional</span> y el síntoma <span className="text-blue-400 font-bold">Σ</span>. La <span className="text-cyan-300 font-semibold">Cc</span> (consciente) es el espacio exterior al toro.
             </p>
 
             <div className="grid grid-cols-2 gap-1.5 text-[9.5px] bg-slate-950/80 p-2 rounded-lg border border-slate-800">
               <div className="text-slate-300">
-                <span className="text-cyan-400 font-bold">Cc:</span> cos(v) &gt; 0 (Exterior)
+                <span className="text-amber-400 font-bold">Icc:</span> toda la superficie
               </div>
               <div className="text-slate-300">
-                <span className="text-amber-400 font-bold">Icc:</span> cos(v) ≤ 0 (Interior)
+                <span className="text-emerald-400 font-bold">Prcc:</span> espesor de la pared (cara interna)
               </div>
               <div className="text-slate-300">
-                <span className="text-fuchsia-400 font-bold">Singularidad:</span> v = π (objeto a)
+                <span className="text-cyan-400 font-bold">Cc:</span> espacio exterior al toro
               </div>
               <div className="text-slate-300">
-                <span className="text-rose-400 font-bold">Fantasía:</span> (u=π, v=π/2)
+                <span className="text-fuchsia-400 font-bold">Singularidad:</span> v = π (la voz · AXIOMA)
+              </div>
+              <div className="text-slate-300">
+                <span className="text-rose-400 font-bold">Marcas de fantasía:</span> {lacanian.fantasyMarks.length} (§8: una por trauma)
               </div>
             </div>
           </div>
@@ -1267,9 +1751,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
           <div className="flex items-center justify-between font-semibold text-slate-200 border-b border-slate-800 pb-1.5">
             <span className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Interior Icc: Cintas Entrecruzadas</span>
+              <span>Cintas sobre la superficie Icc</span>
             </span>
-            <span className="text-[10px] text-amber-400 font-semibold">Exterior = Cc</span>
+            <span className="text-[10px] text-amber-400 font-semibold">Superficie = Icc</span>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 text-[11px]">
@@ -1303,27 +1787,27 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
                 </span>
               </div>
               <p className="text-[9.5px] text-slate-300 leading-tight">
-                Vectores de flujo direccional en el interior <span className="text-amber-400 font-mono">v ∈ [π/2, 3π/2]</span> convergiendo helicoidalmente hacia la cúspide <span className="text-cyan-300 font-mono">v=π</span> (objeto a), anclados a la imagen del cuerpo <span className="text-emerald-400 font-mono">I</span> (Vorstellungsrepräsentanz).
+                Vectores de flujo direccional en el interior <span className="text-amber-400 font-mono">v ∈ [π/2, 3π/2]</span> convergiendo helicoidalmente hacia la cúspide <span className="text-cyan-300 font-mono">v=π</span> (la voz), pegados al borde de <span className="text-emerald-400 font-mono">I</span> (imagen del cuerpo) — AXIOMA.
               </p>
               <div className="flex justify-between text-[9px] text-slate-400 pt-0.5">
-                <span>Fijación a I: <span className="text-amber-300 font-bold">{(lacanian.pulsionAttachmentStrength * 100).toFixed(0)}%</span></span>
-                <span>Empuje: <span className="text-rose-300 font-medium">Wiederholungszwang</span></span>
+                <span>Adherencia al borde de I: <span className="text-amber-300 font-bold">{(lacanian.pulsionAttachmentStrength * 100).toFixed(0)}%</span></span>
+                <span>Empuje: <span className="text-rose-300 font-medium">Drang (constante)</span></span>
               </div>
             </div>
           )}
 
           <div className="border-t border-slate-800/80 pt-1.5 text-[10px] text-slate-400 space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-rose-400 font-medium">La Fantasía es Angustia:</span>
-              <span className="text-rose-300 font-bold">(π, π/2)</span>
+              <span className="text-rose-400 font-medium">Marcas de fantasía ({lacanian.fantasyMarks.length}):</span>
+              <span className="text-rose-300 font-bold">(π, 3π/4) — pared</span>
             </div>
             <div className="flex justify-between text-slate-400">
-              <span>Fijación Somática a I:</span>
+              <span>Adherencia al borde de I:</span>
               <span className="text-amber-300 font-bold">{(lacanian.pulsionAttachmentStrength * 100).toFixed(0)}%</span>
             </div>
             <div className="flex justify-between">
-              <span>Zona Ruptura (A ≤ A_cr):</span>
-              <span className="text-amber-400 font-bold">{lacanian.ruptureAreaPercent.toFixed(1)}% del Manifold</span>
+              <span>Zona Ruptura (vecindad del foco, A ≥ A_max − A_cr):</span>
+              <span className="text-amber-400 font-bold">{lacanian.ruptureAreaPercent.toFixed(1)}% del área</span>
             </div>
           </div>
         </div>
@@ -1334,7 +1818,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         {onCcOpacityChange && (
           <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-mono shadow-xl">
             <span className="text-slate-400 text-[11px]">
-              {viewMode === 'xray_icc' ? 'Transparencia Cc:' : 'Opacidad Cc:'}
+              {viewMode === 'xray_icc' ? 'Transparencia de la piel:' : 'Opacidad de la piel:'}
             </span>
             <input
               type="range"
@@ -1344,14 +1828,14 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               value={ccOpacity}
               onChange={(e) => onCcOpacityChange(parseFloat(e.target.value))}
               className="w-20 accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg"
-              title="Ajusta la opacidad de la piel exterior (Cc) para revelar el interior (Icc)"
+              title="Ajusta la opacidad de la piel externa de la superficie Icc para revelar la pared interna Prcc"
             />
             <span className="text-cyan-300 font-bold w-8 text-right">{(ccOpacity * 100).toFixed(0)}%</span>
           </div>
         )}
 
         <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 px-2.5 py-1 rounded text-[10px] text-slate-400 font-mono">
-          Exterior = Cc | Interior = Icc | Arrastrar: rotar | Rueda: zoom
+          Superficie = Icc · Prcc = espesor · Cc = exterior | Arrastrar: rotar | Rueda: zoom
         </div>
       </div>
     </div>
