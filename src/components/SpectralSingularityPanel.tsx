@@ -86,7 +86,7 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Curvatura Gaussiana en puntos críticos y acoplamiento con la Fantasía ($ ◇ a)
+                Curvatura gaussiana en puntos críticos y acoplamiento con las marcas de fantasía
               </p>
             </div>
           </div>
@@ -131,10 +131,10 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
                   ? 'bg-rose-600 text-white border-rose-400 shadow-md shadow-rose-600/30 animate-pulse'
                   : 'bg-rose-950/70 hover:bg-rose-900 text-rose-200 border-rose-700/80'
               }`}
-              title="Disparar o compensar brote psicótico"
+              title="Disparar la secuencia de ruptura del modelo (Corolario II, AXIOMA) o volver al perfil estable"
             >
               <Zap className="w-3.5 h-3.5 text-rose-400 fill-current" />
-              <span>{isPsychoticBreakActive ? 'Compensar' : '⚡ Brote'}</span>
+              <span>{isPsychoticBreakActive ? 'Volver al perfil estable' : '⚡ Ruptura del modelo'}</span>
             </button>
           )}
         </div>
@@ -177,7 +177,7 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
         {/* Card 3: Fantasy Point & Hole Distortion */}
         <div className="bg-slate-950/70 border border-slate-800/90 rounded-lg p-3 space-y-1">
           <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-            <span>AGUJERO FANTASÍA ($ ◇ a)</span>
+            <span>MARCA DE FANTASÍA (principal)</span>
             <Target className="w-3.5 h-3.5 text-amber-400" />
           </div>
           <div className="flex items-baseline justify-between">
@@ -198,7 +198,7 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
             </span>
           </div>
           <p className="text-[10px] text-amber-300/90 leading-tight font-mono">
-            Agujero sin representación significante ($1 / S_2).
+            Curvatura en la marca; la angustia surge por proximidad (AXIOMA).
           </p>
         </div>
 
@@ -565,7 +565,7 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
             {/* Chart X-axis explanation */}
             <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-800">
               <span className="text-amber-400">◀ Hiperbólica / Singular (K &lt;&lt; 0)</span>
-              <span className="text-emerald-400">● Parabólica (K ≈ 0, Fantasía $ ◇ a)</span>
+              <span className="text-emerald-400">● Parabólica (K ≈ 0)</span>
               <span className="text-cyan-400">Elíptica / Convexa Cc (K &gt; 0) ▶</span>
             </div>
           </div>
@@ -660,7 +660,7 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
                       ★
                     </div>
                     <span className="text-[10px] font-mono font-bold text-amber-300 bg-slate-900/90 px-1 rounded border border-amber-500 mt-1 shadow whitespace-nowrap">
-                      $ ◇ a (Fantasía)
+                      Marca de fantasía
                     </span>
                   </div>
                 );
@@ -709,10 +709,10 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
       <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-lg text-xs text-slate-400 space-y-1">
         <h4 className="font-semibold text-cyan-300 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-          Fundamentación Metapsicológica: Monismo de Superficie del Icc y Extimidad de la Voz
+          Fundamentación: la superficie del Icc, la voz y el Prcc (tesis V22)
         </h4>
         <p className="leading-relaxed text-[11px]">
-          Toda la variedad del Horn Torus es la <strong>superficie continua del Inconsciente (Icc)</strong>: no existe un adentro sustancial ni un afuera espacial cartesiano. El único "afuera" que contacta con el toro es la <strong>intrusión de la pulsión Voz (y el imperativo del Superyó)</strong> que horada el cuello singular central ($v = \pm\pi$). A partir de este orificio éxtimo, los representantes de la representación ($V_R$) y las cadenas significantes circulan sobre toda la superficie. La <strong>Fantasía Fundamental ($\$ \diamond a$)</strong> constituye el agujero estructural donde no existe representación ($1 / S_2$), enmarcando el vacío de la Cosa para impedir el desborde directo de la angustia.
+          Toda la superficie del horn torus es el <strong>Icc</strong> y su pared es la <strong>censura</strong> Icc/Prcc. El punto de autotangencia p ($v = \pm\pi$) es el único orificio fijo y es de doble sentido: por él <strong>entra lo oído</strong> —el campo <strong>Prcc</strong>, concentrado en el embudo del eje y sin borde (GW XIII, cap. II)— y <strong>sale la voz</strong>. La <strong>Cc</strong> es un umbral de sobreinvestidura dentro de ese campo (GW X, secc. VI). La <strong>fantasía</strong> son marcas Icc de trauma sobre la cara interna; la angustia surge por proximidad a ellas (Axioma 4). La curvatura es geometría exacta de la superficie; su lectura clínica es homología del modelo (AXIOMA), no inferencia de estructura.
         </p>
       </div>
     </div>

@@ -50,10 +50,10 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
             id="btn-manual-trigger-break"
             onClick={onTriggerPsychoticBreak}
             className="px-2.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-600/80 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all animate-pulse"
-            title="Cargar parámetros de crisis aguda y observar el desgarro topológico"
+            title="Disparar la secuencia de ruptura del modelo (Corolario II): la cinta sale por la voz y se reconfigura — AXIOMA"
           >
             <Zap className="w-3.5 h-3.5 text-rose-400 fill-current" />
-            <span>Simular Brote Psicótico</span>
+            <span>Ruptura del modelo</span>
           </button>
         )}
       </div>
@@ -93,7 +93,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
           }`}
         >
           <Flame className="w-3.5 h-3.5 text-rose-400" />
-          <span>3. Explosión de Angustia & Psicosis</span>
+          <span>3. Angustia y ruptura del modelo</span>
         </button>
 
         <button
@@ -167,9 +167,10 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 demuestra que la metáfora esférica induce un engaño cartesiano (adentro vs. afuera).
               </p>
               <p className="text-[11px] text-slate-400">
-                En la topología toroidal, <strong>toda la superficie es la trama continua del Inconsciente (Icc)</strong>:
-                no existe un adentro sustancial ni un afuera espacial. La supuesta "conciencia" es apenas una perspectiva
-                especular proyectada sobre esa misma superficie bidimensional sin espesor.
+                En este modelo <strong>toda la superficie es el Icc</strong> y su pared es la <strong>censura</strong> Icc/Prcc.
+                El Prcc no es un espesor: es el campo de representaciones-palabra que entra por el oído (GW XIII, cap. II),
+                y la Cc no es un lugar sino un umbral de sobreinvestidura dentro de ese campo (GW X, secc. VI).
+                La geometría (embudo, campo sin borde) es construcción del autor — AXIOMA.
               </p>
             </div>
           </div>
@@ -180,8 +181,9 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               En un toro ordinario ($R &gt; r$), existe un pasaje cilíndrico abierto.
               En el <strong>Horn Torus</strong>, el radio mayor iguala al radio menor ($R = r$), haciendo que el agujero central
               colapse en un <strong>punto singular de auto-tangencia en el origen $(0,0,0)$</strong> (en $v = \pm\pi$).
-              Este orificio central no es un interior cerrado, sino el <strong>embudo de intrusión éxtima</strong> por donde
-              irrumpe la pulsión primordial (la Voz y el Superyó) que horada la superficie del Inconsciente.
+              Ese punto p es el <strong>único orificio fijo</strong> y es de doble sentido: por él <strong>entra lo oído</strong>
+              —el campo Prcc, concentrado en el embudo que el exterior forma a lo largo del eje— y <strong>sale la voz</strong>.
+              El horn torus no es una variedad (χ = 1, género indefinido; tesis §4.7).
             </p>
           </div>
         </div>
@@ -197,8 +199,9 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
             </h3>
             <p>
               En el <em>Seminario IX: La identificación</em>, el <em>Seminario X: La angustia</em> y en <em>L'Étourdit</em>,
-              Lacan derriba definitivamente la psicología de las profundidades: <strong>no hay nada en el interior del toro</strong>.
-              El toro es una 2-variedad compacta sin volumen interior: <strong>toda la superficie es el tejido del Inconsciente</strong>.
+              Lacan trabaja el toro como superficie. En este modelo, <strong>el interior del horn torus no aloja nada</strong>
+              y <strong>toda la superficie es el Icc</strong> (AXIOMA). El horn torus no es una 2-variedad: en el punto de
+              autotangencia el entorno son dos discos unidos por el centro (tesis §4.7).
             </p>
           </div>
 
@@ -225,7 +228,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               </p>
               <div className="text-[11px] text-slate-300 space-y-1.5 leading-relaxed">
                 <p>
-                  <strong>1. La Voz y el Superyó como Intrusión Éxtima:</strong> La Voz es el objeto pulsional ($a$) más desprendido e invasivo; encarna el imperativo mudo del Superyó (<em>"¡Goza!"</em>). En el Horn Torus, la Voz no pertenece a un espacio exterior habitable: es una <strong>intrusión éxtima que horada el cuello central $(v = \pi)$</strong>.
+                  <strong>1. La voz y lo oído:</strong> el oído es, para Lacan, el único orificio del campo del inconsciente que no puede cerrarse (Seminario XI, 20 de mayo de 1964). En el horn torus ese orificio es p $(v = \pi)$, de doble sentido: por él entra lo oído —las representaciones-palabra que forman el Prcc (GW XIII, cap. II)— y sale la voz. El superyó procede de lo oído, pero su energía viene del ello (GW XIII, cap. V).
                 </p>
                 <p>
                   <strong>2. Los $V_R$ (Vorstellungsrepräsentanz) en toda la Superficie:</strong> A partir de ese orificio central de contacto con el Ello/Superyó, los representantes de la representación de la pulsión ($V_R$) <strong>se desplazan, circulan y se anudan sobre la totalidad de la superficie toroidal</strong>. No están confinados a un rincón interno: circulan continuamente sobre la superficie del Inconsciente bordeando el agujero central sin jamás colmarlo.
@@ -235,13 +238,13 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
 
             <div className="bg-slate-950/50 border border-slate-800/80 p-3 rounded-lg space-y-1.5">
               <h4 className="font-semibold text-amber-300">
-                C. La Fantasía Fundamental $(\$ \diamond a)$ como Agujero sin Representación ($1 / S_2$)
+                C. La fantasía: marcas de trauma sobre la cara interna (tesis V22, Axioma 4)
               </h4>
               <p className="text-[11px] text-slate-300 leading-relaxed">
-                La fórmula $(\$ \diamond a)$ establece que la fantasía es un <strong>agujero en el toro donde no existe una representación significante</strong>. Mientras que el significante ordinario funciona en binario $S_1 \to S_2$, en el punto de fantasía ese acoplamiento <strong>falla estructuralmente</strong>.
+                La fantasía (concepto freudiano) se formaliza como <strong>marcas Icc de trauma</strong> sobre la cara interna de la pared, distintas entre sí y de contenido desconocido: se ven sus efectos (Agieren, síntoma), no lo que son. La angustia surge por <strong>proximidad</strong>: cuando un cruce se acerca a una marca (señal) o pasa por ella (situación traumática). AXIOMA.
               </p>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Las cadenas de significantes $S$ y las imágenes de la especularidad $I$ bordean y enmarcan ese vacío sin poder penetrar la Cosa (<em>Das Ding</em>). La fantasía es la pantalla/marco protector que contiene la angustia.
+                Una versión anterior de esta app (16–17/9/2026) modelaba la fantasía como un agujero sin representación en el centro del toro. El autor eligió las marcas (24/9/2026); esa versión quedó en el historial del repositorio.
               </p>
             </div>
 
@@ -251,12 +254,13 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               </h4>
               <p className="text-[11px] text-slate-400">
                 En el <em>Seminario X</em>, Lacan rompe con la idea tradicional de que la angustia proviene de la pérdida del objeto.
-                Lacan formula: <em>"La angustia no es la duda, es la certeza... La angustia surge ante la falta de la falta"</em>.
+                Lacan define la angustia como <em>«ce qui ne trompe pas»</em>, lo que no engaña (Seminario X, 8 de mayo de 1963), y
+                afirma que <em>«l'angoisse n'est pas sans objet»</em> (29 de mayo de 1963).
               </p>
               <p className="text-[11px] text-slate-400">
-                Cuando el objeto $a$ se aproxima excesivamente al sujeto, desbordando el marco de la fantasía en la cara interna,
-                la distancia protectora se extingue. El campo escalar de angustia $A(u, v)$ en este software modela precisamente
-                esta métrica angular: cuando A(u, v) ≤ A_cr = π/4, la zona entra en fase crítica de asfixia simbólica.
+                En este software, A(u, v) mide la proximidad a la marca de fantasía más cercana: es máxima sobre ella. La vecindad
+                crítica es A ≥ A_max − A_cr (A_cr = π/4). Aproximación: situación de peligro, angustia señal; pasaje: situación
+                traumática (GW XIV, p. 199). La traducción geométrica es AXIOMA.
               </p>
             </div>
           </div>
@@ -269,13 +273,13 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
           <div className="bg-rose-950/30 border border-rose-600/50 p-3 rounded-lg space-y-2">
             <h3 className="text-sm font-semibold text-rose-300 flex items-center gap-2">
               <Flame className="w-4 h-4 text-rose-400 animate-pulse" />
-              3. ¿Cómo Reconocer en el Toro la Explosión Psicótica de la Angustia?
+              3. Angustia y ruptura del modelo
             </h3>
             <p>
-              En la clínica psicoanalítica lacaniana de las psicosis (Seminario III), el desencadenamiento
-              o <em>brote psicótico</em> ocurre por la <strong>forclusión del Nombre-del-Padre</strong> (<em>Verwerfung</em>).
-              Al ser convocado el significante paterno en lo Real sin que haya inscripción simbólica, se produce
-              una catástrofe en el aparato: el lazo se desanuda y la angustia irrumpe como desborde pulsional masivo.
+              En Lacan (Seminario III), el desencadenamiento psicótico se piensa desde la <strong>forclusión del Nombre-del-Padre</strong>.
+              Este modelo <strong>no infiere estructura clínica</strong> a partir del SCL-90-R: un Psicoticismo alto no es forclusión, y un
+              IGS extremo no es un diagnóstico. La «ruptura» de la app es una secuencia del modelo (Corolario II, AXIOMA): se dispara con
+              IGS ≥ 3× el corte T=60 de la población y Wegbreite suficiente; la cinta S-I-Σ sale por la voz (p) y se reconfigura sobre la superficie.
             </p>
           </div>
 
@@ -286,26 +290,23 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 1. Saturación y Cizalladura en la Cúspide Singular ($v = \pm\pi$)
               </h4>
               <p className="text-[11px] text-slate-400">
-                En la neurosis, la represión ($Udr$) amortigua el impacto pulsional.
-                En el brote psicótico, el <strong>Psicoticismo</strong> se dispara ($T &gt; 80$, $T=100$, como en el caso <em>Matías Gabriel Ross</em>).
-                Matemáticamente, el término de deformación psicótica cizalla la cúspide singular:
+                Con Psicoticismo fuera de baremo ($T &gt; 80$, como en el caso clínico A del preset, anonimizado),
+                el término de deformación asignado a esa escala (asignación AXIOMA) cizalla la cúspide:
                 <code className="text-cyan-300 font-mono text-[10.5px] block bg-slate-900 p-1.5 rounded mt-1">
-                  wPsy = Psicoticismo * 0.35 * sin(u + v)
+                  wPsy = Psicoticismo * 0.45 * |sin(v/2)|³ * sin(2u + v)
                 </code>
-                En el polo central de contacto ($0,0,0$), el toroide sufre una torsión asimétrica no compensada.
+                Es una descripción geométrica de la superficie deformada, no de la estructura del sujeto.
               </p>
             </div>
 
             <div className="bg-slate-950/60 border border-slate-800 p-3 rounded-lg space-y-1">
               <h4 className="font-semibold text-amber-400 flex items-center gap-1.5">
                 <Target className="w-3.5 h-3.5" />
-                2. Inundación Carmesí del Campo de Angustia (A ≤ A_cr)
+                2. Vecindades críticas de las marcas (A ≥ A_max − A_cr)
               </h4>
               <p className="text-[11px] text-slate-400">
-                Al seleccionar el mapa de color <strong>Angustia</strong> (`#btn-colormap-angustia`), la superficie se tiñe de
-                <strong> rojo brillante / fucsia</strong> en todos los sectores donde la angustia excede el umbral crítico (A ≤ A_cr).
-                Durante el brote, el área crítica supera el <strong>65-80%</strong> de la superficie total, invadiendo el orificio
-                interior y devorando el punto dorado de la fantasía.
+                Con el mapa de color <strong>Angustia</strong>, la superficie se tiñe de rojo en la unión de las vecindades de las marcas de
+                fantasía; el resumen informa el porcentaje de área. Agregar marcas (control N) amplía esa zona.
               </p>
             </div>
 
@@ -315,10 +316,9 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 3. Ruptura del Marco Fantasmático en la Cara Interna
               </h4>
               <p className="text-[11px] text-slate-400">
-                En la vista <strong>Interior (Icc)</strong> o <strong>Rayos X Icc</strong>, observe cómo las cintas entrecruzadas
-                que unen la pulsión al significante se desvían de sus trayectorias armónicas.
-                El punto de anclaje $(\$ \diamond a)$ queda sumergido en el vórtice singular central: el sujeto experimenta
-                la vivencia del fin del mundo, alucinaciones auditivas invasivas y fragmentación del cuerpo (<em>corps morcelé</em>).
+                En la vista <strong>Interior (Icc)</strong> o <strong>Rayos X Icc</strong>, durante la secuencia de ruptura la cinta
+                sale por la voz y luego se reconfigura cubriendo la cara interna (Einriß / Umbau, Freud 1924, en la lectura de la tesis).
+                Es una homología del modelo (AXIOMA): no describe la vivencia clínica del sujeto.
               </p>
             </div>
 
@@ -330,8 +330,8 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               <p className="text-[11px] text-slate-400">
                 A diferencia de modelos gráficos lineales simples que se rompen (vértices con NaN o mallas auto-intersectadas que colapsan),
                 nuestro motor implementa una compresión sigmoidal <code className="text-amber-300 font-mono">tanh(raw / 1.45)</code>.
-                Esto permite visualizar el <strong>máximo desgarro y torsión morfológica</strong> sin perder la continuidad matemática
-                de la superficie, ilustrando cómo el sujeto psicótico sigue existiendo como estructura topológica.
+                Esto permite visualizar deformaciones extremas sin perder la continuidad de la superficie: la topología del horn torus
+                no cambia con la deformación.
               </p>
             </div>
           </div>
@@ -464,7 +464,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 D. Pestañas Laterales: Parámetros, Resumen y Exportación
               </h4>
               <ul className="list-disc pl-5 space-y-1 text-[11px] text-slate-400">
-                <li><strong>Pestaña SCL-90-R:</strong> Modifique los puntajes en formato Puntajes T (Baremo Casullo 2008) o valores normalizados. Active la tabla de baremo completa para consultar datos normativos de la UBA.</li>
+                <li><strong>Pestaña SCL-90-R:</strong> Cargue puntajes directos (con validación de consistencia IGS = PST·PSDI/90) o puntajes T del protocolo (se convierten a PD con el baremo de la población elegida). La tabla del baremo muestra los datos normativos (Casullo – Pérez).</li>
                 <li><strong>Animación de Deformación:</strong> Presione el botón de destello o <em>Animar Transición (0 ➔ δ)</em> para ver la metamorfosis continua del toro a 60 FPS.</li>
                 <li><strong>Pestaña Resumen:</strong> Métricas de energía de Willmore, área superficial, tensión diferencial e informe psicométrico formal.</li>
                 <li><strong>Pestaña Python:</strong> Código autocontenido listo para ejecutar localmente con `matplotlib` y `numpy`.</li>

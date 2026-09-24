@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { SCL90RData, ModelParams, ViewMode, ColorMapMode } from './types';
-import { DEFAULT_SCL90R_DATA, computeTopologicalMetrics } from './utils/hornTorusMath';
+import { SCL90RData, ModelParams, ViewMode, ColorMapMode, SCL90RInputMode } from './types';
+import { DEFAULT_SCL90R_DATA, computeTopologicalMetrics, CLINICAL_PRESETS, sclDataToTScores } from './utils/hornTorusMath';
+import { formatMetricSafe } from './utils/formatMetric';
 import { HornTorusCanvas } from './components/HornTorusCanvas';
 import { Scl90rForm } from './components/Scl90rForm';
 import { ModelSummaryModal } from './components/ModelSummaryModal';
@@ -28,12 +29,16 @@ import {
   Zap,
   AlertTriangle
 } from 'lucide-react';
+import type { RuptureVisualState } from './types';
 
 export default function App() {
   // SCL-90-R Psychometric Data from user prompt
   const [sclData, setSclData] = useState<SCL90RData>(DEFAULT_SCL90R_DATA);
+  // Modo de carga del SCL-90-R y los T tal como se cargaron (pueden superar T = 80).
+  const [inputMode, setInputMode] = useState<SCL90RInputMode>('pd');
+  const [tScores, setTScores] = useState<Record<keyof SCL90RData, number>>(() => sclDataToTScores(DEFAULT_SCL90R_DATA));
 
-  // Model Parameters: a_scale=0.1, u_scale=2*pi, v_scale=pi, A_cr=pi/4, deformation_factor=0.3
+  // Model Parameters: a_scale=0.1, u_scale=2*pi, v_scale=pi, A_cr=pi/4, deformation_factor=0.3, rOverR=1.0
   const [params, setParams] = useState<ModelParams>({
     a_scale: 0.1,
     u_scale: 2 * Math.PI,
@@ -41,6 +46,7 @@ export default function App() {
     deformation_factor: 0.3,
     gridResolution: 80,
     a_critical: Math.PI / 4,
+    rOverR: 1.0,
   });
 
   // Visualization options
@@ -55,26 +61,67 @@ export default function App() {
   const [showPulsion, setShowPulsion] = useState<boolean>(true);
   const [showCurveSigma, setShowCurveSigma] = useState<boolean>(true);
   const [showFantasyPoint, setShowFantasyPoint] = useState<boolean>(true);
+  const [showPrcc, setShowPrcc] = useState<boolean>(true);
   const [showRibbons, setShowRibbons] = useState<boolean>(true);
   const [ccOpacity, setCcOpacity] = useState<number>(0.92);
 
+  // Secuencia visual de la ruptura psicótica: idle → ejected → covered
+  const [ruptureVisual, setRuptureVisual] = useState<RuptureVisualState>('idle');
+  // Reloj de la secuencia de ruptura: scrub temporal, pausa y replay (explorable).
+  const [ruptureClock, setRuptureClock] = useState(0);
+  const [rupturePlaying, setRupturePlaying] = useState(true);
+  const [scrubTime, setScrubTime] = useState(0);
   // Deformation Animation State
   const [isAnimatingDeformation, setIsAnimatingDeformation] = useState<boolean>(false);
 
   // UI Active Sidebar Tab
   const [activeTab, setActiveTab] = useState<'parameters' | 'singularities' | 'summary' | 'python' | 'gallery' | 'manual'>('parameters');
-  const [isPsychoticBreakActive, setIsPsychoticBreakActive] = useState<boolean>(false);
 
   // Captured snapshots gallery
   const [gallery, setGallery] = useState<{ type: string; url: string; time: string }[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Computed topological invariants & clinical metrics
-  const metrics = computeTopologicalMetrics(params, sclData);
+  const metrics = computeTopologicalMetrics(params, sclData, params.baremoId);
+  // La "ruptura" no es un estado aparte: la calcula el motor (IGS ≥ 3× el corte T=60
+  // de la población, con Wegbreite suficiente). Secuencia AXIOMA, no diagnóstico.
+  const isPsychoticBreakActive = metrics.psychoticRupture;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Lanzar la ruptura psicótica: carga el perfil fuera de baremo (IGS 3.30 = 3×
+  // el corte T=60) con la Wegbreite suficiente (Corolario I: la pared se adelgaza a
+  // δ = 0.55 ≥ π/6). El canvas dispara la secuencia: eyección de S, I y Pulsión por
+  // el orificio (v=π, sale la voz) y reconfiguración cubriendo toda la superficie.
+  const launchPsychoticRupture = () => {
+    const preset = CLINICAL_PRESETS.find(p => p.name === 'Ruptura del modelo (IGS extremo)');
+    if (preset) {
+      setSclData({ ...preset.data }); // objeto nuevo: el efecto del canvas re-dispara la secuencia
+      setParams(prev => ({ ...prev, deformation_factor: 0.55 }));
+      setRuptureClock(0);
+      setScrubTime(0);
+      setRupturePlaying(true);
+      showToast('⚠ Ruptura psicótica: IGS ' + preset.data["GSI"].toFixed(2) + ' = 3× el corte T=60 + Wegbreite (δ 0.55)');
+    }
+  };
+
+  // Scrub temporal: fijar el reloj de la secuencia (pausa mientras se explora).
+  const handleRuptureTimeChange = (t: number) => {
+    setRuptureClock(t);
+    setScrubTime(t);
+    setRupturePlaying(false);
+  };
+
+  // Volver al perfil estable: abandona la ruptura y restablece el reloj.
+  const resetToStable = () => {
+    setInputMode('pd');
+    setSclData({ ...DEFAULT_SCL90R_DATA });
+    setRuptureClock(0);
+    setScrubTime(0);
+    setRupturePlaying(true);
   };
 
   const handleDeformationFactorChange = (factor: number) => {
@@ -85,49 +132,19 @@ export default function App() {
     setIsAnimatingDeformation((prev) => !prev);
   };
 
+  // Botones heredados de la versión de GitHub: disparan la secuencia de ruptura del
+  // modelo (Corolario II: eyección por la voz y reconfiguración) y la vista de rayos X.
   const handleTriggerPsychoticBreak = () => {
-    // Puntajes agudos de ruptura psíquica (PSIC > 80, T=100; Ansiedad y Depresión disparadas)
-    setSclData({
-      'Somatización': 0.65, // T=82
-      'Obsesión-Compulsión': 0.70, // T=85
-      'Sensibilidad Interpersonal': 0.60, // T=80
-      'Depresión': 0.76, // T=88
-      'Ansiedad': 0.85, // T=92
-      'Hostilidad': 0.80, // T=90
-      'Ansiedad Fóbica': 0.68, // T=84
-      'Ideación Paranoide': 0.84, // T=92
-      'Psicoticismo': 1.00, // T=100 (fuera del techo del baremo)
-      'GSI': 0.88, // T=94
-      'PST': 0.85,
-      'PSDI': 0.90,
-    });
-    setParams((prev) => ({
-      ...prev,
-      deformation_factor: 0.58,
-      a_critical: (Math.PI / 4) * 1.30, // Expansión del umbral de angustia crítica
-    }));
-    setColorMap('angustia');
+    launchPsychoticRupture();
     setViewMode('xray_icc');
     setCcOpacity(0.18);
-    setShowPulsion(true);
-    setShowFantasyPoint(true);
-    setShowRibbons(true);
-    setIsPsychoticBreakActive(true);
-    showToast('⚡ Brote Psicótico Desencadenado: Inundación en Cúspide Singular (v=±π)');
   };
 
   const handleResetPsychoticBreak = () => {
-    setSclData(DEFAULT_SCL90R_DATA);
-    setParams((prev) => ({
-      ...prev,
-      deformation_factor: 0.3,
-      a_critical: Math.PI / 4,
-    }));
-    setColorMap('angustia');
+    resetToStable();
+    setParams((prev) => ({ ...prev, deformation_factor: 0.3 }));
     setViewMode('deformed');
     setCcOpacity(0.92);
-    setIsPsychoticBreakActive(false);
-    showToast('✓ Estructura Compensada: Restablecido Toro Horn y Barrera Fantasmática');
   };
 
   const handleCapturePng = (type: 'standard' | 'deformed', dataUrl: string) => {
@@ -171,7 +188,7 @@ export default function App() {
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Exterior Cc vs Interior Icc: S, I, Hilo Pulsional (pegado a I), Σ y Fantasía=Angustia
+                Superficie Icc: S, I, Hilo Pulsional (pegado a I), Σ y marca de fantasía — Cc = espacio exterior
               </p>
             </div>
           </div>
@@ -189,10 +206,10 @@ export default function App() {
                   ? 'bg-cyan-900/80 text-cyan-200 shadow-sm border border-cyan-700/60 font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Exterior Cc: Vista exterior estándar del Horn Torus"
+              title="Vista exterior del Horn Torus: la superficie completa es Icc; la Cc (consciente) es el espacio exterior"
             >
               <Eye className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Exterior (Cc)</span>
+              <span>Exterior</span>
             </button>
 
             <button
@@ -212,10 +229,10 @@ export default function App() {
                   ? 'bg-cyan-950/90 text-cyan-200 shadow-md border border-cyan-400 font-semibold ring-2 ring-cyan-500/40'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Vista de Rayos X del Icc: Transparencia dinámica a las porciones Cc manteniendo la envolvente semitransparente"
+              title="Rayos X: piel externa de la superficie Icc semitransparente que revela la pared Prcc y las cintas"
             >
               <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-              <span>Rayos X Icc</span>
+              <span>Rayos X</span>
             </button>
 
             <button
@@ -229,10 +246,10 @@ export default function App() {
                   ? 'bg-amber-950/90 text-amber-200 shadow-sm border border-amber-600 font-semibold ring-1 ring-amber-500/30'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Ver el interior del Horn Torus (Icc): Cintas entrecruzadas, pulsión pegada a I y fantasía"
+              title="Ver el interior de la superficie Icc: cintas entrecruzadas, pulsión pegada a I y marca de fantasía"
             >
               <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span>Interior (Icc)</span>
+              <span>Interior</span>
             </button>
 
             <button
@@ -381,10 +398,10 @@ export default function App() {
                   ? 'bg-rose-600 text-white border-rose-400 shadow-md shadow-rose-600/30 animate-pulse'
                   : 'bg-rose-950/70 hover:bg-rose-900 text-rose-200 border-rose-700/80 hover:border-rose-500'
               }`}
-              title="Demostración de Brote Psicótico: Forclusión del significante, cizalladura en singularidad y desborde de angustia"
+              title="Ruptura del modelo: IGS ≥ 3× el corte T=60 con Wegbreite suficiente — la cinta sale por la voz y se reconfigura (Corolario II, AXIOMA; no es un diagnóstico)"
             >
               <Zap className="w-3.5 h-3.5 text-rose-400 fill-current" />
-              <span>{isPsychoticBreakActive ? 'Compensar Estructura' : '⚡ Brote Psicótico'}</span>
+              <span>{isPsychoticBreakActive ? 'Volver al perfil estable' : '⚡ Ruptura del modelo'}</span>
             </button>
           </div>
         </div>
@@ -392,7 +409,7 @@ export default function App() {
         {/* Lacanian Curves, Hilo Pulsional & Visual Layers Quick Strip */}
         <div className="max-w-7xl mx-auto mt-2 pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-slate-500 text-[11px]">Cintas Interiores (Icc):</span>
+            <span className="text-slate-500 text-[11px]">Cintas sobre la superficie Icc:</span>
             
             {/* Curve S toggle */}
             <button
@@ -433,7 +450,7 @@ export default function App() {
                   ? 'bg-amber-950/90 text-amber-300 border-amber-600 font-semibold shadow-sm'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Hilo Pulsional (Trieb / Vorstellungrepräsentanz): Visualiza el campo vectorial animado de flujo interior (Drang) anclado a I"
+              title="Hilo Pulsional (Trieb · Drang constante): campo vectorial animado, pegado al borde de I — AXIOMA"
             >
               <span className={`w-2 h-2 rounded-full ${showPulsion ? 'bg-amber-400 animate-ping' : 'bg-slate-600'}`} />
               <span>Pulsión (Campo Vectorial)</span>
@@ -448,7 +465,7 @@ export default function App() {
                   ? 'bg-blue-950/80 text-blue-300 border-blue-700'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Curva/Cinta Σ (Síntoma / Sinthome): basada en Psicoticismo + Hostilidad"
+              title="Curva/Cinta Σ (Síntoma): asignada a Psicoticismo + Hostilidad — AXIOMA"
             >
               <span className="w-2 h-2 rounded-full bg-blue-500" />
               <span>Σ (Síntoma)</span>
@@ -463,10 +480,25 @@ export default function App() {
                   ? 'bg-rose-950/80 text-rose-300 border-rose-700'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Punto de Fantasía (π, π/2) - Foco de Angustia Máxima"
+              title="Marca de fantasía (π, 3π/4), en la pared: la angustia surge cuando la pulsión pasa cerca — AXIOMA. En el desencadenamiento la marca queda en el medio (el orificio)"
             >
               <span className="w-2 h-2 rounded-full bg-rose-400" />
-              <span>Fantasía=Angustia</span>
+              <span>Marca de fantasía</span>
+            </button>
+
+            {/* Campo Prcc: lo que entra por la voz */}
+            <button
+              id="toggle-prcc-btn"
+              onClick={() => setShowPrcc(!showPrcc)}
+              className={`px-2 py-0.5 rounded border transition-colors flex items-center gap-1.5 ${
+                showPrcc
+                  ? 'bg-teal-950/80 text-teal-300 border-teal-700'
+                  : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
+              }`}
+              title="Prcc: campo de representaciones-palabra que entra por la voz (p), concentrado en el embudo del eje y sin borde. La pared es la censura Icc/Prcc; la Cc es un umbral, no un lugar — AXIOMA (GW XIII, GW X)"
+            >
+              <span className="w-2 h-2 rounded-full bg-teal-400" />
+              <span>Prcc (campo)</span>
             </button>
           </div>
 
@@ -492,7 +524,7 @@ export default function App() {
                 : 'bg-slate-950 border-slate-800'
             }`}>
               <span className={viewMode === 'xray_icc' ? 'text-cyan-200 font-semibold' : 'text-slate-400'}>
-                {viewMode === 'xray_icc' ? 'Transparencia Cc:' : 'Opacidad Cc:'}
+                {viewMode === 'xray_icc' ? 'Transparencia de la piel:' : 'Opacidad de la piel:'}
               </span>
               <input
                 id="slider-cc-opacity"
@@ -568,8 +600,8 @@ export default function App() {
           <div className="flex items-center gap-2 max-w-4xl">
             <Flame className="w-4 h-4 text-rose-400 animate-pulse flex-shrink-0" />
             <span className="leading-relaxed">
-              <strong className="text-white">DEMOSTRACIÓN DE BROTE PSICÓTICO:</strong>{' '}
-              Forclusión del significante, cizalladura extrema en cúspide singular (v = ±π), Psicoticismo T = 100 (T &gt; 80), e inundación masiva del campo de angustia (A ≤ A_cr) sobre la fantasía ($ ◇ a).
+              <strong className="text-white">RUPTURA DEL MODELO:</strong>{' '}
+              IGS ≥ 3× el corte T=60 con Wegbreite suficiente: la cinta S-I-Σ sale por la voz (p) y se reconfigura sobre la superficie (Corolario II). Secuencia AXIOMA — no es un diagnóstico de estructura.
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -590,14 +622,14 @@ export default function App() {
               className="px-2.5 py-1 rounded-md bg-rose-900/90 hover:bg-rose-800 text-rose-100 border border-rose-500 text-[11px] transition-all flex items-center gap-1 font-semibold"
             >
               <BookOpen className="w-3 h-3 text-rose-300" />
-              <span>Ver Tratado Clínico</span>
+              <span>Ver manual teórico</span>
             </button>
             <button
               id="btn-banner-reset-structure"
               onClick={handleResetPsychoticBreak}
               className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-600 text-[11px] transition-all font-bold"
             >
-              Compensar Estructura
+              Volver al perfil estable
             </button>
           </div>
         </div>
@@ -619,10 +651,23 @@ export default function App() {
             showPulsion={showPulsion}
             showCurveSigma={showCurveSigma}
             showFantasyPoint={showFantasyPoint}
+            showPrcc={showPrcc}
             showRibbons={showRibbons}
             ccOpacity={ccOpacity}
             isAnimatingDeformationExternal={isAnimatingDeformation}
             onCcOpacityChange={setCcOpacity}
+            ruptureVisual={ruptureVisual}
+            onRuptureVisualChange={setRuptureVisual}
+            onLaunchRupture={launchPsychoticRupture}
+            ruptureClock={ruptureClock}
+            rupturePlaying={rupturePlaying}
+            onRuptureTime={(t) => { setRuptureClock(t); setScrubTime(t); }}
+            onRuptureEnd={() => setRupturePlaying(false)}
+            scrubTime={scrubTime}
+            onRuptureTimeChange={handleRuptureTimeChange}
+            onRupturePlayingChange={setRupturePlaying}
+            onRuptureReplay={launchPsychoticRupture}
+            onResetToStable={resetToStable}
             onDeformationFactorChange={handleDeformationFactorChange}
             onToggleDeformationAnimation={handleToggleDeformationAnimation}
             onViewModeChange={(m) => {
@@ -728,6 +773,10 @@ export default function App() {
                 onChangeSclData={setSclData}
                 params={params}
                 onChangeParams={setParams}
+                inputMode={inputMode}
+                onChangeInputMode={setInputMode}
+                tScores={tScores}
+                onChangeTScores={setTScores}
                 isAnimatingDeformation={isAnimatingDeformation}
                 onToggleDeformationAnimation={handleToggleDeformationAnimation}
               />
@@ -817,9 +866,9 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div>
             <span>Horn Torus Icc: </span>
-            <span className="text-cyan-400">R = r = a = a_scale · GSI</span>
+            <span className="text-cyan-400">R = {params.rOverR === 1 ? 'r' : `r = ${(params.rOverR * 100).toFixed(0)}%·R`} = a = a_scale · GSI</span>
             <span className="text-slate-600"> | </span>
-            <span className="text-rose-400">Fantasía: (π, π/2)</span>
+            <span className="text-rose-400">Fantasía: (π, 3π/4) · pared</span>
             <span className="text-slate-600"> | </span>
             <span className="text-amber-400">A_cr = π/4</span>
           </div>
@@ -828,9 +877,9 @@ export default function App() {
             <span className="text-slate-600">•</span>
             <span>ΔE Tensión: <span className="text-fuchsia-400 font-bold">{(metrics.avgDifferentialTension * 100).toFixed(1)}%</span></span>
             <span className="text-slate-600">•</span>
-            <span>Willmore W: <span className="text-amber-400 font-bold">{metrics.willmoreEnergyDeformed.toFixed(2)}</span></span>
+            <span>Willmore W: <span className="text-amber-400 font-bold">{formatMetricSafe(metrics.willmoreEnergyDeformed, 2)}</span></span>
             <span className="text-slate-600">•</span>
-            <span>ICC Coherencia: <span className="text-cyan-400 font-bold">{metrics.iccIndex.toFixed(1)}%</span></span>
+            <span>Índice ICC (AXIOMA): <span className="text-cyan-400 font-bold">{metrics.iccIndex.toFixed(1)}%</span></span>
           </div>
         </div>
       </footer>

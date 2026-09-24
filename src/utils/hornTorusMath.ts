@@ -4,147 +4,16 @@ import {
   TopologicalMetrics,
   LacanianCoordinates,
   ColorMapMode,
+  PostEpisodeState,
+  SCL90RInputMode,
   TScoreCategory,
   CasulloPerezNormRow,
   SingularityCriticalPoint,
   SpectralSingularityReport
 } from '../types';
-
-/**
- * Tabla Normativa Baremo Casullo - Pérez (2008)
- * SCL-90-R Adaptación UBA / CONICET.
- * Varones adultos (25-60 años), Población General Buenos Aires y Conurbano. N: 379.
- */
-export const BAREMO_CASULLO_PEREZ_2008_VARONES: CasulloPerezNormRow[] = [
-  { T: 30, SOM: 0.00, OBS: 0.00, SI: 0.00, DEP: 0.00, ANS: 0.00, HOS: 0.00, FOB: 0.00, PAR: 0.00, PSIC: 0.00, IGS: 0.11, TSP: 5.60, IMSP: 1.05 },
-  { T: 35, SOM: 0.00, OBS: 0.20, SI: 0.00, DEP: 0.08, ANS: 0.10, HOS: 0.00, FOB: 0.00, PAR: 0.00, PSIC: 0.00, IGS: 0.17, TSP: 10.00, IMSP: 1.22 },
-  { T: 40, SOM: 0.08, OBS: 0.30, SI: 0.11, DEP: 0.23, ANS: 0.20, HOS: 0.17, FOB: 0.00, PAR: 0.17, PSIC: 0.00, IGS: 0.29, TSP: 16.00, IMSP: 1.36 },
-  { T: 45, SOM: 0.25, OBS: 0.50, SI: 0.33, DEP: 0.38, ANS: 0.40, HOS: 0.33, FOB: 0.00, PAR: 0.33, PSIC: 0.20, IGS: 0.41, TSP: 23.80, IMSP: 1.56 },
-  { T: 50, SOM: 0.42, OBS: 0.80, SI: 0.56, DEP: 0.69, ANS: 0.60, HOS: 0.67, FOB: 0.14, PAR: 0.67, PSIC: 0.30, IGS: 0.61, TSP: 32.00, IMSP: 1.75 },
-  { T: 55, SOM: 0.75, OBS: 1.30, SI: 0.89, DEP: 1.02, ANS: 0.90, HOS: 1.00, FOB: 0.29, PAR: 1.17, PSIC: 0.50, IGS: 0.88, TSP: 41.20, IMSP: 2.00 },
-  { T: 60, SOM: 1.08, OBS: 1.70, SI: 1.33, DEP: 1.38, ANS: 1.30, HOS: 1.33, FOB: 0.57, PAR: 1.50, PSIC: 0.90, IGS: 1.10, TSP: 52.00, IMSP: 2.25 },
-  { T: 63, SOM: 1.25, OBS: 1.90, SI: 1.56, DEP: 1.62, ANS: 1.60, HOS: 1.67, FOB: 0.86, PAR: 1.83, PSIC: 1.20, IGS: 1.32, TSP: 57.00, IMSP: 2.40 },
-  { T: 65, SOM: 1.42, OBS: 2.20, SI: 1.67, DEP: 1.77, ANS: 1.70, HOS: 1.83, FOB: 1.00, PAR: 2.07, PSIC: 1.40, IGS: 1.49, TSP: 61.00, IMSP: 2.53 },
-  { T: 70, SOM: 1.75, OBS: 2.60, SI: 2.38, DEP: 2.42, ANS: 2.28, HOS: 2.57, FOB: 1.43, PAR: 2.67, PSIC: 1.74, IGS: 1.84, TSP: 75.00, IMSP: 2.91 },
-  { T: 75, SOM: 2.31, OBS: 3.40, SI: 3.00, DEP: 2.88, ANS: 2.67, HOS: 3.17, FOB: 1.88, PAR: 2.95, PSIC: 2.17, IGS: 2.17, TSP: 79.72, IMSP: 3.30 },
-  { T: 80, SOM: 2.50, OBS: 3.60, SI: 3.22, DEP: 3.15, ANS: 2.70, HOS: 3.83, FOB: 2.71, PAR: 3.17, PSIC: 2.30, IGS: 2.22, TSP: 85.00, IMSP: 3.65 }
-];
-
-/**
- * Normaliza un puntaje T del SCL-90-R al rango [0, max_normalized].
- * Baremo estándar (Casullo & Pérez 2008):
- * - T = 50 (media poblacional) → 0.0
- * - T = 63 (umbral de riesgo clínico, p90) → 0.26
- * - T = 70 (moderado) → 0.40
- * - T = 80 (límite clínico del baremo) → 0.60
- * - T = 100 (máximo clínico extremo / psicosis) → 1.00
- * - T > 80 y hasta 150+ → valores > 1.0 diferenciables (hasta max_normalized = 2.0)
- * 
- * Fórmula: Math.max(0, Math.min(maxNormalized, (T - 50) / 50))
- */
-export function normalizeSCL90RTScore(tScore: number, maxNormalized: number = 2.0): number {
-  const norm = Math.max(0, Math.min(maxNormalized, (tScore - 50) / 50));
-  return parseFloat(norm.toFixed(4));
-}
-
-/**
- * Convierte un valor normalizado a su puntaje T correspondiente:
- * T = round(50 + 50 * norm)
- */
-export function denormalizeSCL90RTScore(normVal: number): number {
-  return Math.round(50 + 50 * Math.max(0, normVal));
-}
-
-/**
- * Clasificación e interpretación clínica del SCL-90-R con baremo UBA/CONICET (Casullo & Pérez, 2008):
- * - T < 60: Normal (media poblacional T=50, asintomático)
- * - T 60-62: Normal-Alto / Subclínico
- * - T 63-69: EN RIESGO (T ≥ 63 es percentil 90, umbral de riesgo clínico)
- * - T 70-79: Moderado (+2 a +3 Desviaciones Estándar)
- * - T 80-84: Severo (+3 DE, límite de baremo estándar)
- * - T ≥ 85 o T > 80 (ej. T=100): ⚠ EN RIESGO (ALERTA) / FUERA DE BAREMO
- */
-export function getTScoreInterpretation(tScore: number): TScoreCategory {
-  if (tScore < 60) {
-    return {
-      tier: 'Normal',
-      rangeLabel: 'T < 60 (Normal)',
-      badgeClass: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80',
-      textColor: 'text-emerald-400',
-      description: 'Población normal asintomática (T < 60, media estándar 50).'
-    };
-  } else if (tScore < 63) {
-    return {
-      tier: 'Leve',
-      rangeLabel: 'T 60-62 (Subclínico)',
-      badgeClass: 'bg-teal-950/80 text-teal-300 border-teal-700/80',
-      textColor: 'text-teal-400',
-      description: 'Puntaje en rango superior pero por debajo del umbral de riesgo clínico.'
-    };
-  } else if (tScore < 70) {
-    return {
-      tier: 'Leve',
-      rangeLabel: 'T 63-69 (EN RIESGO)',
-      badgeClass: 'bg-yellow-950/80 text-yellow-300 border-yellow-700/80 ring-1 ring-yellow-500/30 font-semibold',
-      textColor: 'text-yellow-400',
-      description: 'EN RIESGO: Supera el umbral normativo de T ≥ 63 (Percentil 90 en baremo UBA).',
-      isRisk: true
-    };
-  } else if (tScore < 80) {
-    return {
-      tier: 'Moderado',
-      rangeLabel: 'T 70-79 (Moderado / Riesgo)',
-      badgeClass: 'bg-orange-950/80 text-orange-300 border-orange-700/80 ring-1 ring-orange-500/40 font-semibold',
-      textColor: 'text-orange-400',
-      description: 'Cuadro sintomático moderado-severo (+2 a +3 Desviaciones Estándar).',
-      isRisk: true
-    };
-  } else if (tScore < 85) {
-    return {
-      tier: 'Severo',
-      rangeLabel: 'T 80-84 (Severo / Techo Baremo)',
-      badgeClass: 'bg-rose-950/80 text-rose-300 border-rose-700/80 ring-1 ring-rose-500/50 font-bold',
-      textColor: 'text-rose-400',
-      description: 'Severidad clínica extrema en el límite superior del baremo normativo.',
-      isRisk: true,
-      isAlert: true
-    };
-  } else {
-    return {
-      tier: 'Extremo',
-      rangeLabel: 'T > 80 (⚠ ALERTA / Fuera de Baremo)',
-      badgeClass: 'bg-red-950 text-red-200 border border-red-500 ring-2 ring-red-500/60 font-bold animate-pulse',
-      textColor: 'text-red-400',
-      description: '⚠ ALERTA PRIORITARIA: Puntaje fuera de baremo (T > 80, descompensación psicótica o afectiva severa).',
-      isRisk: true,
-      isAlert: true
-    };
-  }
-}
-
-/**
- * Normaliza un diccionario de datos SCL-90-R expresado en puntajes T
- */
-export function normalizeSCL90RData(tData: Record<string, number>, maxNormalized: number = 2.0): SCL90RData {
-  const result: Partial<SCL90RData> = {};
-  for (const key of Object.keys(tData) as (keyof SCL90RData)[]) {
-    const val = tData[key] ?? 50;
-    result[key] = normalizeSCL90RTScore(val, maxNormalized);
-  }
-  return result as SCL90RData;
-}
-
-/**
- * Convierte un objeto SCL-90-R con valores normalizados a Puntajes T del baremo de adultos
- */
-export function sclDataToTScores(data: SCL90RData): Record<keyof SCL90RData, number> {
-  const result: Partial<Record<keyof SCL90RData, number>> = {};
-  for (const key of Object.keys(data) as (keyof SCL90RData)[]) {
-    const val = data[key] ?? 0.5;
-    result[key] = denormalizeSCL90RTScore(val);
-  }
-  return result as Record<keyof SCL90RData, number>;
-}
+import { BAREMOS, DEFAULT_BAREMO_ID, BaremoId, getBaremo, tDeEscalaCon, ruptureThresholdGsi, BAREMO_IDS } from './baremos';
+export { BAREMOS, DEFAULT_BAREMO_ID, getBaremo, BAREMO_IDS, ruptureThresholdGsi, tDeEscalaCon, publishedRange } from './baremos';
+export type { BaremoId } from './baremos';
 
 export const DEFAULT_SCL90R_DATA: SCL90RData = {
   "Somatización": 0.8,
@@ -157,235 +26,110 @@ export const DEFAULT_SCL90R_DATA: SCL90RData = {
   "Ideación Paranoide": 0.8,
   "Psicoticismo": 0.9,
   "GSI": 0.85,
-  "PST": 0.7,
-  "PSDI": 0.9
+  // PST es un conteo de ítems (0–90) y PSDI = suma/PST >= 1: IGS = PST·PSDI/90.
+  // Los valores del prompt original (PST 0.70, PSDI 0.90) eran imposibles.
+  "PST": 45,
+  "PSDI": 1.70
 };
 
+/**
+ * Preset clínico. `mode` indica cómo se cargó: 'pd' (puntajes directos, con validación
+ * de consistencia) o 't_scores' (protocolos que solo informan T). Internamente `data`
+ * es SIEMPRE PD: los presets en T se convierten con el baremo (ver sclDataDesdeTScores).
+ */
 export interface ClinicalPreset {
   name: string;
   description: string;
-  tScores: Record<keyof SCL90RData, number>;
+  mode: SCL90RInputMode;
   data: SCL90RData;
-  patientName?: string;
+  tScores?: Record<keyof SCL90RData, number>;
   isRiskCase?: boolean;
 }
 
 export const CLINICAL_PRESETS: ClinicalPreset[] = [
   {
-    name: "Caso Ross, Matías Gabriel (30a, Varón UBA/CONICET)",
-    description: "Protocolo UBA: PSIC > 80 (T=100 ⚠ ALERTA), DEP T=73, SI T=73, OBS T=70, IGS T=74. Riesgo de ruptura y trauma reactivado",
-    patientName: "Ross, Matías Gabriel",
-    isRiskCase: true,
-    tScores: {
-      "Somatización": 63,
-      "Obsesión-Compulsión": 70,
-      "Sensibilidad Interpersonal": 73,
-      "Depresión": 73,
-      "Ansiedad": 65,
-      "Hostilidad": 62,
-      "Ansiedad Fóbica": 60,
-      "Ideación Paranoide": 69,
-      "Psicoticismo": 100, // T > 80 fuera de baremo (alerta clínica extrema)
-      "GSI": 74,
-      "PST": 69,
-      "PSDI": 65
-    },
-    data: {
-      "Somatización": 0.26,
-      "Obsesión-Compulsión": 0.40,
-      "Sensibilidad Interpersonal": 0.46,
-      "Depresión": 0.46,
-      "Ansiedad": 0.30,
-      "Hostilidad": 0.24,
-      "Ansiedad Fóbica": 0.20,
-      "Ideación Paranoide": 0.38,
-      "Psicoticismo": 1.00, // o hasta 2.0
-      "GSI": 0.48,
-      "PST": 0.38,
-      "PSDI": 0.30
-    }
-  },
-  {
-    name: "Caso SCL-90-R Real (Baremo Adultos)",
-    description: "Puntajes T clínicos de adultos: Ansiedad T=82, Psicoticismo T=85, Depresión T=78",
-    tScores: {
-      "Somatización": 65,
-      "Obsesión-Compulsión": 72,
-      "Sensibilidad Interpersonal": 58,
-      "Depresión": 78,
-      "Ansiedad": 82,
-      "Hostilidad": 55,
-      "Ansiedad Fóbica": 68,
-      "Ideación Paranoide": 70,
-      "Psicoticismo": 85,
-      "GSI": 75,
-      "PST": 60,
-      "PSDI": 70
-    },
-    data: {
-      "Somatización": 0.30,
-      "Obsesión-Compulsión": 0.44,
-      "Sensibilidad Interpersonal": 0.16,
-      "Depresión": 0.56,
-      "Ansiedad": 0.64,
-      "Hostilidad": 0.10,
-      "Ansiedad Fóbica": 0.36,
-      "Ideación Paranoide": 0.40,
-      "Psicoticismo": 0.70,
-      "GSI": 0.50,
-      "PST": 0.20,
-      "PSDI": 0.40
-    }
-  },
-  {
-    name: "Población Normal Asintomática (T < 60)",
-    description: "Baremo control no clínico: todas las dimensiones T < 60 (media 50), sin zonas de angustia",
-    tScores: {
-      "Somatización": 45,
-      "Obsesión-Compulsión": 48,
-      "Sensibilidad Interpersonal": 46,
-      "Depresión": 45,
-      "Ansiedad": 46,
-      "Hostilidad": 42,
-      "Ansiedad Fóbica": 40,
-      "Ideación Paranoide": 44,
-      "Psicoticismo": 43,
-      "GSI": 45,
-      "PST": 44,
-      "PSDI": 48
-    },
-    data: {
-      "Somatización": 0.00,
-      "Obsesión-Compulsión": 0.00,
-      "Sensibilidad Interpersonal": 0.00,
-      "Depresión": 0.00,
-      "Ansiedad": 0.00,
-      "Hostilidad": 0.00,
-      "Ansiedad Fóbica": 0.00,
-      "Ideación Paranoide": 0.00,
-      "Psicoticismo": 0.00,
-      "GSI": 0.00,
-      "PST": 0.00,
-      "PSDI": 0.00
-    }
-  },
-  {
-    name: "Modelo Icc Lacaniano (Prompt Inicial)",
-    description: "Configuración psicométrica de alta severidad con curvas S, I, Σ y punto de angustia",
-    tScores: {
-      "Somatización": 74,
-      "Obsesión-Compulsión": 77,
-      "Sensibilidad Interpersonal": 71,
-      "Depresión": 76,
-      "Ansiedad": 79,
-      "Hostilidad": 68,
-      "Ansiedad Fóbica": 73,
-      "Ideación Paranoide": 74,
-      "Psicoticismo": 77,
-      "GSI": 76,
-      "PST": 71,
-      "PSDI": 77
-    },
+    name: "Modelo Icc Lacaniano (Código Python)",
+    description: "Configuración psicométrica completa con curvas S, I, Σ y marca de fantasía",
+    mode: 'pd',
     data: { ...DEFAULT_SCL90R_DATA }
   },
   {
-    name: "Estructura Neurótica Obsesiva",
-    description: "Curva S (Significante) dominante con rigidez cognitiva, O-C T=79 y Ansiedad T=78",
-    tScores: {
-      "Somatización": 54,
-      "Obsesión-Compulsión": 79,
-      "Sensibilidad Interpersonal": 60,
-      "Depresión": 64,
-      "Ansiedad": 78,
-      "Hostilidad": 52,
-      "Ansiedad Fóbica": 58,
-      "Ideación Paranoide": 58,
-      "Psicoticismo": 52,
-      "GSI": 66,
-      "PST": 62,
-      "PSDI": 72
-    },
+    name: "Caso SCL-90-R (Prompt Inicial)",
+    description: "GSI 0.90, Psicoticismo 0.95, Obsesión 0.85, Somatización 0.75 (PST 48, PSDI 1.69)",
+    mode: 'pd',
     data: {
-      "Somatización": 0.40,
-      "Obsesión-Compulsión": 0.98,
-      "Sensibilidad Interpersonal": 0.60,
-      "Depresión": 0.50,
-      "Ansiedad": 0.85,
-      "Hostilidad": 0.40,
-      "Ansiedad Fóbica": 0.35,
-      "Ideación Paranoide": 0.50,
-      "Psicoticismo": 0.25,
-      "GSI": 0.62,
-      "PST": 0.55,
-      "PSDI": 0.75
-    }
-  },
-  {
-    name: "Desencadenamiento Psicótico Severo",
-    description: "Puntajes extremos T ≥ 80 en Psicoticismo (T=88), Paranoia (T=82) y colapso de Σ",
-    tScores: {
-      "Somatización": 68,
-      "Obsesión-Compulsión": 70,
-      "Sensibilidad Interpersonal": 78,
-      "Depresión": 76,
-      "Ansiedad": 84,
-      "Hostilidad": 75,
-      "Ansiedad Fóbica": 72,
-      "Ideación Paranoide": 82,
-      "Psicoticismo": 88,
-      "GSI": 82,
-      "PST": 78,
-      "PSDI": 86
-    },
-    data: {
-      "Somatización": 0.65,
-      "Obsesión-Compulsión": 0.70,
-      "Sensibilidad Interpersonal": 0.90,
-      "Depresión": 0.80,
-      "Ansiedad": 0.95,
-      "Hostilidad": 0.85,
-      "Ansiedad Fóbica": 0.70,
-      "Ideación Paranoide": 0.98,
-      "Psicoticismo": 0.99,
-      "GSI": 0.96,
-      "PST": 0.92,
-      "PSDI": 0.99
-    }
-  },
-  {
-    name: "Histeria y Cuerpo Somático (Imagen I)",
-    description: "Somatización T=82 y Sensibilidad T=75. Curva I desfasada en el Inconsciente",
-    tScores: {
-      "Somatización": 82,
-      "Obsesión-Compulsión": 52,
-      "Sensibilidad Interpersonal": 75,
-      "Depresión": 66,
-      "Ansiedad": 74,
-      "Hostilidad": 50,
-      "Ansiedad Fóbica": 68,
-      "Ideación Paranoide": 54,
-      "Psicoticismo": 52,
-      "GSI": 68,
-      "PST": 70,
-      "PSDI": 76
-    },
-    data: {
-      "Somatización": 0.95,
-      "Obsesión-Compulsión": 0.50,
-      "Sensibilidad Interpersonal": 0.90,
-      "Depresión": 0.65,
+      "Somatización": 0.75,
+      "Obsesión-Compulsión": 0.85,
+      "Sensibilidad Interpersonal": 0.70,
+      "Depresión": 0.70,
       "Ansiedad": 0.80,
-      "Hostilidad": 0.35,
-      "Ansiedad Fóbica": 0.70,
-      "Ideación Paranoide": 0.40,
-      "Psicoticismo": 0.30,
-      "GSI": 0.68,
-      "PST": 0.72,
-      "PSDI": 0.82
+      "Hostilidad": 0.60,
+      "Ansiedad Fóbica": 0.65,
+      "Ideación Paranoide": 0.75,
+      "Psicoticismo": 0.95,
+      "GSI": 0.90,
+      "PST": 48,
+      "PSDI": 1.69
+    }
+  },
+  {
+    name: "Perfil obsesivo (O-C sintomática)",
+    description: "O-C 2.20 (T≈65) con IGS bajo el corte: curva S dominante, sin ruptura",
+    mode: 'pd',
+    data: {
+      "Somatización": 0.60,
+      "Obsesión-Compulsión": 2.20,
+      "Sensibilidad Interpersonal": 1.00,
+      "Depresión": 1.00,
+      "Ansiedad": 1.20,
+      "Hostilidad": 0.60,
+      "Ansiedad Fóbica": 0.30,
+      "Ideación Paranoide": 0.70,
+      "Psicoticismo": 0.40,
+      "GSI": 1.00,
+      "PST": 50,
+      "PSDI": 1.80
+    }
+  },
+  {
+    name: "Ruptura del modelo (IGS extremo)",
+    description: "IGS 3.30 = 3× el corte T=60 (fuera de baremo): eyección de S, I y Pulsión — AXIOMA, no diagnóstico de estructura",
+    mode: 'pd',
+    data: {
+      "Somatización": 3.10,
+      "Obsesión-Compulsión": 3.40,
+      "Sensibilidad Interpersonal": 3.30,
+      "Depresión": 3.20,
+      "Ansiedad": 3.40,
+      "Hostilidad": 3.50,
+      "Ansiedad Fóbica": 2.90,
+      "Ideación Paranoide": 3.60,
+      "Psicoticismo": 3.50,
+      "GSI": 3.30,
+      "PST": 88,
+      "PSDI": 3.38
+    }
+  },
+  {
+    name: "Perfil somatización + SI (Imagen I)",
+    description: "SOM 1.80 (T≈70) y SI 1.40 (T≈61): curva I desfasada",
+    mode: 'pd',
+    data: {
+      "Somatización": 1.80,
+      "Obsesión-Compulsión": 0.80,
+      "Sensibilidad Interpersonal": 1.40,
+      "Depresión": 1.00,
+      "Ansiedad": 1.10,
+      "Hostilidad": 0.50,
+      "Ansiedad Fóbica": 0.60,
+      "Ideación Paranoide": 0.60,
+      "Psicoticismo": 0.40,
+      "GSI": 1.00,
+      "PST": 55,
+      "PSDI": 1.64
     }
   }
 ];
-
 
 export interface TorusPoint {
   x: number;
@@ -402,18 +146,142 @@ export interface TorusPoint {
 }
 
 /**
+ * Corte del baremo masculino-adultos (Casullo – Pérez 2008): PD del IGS que
+ * corresponde a T = 60. La ruptura psicótica se define FUERA de baremo: IGS >=
+ * 3× el corte DE LA POBLACIÓN elegida (ver baremos.ts).
+ */
+export const BAREMO_T60_GSI = 1.10; // masculino adultos 25–60 (default, compat)
+export const PSYCHOTIC_RUPTURE_FACTOR = 3.0;
+/** Umbral del baremo default: 3× 1.10, redondeado (3.0 × 1.10 = 3.3000…03 en FP). */
+export const PSYCHOTIC_RUPTURE_THRESHOLD_GSI = 3.30;
+
+/** Ítems por dimensión del SCL-90-R (83) + 7 ítems adicionales = 90. */
+export const SCL90R_ITEM_COUNTS: Partial<Record<keyof SCL90RData, number>> = {
+  "Somatización": 12,
+  "Obsesión-Compulsión": 10,
+  "Sensibilidad Interpersonal": 9,
+  "Depresión": 13,
+  "Ansiedad": 10,
+  "Hostilidad": 6,
+  "Ansiedad Fóbica": 7,
+  "Ideación Paranoide": 6,
+  "Psicoticismo": 10,
+};
+export const SCL90R_TOTAL_ITEMS = 90;
+export const SCL90R_ADDITIONAL_ITEMS = 7;
+
+/**
+ * PST (conteo 0–90) llevado a la escala 0–4 de las demás puntuaciones, solo para
+ * la geometría: las fórmulas de deformación y de v_I fueron calibradas en 0–4.
+ */
+export function pstGeom(pst: number): number {
+  return pst / (SCL90R_TOTAL_ITEMS / 4);
+}
+
+/** PSDI derivado: suma/PST = IGS·90/PST (0 si no hay síntomas positivos). */
+export function derivePsdi(gsi: number, pst: number): number {
+  return pst > 0 ? (gsi * SCL90R_TOTAL_ITEMS) / pst : 0;
+}
+
+/** Rango admisible de PST para un IGS dado: PSDI ∈ [1, 4]. */
+export function pstRangeForGsi(gsi: number): [number, number] {
+  const sum = gsi * SCL90R_TOTAL_ITEMS;
+  return [
+    Math.min(SCL90R_TOTAL_ITEMS, Math.ceil(sum / 4 - 1e-9)),
+    Math.min(SCL90R_TOTAL_ITEMS, Math.floor(sum + 1e-9)),
+  ];
+}
+
+/** Rango de IGS compatible con las nueve dimensiones (los 7 ítems adicionales entre 0 y 4). */
+export function gsiRangeFromDimensions(data: SCL90RData): [number, number] {
+  let sum = 0;
+  for (const [k, n] of Object.entries(SCL90R_ITEM_COUNTS)) {
+    sum += (data[k as keyof SCL90RData] ?? 0) * (n as number);
+  }
+  return [sum / SCL90R_TOTAL_ITEMS, (sum + 4 * SCL90R_ADDITIONAL_ITEMS) / SCL90R_TOTAL_ITEMS];
+}
+
+/** Inconsistencias internas del perfil SCL-90-R (vacío = perfil posible). */
+export function checkScl90rConsistency(data: SCL90RData): string[] {
+  const issues: string[] = [];
+  const gsi = data["GSI"] ?? 0;
+  const pst = data["PST"] ?? 0;
+  const psdi = data["PSDI"] ?? 0;
+  if (pst < 0 || pst > SCL90R_TOTAL_ITEMS) issues.push(`PST ${pst} fuera de 0–90 (es un conteo de ítems).`);
+  if (pst > 0 && (psdi < 1 || psdi > 4)) issues.push(`PSDI ${psdi.toFixed(2)} fuera de 1–4 (cada ítem positivo vale al menos 1).`);
+  if (Math.abs((pst * psdi) / SCL90R_TOTAL_ITEMS - gsi) > 0.02) {
+    issues.push(`IGS ${gsi.toFixed(2)} ≠ PST·PSDI/90 = ${((pst * psdi) / SCL90R_TOTAL_ITEMS).toFixed(2)}.`);
+  }
+  const [lo, hi] = gsiRangeFromDimensions(data);
+  if (gsi < lo - 0.005 || gsi > hi + 0.005) {
+    issues.push(`IGS ${gsi.toFixed(2)} incompatible con las dimensiones: debe estar entre ${lo.toFixed(2)} y ${hi.toFixed(2)}.`);
+  }
+  return issues;
+}
+
+/**
+ * Ruptura psicótica fuera de baremo: IGS >= 3× el corte T=60 de la población, con
+ * la Wegbreite suficiente (Corolario I al Axioma 4, tesis V22). La anchura del cruce
+ * es un factor distinto de la cantidad (Q) y de la resistencia (Widerstand) en el
+ * Entwurf: un cruce angosto se disipa sin llegar al pasaje, aunque el IGS alcance
+ * el umbral; solo uno de anchura suficiente llega a pasar por la marca.
+ *
+ * Articulación con el modelo: la Wegbreite se mide sobre el adelgazamiento de la
+ * pared (la censura Icc/Prcc), cuyo factor es `deformation_factor` (δ). Con la
+ * ruptura activada (preset "Ruptura del modelo"), δ sube a 0.55 — siempre por
+ * encima del techo π/6 ≈ 0.524.
+ */
+export const WEGREITE_MIN_DELTA = Math.PI / 6;
+/** En el Entwurf la anchura es constante e independiente de la resistencia: un cruce
+ *  por una pared adelgazada por debajo del techo no llega al pasaje (se disipa). */
+export const WEGREITE_DISIPACION_DELTA = Math.PI / 6;
+
+/** Cadena significante (Corolario II): eslabones s1..s8 / i1..i8, en el sentido
+ *  lacaniano de cadena (S-threatening de la tesis V22, Figs. 5.9–5.10): el pasaje
+ *  los dispersa y los reengancha en un orden nuevo. */
+export const UMBAU_N = 8;
+export const UMBAU_ESLABONES: number[] = Array.from({ length: UMBAU_N }, (_, i) => i);
+
+export function isPsychoticRupture(sclData: SCL90RData, params?: ModelParams): boolean {
+  const gsi = sclData["GSI"] ?? 0;
+  const baremoId = params?.baremoId;
+  const umbral = baremoId ? ruptureThresholdGsi(baremoId) : PSYCHOTIC_RUPTURE_THRESHOLD_GSI;
+  if (!Number.isFinite(gsi) || gsi < umbral - 1e-9) return false;
+  // Corolario I (Wegbreite): sin anchura suficiente el cruce se disipa — no llega
+  // al pasaje aunque la cantidad (IGS) alcance el umbral.
+  const delta = params?.deformation_factor ?? 0.3;
+  return delta >= WEGREITE_MIN_DELTA - 1e-9;
+}
+
+/**
  * Calculates Lacanian parameters S, I, Sigma, fantasy point, and rupture points
  * directly following the user's HornTorusICCModel definition
  */
 export function calculateLacanianParameters(
-  sclData: SCL90RData,
+  sclData: SCL90RData, 
   params: ModelParams
 ): LacanianCoordinates {
   const { a_scale, u_scale, v_scale, a_critical } = params;
+  // Pregunta abierta (tesis Cap. 7): Σ como pantalla (true) o mero anudamiento
+  // (false, default). Conmuta el régimen del cálculo de la zona de angustia.
+  const sigmaPantalla = (params as { sigmaPantalla?: boolean }).sigmaPantalla === true;
+
+  // r/R ratio: guarded against invalid input (0, negative, NaN, > 1).
+  // Anything non-finite or out of range falls back to 1.0 (horn torus).
+  const rOverRRaw = (params as { rOverR?: number }).rOverR;
+  const rOverR =
+    typeof rOverRRaw === "number" && Number.isFinite(rOverRRaw) && rOverRRaw > 0 && rOverRRaw <= 1.0
+      ? rOverRRaw
+      : 1.0;
 
   // Radio a (escalado por GSI)
   const gsi = sclData["GSI"] ?? 0.85;
   const a = a_scale * gsi;
+
+  // Radios de la familia: R = a, r = rOverR * R.
+  // rOverR = 1 reproduce exactamente el horn torus actual (R = r = a).
+  const R = a;
+  const r = rOverR * a;
 
   // Escalas primarias sin GSI, PST, PSDI
   const numScales = 9;
@@ -433,11 +301,11 @@ export function calculateLacanianParameters(
   const u_I = (u_scale * (somatization + interpersonal)) / numScales;
 
   // v para I: basado en PST
-  const pst = sclData["PST"] ?? 0.7;
+  const pst = pstGeom(sclData["PST"] ?? 45);
   const v_I = v_scale * (1 + pst);
 
-  // Hilo Pulsional (Trieb / Vorstellungrepräsentanz):
-  // Pegado a I (apuntalamiento somático de la pulsión en la imagen del cuerpo)
+  // Hilo Pulsional (Trieb · Drang):
+  // Pegado al borde de I (umbral de inscripción del organismo como imagen del cuerpo) — AXIOMA
   const depression = sclData["Depresión"] ?? 0.8;
   const pulsionAttachmentStrength = Math.min(
     1.0,
@@ -454,60 +322,134 @@ export function calculateLacanianParameters(
   // v para Σ: basado en Psicoticismo
   const v_Sigma = v_scale * (1 + psychoticism);
 
-  // Punto de fantasía (angustia máxima): (pi, pi / 2)
-  const u_F = Math.PI;
-  const v_F = Math.PI / 2;
+  // --- Marcas de fantasía (Resumen §8, resuelto): la fantasía son MARCAS Icc
+  // de trauma, distintas entre sí, pegadas a la cara interna de la PARED (la censura Icc/Prcc) —
+  // regla del usuario: en la configuración neurótica la marca está en UN LUGAR
+  // del horn torus, y es ahí donde la angustia aparece cuando la pulsión pasa
+  // cerca; SOLO en el desencadenamiento psicótico la marca queda en el medio
+  // (el orificio) — lo que la secuencia ya representa al hacerla migrar al
+  // orificio e integrarse a la voz. Posición por defecto: (π, 3π/4), un punto
+  // de la pared entre el ecuador superior y la garganta, lejos del orificio.
+  const nMarks = Math.max(1, Math.min(12, Math.round(
+    Number.isFinite((params as { fantasyMarkCount?: number }).fantasyMarkCount)
+      ? (params as { fantasyMarkCount?: number }).fantasyMarkCount as number
+      : 1
+  )));
+  const fantasyMarks: { u: number; v: number }[] = [];
+  for (let m = 0; m < nMarks; m++) {
+    if (m === 0) {
+      fantasyMarks.push({ u: Math.PI, v: 3 * Math.PI / 4 });
+    } else {
+      // Caracol sobre la pared: avanza en u (1.9 rad ≈ separación visible) y
+      // deriva en v dentro de la banda de la cara interna de la pared.
+      const u_m = Math.PI + m * 1.9;
+      const v_m = 3 * Math.PI / 4 + 0.35 * Math.sin(m * 2.1);
+      fantasyMarks.push({ u: u_m, v: v_m });
+    }
+  }
+  const u_F = fantasyMarks[0].u;
+  const v_F = fantasyMarks[0].v;
 
-  // Coordenadas 3D del punto de fantasía
-  const x_F = a * (1 + Math.cos(v_F)) * Math.cos(u_F);
-  const y_F = a * (1 + Math.cos(v_F)) * Math.sin(u_F);
-  const z_F = a * Math.sin(v_F);
+  // Coordenadas 3D de cada marca, en la superficie de la familia:
+  // x = (R + r·cos v)·cos u, y = (R + r·cos v)·sin u, z = r·sin v.
+  // En r = R se reduce a a·(1 + cos v), el punto actual.
+  const fantasyMarks3D: [number, number, number][] = fantasyMarks.map(({ u: um, v: vm }) => [
+    (R + r * Math.cos(vm)) * Math.cos(um),
+    (R + r * Math.cos(vm)) * Math.sin(um),
+    r * Math.sin(vm),
+  ]);
+  const x_F = fantasyMarks3D[0][0];
+  const y_F = fantasyMarks3D[0][1];
+  const z_F = fantasyMarks3D[0][2];
 
-  // Conteo de puntos de ruptura (donde angustia <= a_critical o supera umbral)
-  // En el espacio paramétrico (u, v), los puntos cuya distancia a (u_F, v_F) <= A_cr
-  // representan la zona de angustia crítica/ruptura
+  // Zona crítica de angustia: UNIÓN de las vecindades (A_cr) de TODAS las
+  // marcas — AXIOMA §8: la angustia aparece cuando algo pasa cerca de una
+  // de ellas. El % es de ÁREA, no de parámetros: cada muestra pesa por el
+  // elemento de área dA = r·(R + r·cos v) du dv, que se anula en la cúspide.
   const sampleSteps = 60;
+  // --- Pregunta abierta de la tesis (Cap. 7): ¿Σ como pantalla o mero anudamiento? ---
+  // La tesis lo deja sin decidir: no está claro si Σ aleja los cruces de las marcas
+  // (pantalla) o solo anuda a S e I en M_L sin incidir en dónde se producen los
+  // cruces. El modelo lo hace CONMUTABLE: params.sigmaPantalla (default false).
+  // Como pantalla: la banda de Σ sobre la superficie (la misma que dibuja el canvas:
+  // v = π + 0.58·sin(2u + φ_Σ), semiancho 0.35) INTERCEPTA los cruces — esa porción
+  // de la zona de angustia queda desviada (no cuenta como ruptura). Como mero
+  // anudamiento: Σ no incide y los cruces llegan a las marcas (comportamiento base).
+  const phiSigma = v_Sigma % (2 * Math.PI);
+  const SIGMA_HALF_WIDTH = 0.35;
+  const enBandaSigma = (u: number, v: number): boolean =>
+    Math.abs(angularDistance(v, Math.PI + 0.58 * Math.sin(2 * u + phiSigma))) <= SIGMA_HALF_WIDTH;
+
   let rupturePointsCount = 0;
+  let ruptureAreaConPantalla = 0;
+  let ruptureAreaSinPantalla = 0;
+  let totalArea = 0;
   for (let i = 0; i < sampleSteps; i++) {
     const u = (i / sampleSteps) * 2 * Math.PI;
     for (let j = 0; j < sampleSteps; j++) {
       const v = (j / sampleSteps) * 2 * Math.PI;
-      const dist = Math.sqrt((u - u_F) ** 2 + (v - v_F) ** 2);
-      if (dist <= a_critical) {
+      const dA = R + r * Math.cos(v);
+      totalArea += dA;
+      // Vecindad de alguna marca: d_per_min <= a_cr.
+      let cerca = false;
+      for (const mark of fantasyMarks) {
+        if (angularDistance(u, mark.u) <= a_critical) {
+          const dv = angularDistance(v, mark.v);
+          if (dv <= Math.sqrt(Math.max(0, a_critical * a_critical - angularDistance(u, mark.u) ** 2))) {
+            cerca = true;
+            break;
+          }
+        }
+      }
+      if (cerca) {
         rupturePointsCount++;
+        ruptureAreaSinPantalla += dA;
+        if (!enBandaSigma(u, v)) ruptureAreaConPantalla += dA;
       }
     }
   }
-  const totalSamples = sampleSteps * sampleSteps;
-  const ruptureAreaPercent = (rupturePointsCount / totalSamples) * 100;
+  const ruptureAreaPercentSinPantalla = totalArea > 0 ? (ruptureAreaSinPantalla / totalArea) * 100 : 0;
+  // Fracción de la zona de angustia que la banda de Σ intercepta (0–1).
+  const sigmaPantallaFraccion = ruptureAreaSinPantalla > 0
+    ? Math.min(1, Math.max(0, 1 - ruptureAreaConPantalla / ruptureAreaSinPantalla))
+    : 0;
+  // Régimen conmutado: como pantalla el % final descuenta lo interceptado;
+  // como mero anudamiento los cruces llegan a las marcas (comportamiento base).
+  const ruptureAreaPercent = sigmaPantalla
+    ? ruptureAreaPercentSinPantalla * (1 - sigmaPantallaFraccion)
+    : ruptureAreaPercentSinPantalla;
+  const ruptureCountFinal = Math.round(rupturePointsCount * (ruptureAreaPercent / Math.max(ruptureAreaPercentSinPantalla, 1e-9)));
 
-  // Reactivación traumática: distancia de la cinta significante S a la fantasía (u_F=pi, v_F=pi/2)
-  // En el Icc, la fantasía no pasa al exterior Cc. Pero cuando la trayectoria significante S
-  // circula en su proximidad, se reactiva el afecto de angustia (trauma que se despierta).
-  const distanceSignifierToFantasy = Math.abs(v_S - v_F);
+  // Proximidad de la cinta S a la marca de fantasía más cercana (Axioma 4: aproximación).
+  // Distancia periódica en (u, v); dentro de A_cr la cinta S pasa por la vecindad de una marca.
+  const uSm = ((u_S % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const vSm = ((v_S % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const distanceSignifierToFantasy = Math.min(
+    ...fantasyMarks.map((m) => Math.hypot(angularDistance(uSm, m.u), angularDistance(vSm, m.v)))
+  );
   const isTraumaReactivated = distanceSignifierToFantasy <= a_critical;
 
-  // Actividad en el "oído" / cúspide singular del horn torus (v = pi):
-  // Punto de auto-tangencia en el origen que comunica el exterior con el vórtice interior
-  const earCuspActivity = Math.max(0, Math.min(1, 1.0 - Math.abs(v_S - Math.PI) / Math.PI));
+  // Actividad en p (la voz): cercanía de la cinta S al punto de autotangencia (v = π).
+  const earCuspActivity = Math.max(0, Math.min(1, 1.0 - angularDistance(vSm, Math.PI) / Math.PI));
 
-  // La fantasía es un agujero en el toro donde no existe una representación (falla de S1 -> S2)
-  const fantasyHoleVoidRadius = 0.0; // Radio cero del cuello central v=pi
-  const nonRepresentabilityIndex = Math.min(100, Math.max(0, (1.0 - distanceSignifierToFantasy / Math.PI) * 100));
-  const fantasyHoleDescription = "La fantasía es un agujero en el toro donde no existe una representación ($1 / S_2). El agujero central (v=π) del Horn Torus es un vacío donde las cadenas de significantes bordean el límite pero no penetran ni pueden representar la Cosa (Das Ding).";
-
-  // Extimidad de la Pulsión Voz (Superyó / Objeto a):
-  // No hay "adentro" ni "afuera" cartesianos: toda la superficie del toroide es la trama del Inconsciente (Icc).
-  // El único "afuera" real que contacta el toroide es la intrusión pulsional éxtima de la Voz (objeto a / Superyó)
-  // que penetra verticalmente a lo largo del eje central hacia la cúspide singular (0, 0, 0) en v = π.
-  const host = sclData['Hostilidad'] ?? 0.6;
-  const psy = sclData['Psicoticismo'] ?? 0.8;
-  const voiceIntensity = 0.8 + 0.4 * host + 0.5 * psy;
+  // p es de doble sentido (tesis V22): por él entra lo oído —las representaciones-palabra
+  // que forman el Prcc— y sale la voz. El vector apunta a lo largo del eje, hacia p.
+  // Intensidad de la voz: asignación AXIOMÁTICA a Hostilidad y Psicoticismo (PD acotados a 0–2).
+  const host = Math.min(2, Math.max(0, sclData['Hostilidad'] ?? 0.6));
+  const psyV = Math.min(2, Math.max(0, sclData['Psicoticismo'] ?? 0.8));
+  const voiceIntensity = 0.8 + 0.4 * host + 0.5 * psyV;
   const voiceIntrusionVector: [number, number, number] = [0, 0, -voiceIntensity];
-  const extimacyDescription = "Toda la superficie del toro es superficie del Inconsciente (Icc). El único 'afuera' que podemos concebir desde el toro es la pulsión Voz (y el imperativo del Superyó) que entra por el agujero central hacia el Icc; a partir de allí, los representantes de la representación (VR) de la pulsión y las cadenas significantes se mueven y despliegan sobre toda esa superficie continua.";
+  const extimacyDescription =
+    'Toda la superficie del horn torus es el Icc; la pared es la censura Icc/Prcc. El punto de autotangencia p es ' +
+    'el único orificio fijo y es de doble sentido: por él entra lo oído —las representaciones-palabra que forman ' +
+    'el Prcc, un campo concentrado en el embudo del eje y sin borde— y sale la voz. La Cc no es un lugar sino un ' +
+    'umbral de sobreinvestidura dentro de ese campo (GW XIII, caps. II y V; GW X, secc. VI). Geometría: AXIOMA.';
 
   return {
     a,
+    rOverR,
+    R,
+    r,
     u_S,
     v_S,
     u_I,
@@ -519,97 +461,159 @@ export function calculateLacanianParameters(
     v_Sigma,
     fantasyPointUV: [u_F, v_F],
     fantasyPoint3D: [x_F, y_F, z_F],
-    ruptureCount: rupturePointsCount,
+    fantasyMarks,
+    fantasyMarks3D,
+    ruptureCount: ruptureCountFinal,
     ruptureAreaPercent,
+    sigmaPantallaFraccion,
+    ruptureAreaPercentSinPantalla,
     distanceSignifierToFantasy,
     isTraumaReactivated,
     earCuspActivity,
-    fantasyHoleVoidRadius,
-    nonRepresentabilityIndex,
-    fantasyHoleDescription,
     voiceIntrusionVector,
     extimacyDescription
   };
 }
 
-/**
- * Calculates angustia A(u, v) = sqrt((u - u_F)^2 + (v - v_F)^2)
- * La fantasía ($ <> a) bordea la angustia máxima en el foco (pi, pi/2)
- */
-export function calculateAngustia(u: number, v: number): number {
-  const u_F = Math.PI;
-  const v_F = Math.PI / 2;
-  return Math.sqrt((u - u_F) ** 2 + (v - v_F) ** 2);
+/** Distancia angular periódica en [0, π]. */
+function angularDistance(a: number, b: number): number {
+  const d = Math.abs(a - b) % (2 * Math.PI);
+  return Math.min(d, 2 * Math.PI - d);
 }
+
+/** Máximo de A(u, v): sobre la marca de fantasía (distancia periódica 0). */
+export const MAX_ANGUSTIA_DISTANCE = Math.PI * Math.SQRT2;
+
+/**
+ * A(u, v) = intensidad de angustia — AXIOMA: surge por proximidad a UNA marca
+ * de fantasía y es MÁXIMA sobre ella. Con N marcas (Resumen §8), A es el
+ * MÁXIMO sobre todas: basta que algo pase cerca de una para que haya angustia.
+ * A = máx_m (A_max − d_per(u,v, m)); la ruptura es la unión de las vecindades.
+ */
+export function calculateAngustia(
+  u: number,
+  v: number,
+  marks: { u: number; v: number }[] = [{ u: Math.PI, v: 3 * Math.PI / 4 }]
+): number {
+  let max = 0;
+  for (const m of marks) {
+    const a = MAX_ANGUSTIA_DISTANCE - Math.hypot(angularDistance(u, m.u), angularDistance(v, m.v));
+    if (a > max) max = a;
+  }
+  return max;
+}
+
+/**
+ * Fases de la secuencia de ruptura psicótica de las cintas:
+ * - 'stable': configuración lacaniana entrecruzada normal (S, I, Pulsión pegadas al interior).
+ * - 'ejected': las cintas S, I y Pulsión están eyectadas por el orificio (cúspide v = π,
+ *   el origen del horn torus, por donde "sale la voz").
+ * - 'covered': reconfiguración — las cintas vuelven cubriendo TODA la superficie
+ *   (latitud completa v ∈ (0, 2π), en lugar del interior v ≈ π).
+ */
+export type RibbonMode = 'stable' | 'ejected' | 'covered';
 
 /**
  * Generates 3D coordinates for curves/ribbons S, I, Hilo Pulsional, and Sigma.
  * Las cintas están dispuestas y entrecruzadas en el interior del horn torus (Icc),
  * donde el Hilo Pulsional está íntimamente pegado y trenzado a la cinta I.
+ *
+ * mode controla la secuencia de ruptura psicótica:
+ * - 'stable' (default): geometría original.
+ * - 'ejected': S, I y Pulsión colapsan hacia el orificio (cúspide v = π en el origen).
+ * - 'covered': S, I y Pulsión reconfiguradas cubriendo toda la superficie.
  */
 export function getLacanianCurves(
   lacanian: LacanianCoordinates,
   uPoints: number = 220,
-  visualScale: number = 25.0 // scale up coordinates for viewport
+  visualScale: number = 25.0, // scale up coordinates for viewport
+  mode: RibbonMode = 'stable'
 ) {
   const uVals: number[] = [];
   for (let i = 0; i <= uPoints; i++) {
     uVals.push((i / uPoints) * 2 * Math.PI);
   }
 
-  const effectiveA = lacanian.a * visualScale;
+  const effectiveA = lacanian.a * visualScale; // R (revolution radius)
+  const tubeR = effectiveA * lacanian.rOverR; // r (tube radius)
   const phi_I = (lacanian.v_I % (2 * Math.PI));
   const phi_S = (lacanian.v_S % (2 * Math.PI));
   const phi_Sigma = (lacanian.v_Sigma % (2 * Math.PI));
 
+  // Parámetros de la secuencia de ruptura (solo afectan S, I y Pulsión; Σ intacta):
+  const ejected = mode === 'ejected';
+  const covered = mode === 'covered';
+  // En 'covered' el v de las cintas barre TODA la circunferencia poloidal (v ∈ (0, 2π))
+  // en vez del interior estrecho v ≈ π; con 3 giros por vuelta toroidal las cintas
+  // entrecruzadas cubren toda la superficie.
+  const coverTurns = covered ? 3 : 0;
+
   // 1. Curva I (Imagen del cuerpo, color verde esmeralda):
-  // Recorre el interior del toro oscilando a través de la garganta/cúspide
+  // Recorre el interior del toro oscilando a través de la garganta/cúspide.
+  // Base point of the family: (R + r·cos v), z = r·sin v; exactly the old
+  // a·(1 + cos v) form at r/R = 1.
   const curveI: [number, number, number][] = uVals.map((u) => {
-    const v = Math.PI + 0.48 * Math.sin(u + phi_I) + 0.12 * Math.cos(2 * u);
-    const r = effectiveA * (1 + Math.cos(v));
-    const x = r * Math.cos(u);
-    const y = r * Math.sin(u);
-    const z = effectiveA * Math.sin(v);
+    if (ejected) {
+      // Colapso hacia el orificio: cúspide v = π en el origen del horn torus.
+      return [0, 0, 0];
+    }
+    const vBase = Math.PI + 0.48 * Math.sin(u + phi_I) + 0.12 * Math.cos(2 * u);
+    // En 'covered' el barrido poloidal completo cubre TODA la superficie.
+    const v = covered ? u * coverTurns : vBase;
+    const rad = effectiveA + tubeR * Math.cos(v);
+    const x = rad * Math.cos(u);
+    const y = rad * Math.sin(u);
+    const z = tubeR * Math.sin(v);
     return [x, y, z];
   });
 
-  // 2. Hilo Pulsional (Trieb / Vorstellungrepräsentanz, color dorado/ámbar):
+  // 2. Hilo Pulsional (Trieb · Drang, color dorado/ámbar):
   // ESTÁ PEGADO A I: Se acopla de manera estrecha a la cinta I, entrelazándose
   // helicoidalmente como la investidura pulsional de las zonas erógenas corporales.
   const curvePulsion: [number, number, number][] = uVals.map((u, idx) => {
+    if (ejected) {
+      // Sigue a I al orificio (pegado a I, como siempre).
+      return [0, 0, 0];
+    }
     const basePt = curveI[idx];
-    const vBase = Math.PI + 0.48 * Math.sin(u + phi_I) + 0.12 * Math.cos(2 * u);
+    const vBase = covered
+      ? u * coverTurns + 0.22 // pegado a I también en la cobertura total
+      : Math.PI + 0.48 * Math.sin(u + phi_I) + 0.12 * Math.cos(2 * u);
     // Micro-desplazamiento pulsional entrelazado con I
     const pulsionFreq = 6;
     const vOffset = 0.14 * Math.sin(pulsionFreq * u) * lacanian.pulsionAttachmentStrength;
     const vP = vBase + vOffset;
-    const rOffset = 0.08 * Math.cos(pulsionFreq * u) * effectiveA * lacanian.pulsionAttachmentStrength;
-    const r = effectiveA * (1 + Math.cos(vP)) + rOffset;
-    const x = r * Math.cos(u);
-    const y = r * Math.sin(u);
-    const z = effectiveA * Math.sin(vP) + 0.06 * Math.sin(pulsionFreq * u) * effectiveA;
+    const rOffset = 0.08 * Math.cos(pulsionFreq * u) * tubeR * lacanian.pulsionAttachmentStrength;
+    const rad = effectiveA + tubeR * Math.cos(vP) + rOffset;
+    const x = rad * Math.cos(u);
+    const y = rad * Math.sin(u);
+    const z = tubeR * Math.sin(vP) + 0.06 * Math.sin(pulsionFreq * u) * tubeR;
     return [x, y, z];
   });
 
   // 3. Curva S (Significante / Simbólico, color rojo carmesí):
   // Trayectoria meridional que intersecta y corta transversalmente a I y al Hilo Pulsional
   const curveS: [number, number, number][] = uVals.map((u) => {
-    const v = Math.PI + 0.48 * Math.cos(u + phi_S) - 0.16 * Math.sin(2 * u);
-    const r = effectiveA * (1 + Math.cos(v));
-    const x = r * Math.cos(u);
-    const y = r * Math.sin(u);
-    const z = effectiveA * Math.sin(v);
+    if (ejected) {
+      return [0, 0, 0];
+    }
+    const vBase = Math.PI + 0.48 * Math.cos(u + phi_S) - 0.16 * Math.sin(2 * u);
+    const v = covered ? u * coverTurns + Math.PI / 3 : vBase;
+    const rad = effectiveA + tubeR * Math.cos(v);
+    const x = rad * Math.cos(u);
+    const y = rad * Math.sin(u);
+    const z = tubeR * Math.sin(v);
     return [x, y, z];
   });
 
-  // 4. Curva Sigma (Síntoma / Sinthome, color azul cobalto):
-  // El cuarto lazo que anuda la estructura en el interior, cruzando la singularidad
+  // 4. Curva Sigma (Síntoma, color azul cobalto):
+  // Trayectoria del síntoma en el interior, cruzando la singularidad
   const curveSigma: [number, number, number][] = uVals.map((u) => {
     const v = Math.PI + 0.58 * Math.sin(2 * u + phi_Sigma);
-    const r = effectiveA * (1 + Math.cos(v));
-    const x = r * Math.cos(u);
-    const y = r * Math.sin(u);
-    const z = effectiveA * Math.sin(v);
+    const rad = effectiveA + tubeR * Math.cos(v);
+    const x = rad * Math.cos(u);
+    const y = rad * Math.sin(u);
+    const z = tubeR * Math.sin(v);
     return [x, y, z];
   });
 
@@ -736,7 +740,7 @@ export interface PulsionVectorFieldData {
 /**
  * Generates the directional flow vector field for the Hilo Pulsional (Trieb)
  * moving across the interior surface of the Horn Torus (v in [pi/2, 3*pi/2]).
- * Directly connected to the Vorstellungsrepräsentanz anchored to curve I,
+ * Attached to the edge of curve I (body image),
  * Freud's Drang (constant push), and helical circulation around the cusp/central void.
  */
 export function generatePulsionVectorFieldData(
@@ -755,11 +759,10 @@ export function generatePulsionVectorFieldData(
 
   const vectors: PulsionVectorItem[] = [];
 
-  // Monismo topológico: Toda la superficie del Toro es Inconsciente (v in [0, 2*pi]).
-  // Los VR (Vorstellungsrepräsentanz) de la pulsión se mueven e inscriben a lo largo de toda la variedad.
+  // Interior manifold domain: v in [pi/2, 3*pi/2] (concave interior facing the cusp at v = pi)
   for (let iv = 0; iv < vSteps; iv++) {
     const tV = (iv + 0.5) / vSteps;
-    const v = tV * 2 * Math.PI; // Toda la superficie continua del Icc
+    const v = Math.PI * 0.5 + tV * Math.PI; // in (pi/2, 3*pi/2)
 
     for (let iu = 0; iu < uSteps; iu++) {
       const u = (iu / uSteps) * 2 * Math.PI;
@@ -791,7 +794,7 @@ export function generatePulsionVectorFieldData(
       const tv_y = -sinV * sinU;
       const tv_z = cosV;
 
-      // Distance to curve I (Vorstellungsrepräsentanz / somatization anchor)
+      // Distance to curve I (edge of the body image)
       const v_I_at_u = Math.PI + 0.48 * Math.sin(u + phi_I) + 0.12 * Math.cos(2 * u);
       const distToI = Math.abs(v - v_I_at_u);
       const weightI = Math.exp(-Math.pow(distToI / 0.55, 2));
@@ -847,7 +850,7 @@ export function computeSclDeformation(
   const oc = data["Obsesión-Compulsión"] || 0;
   const psy = data["Psicoticismo"] || 0;
   const gsi = data["GSI"] || 0;
-  const pst = data["PST"] || 0;
+  const pst = pstGeom(data["PST"] || 0);
   const psdi = data["PSDI"] || 0;
   const dep = data["Depresión"] || 0;
   const anx = data["Ansiedad"] || 0;
@@ -873,19 +876,13 @@ export function computeSclDeformation(
   const wDep = dep * 0.18 * Math.sin(v);
   const wAnx = anx * 0.14 * Math.sin(8 * u) * Math.cos(2 * v);
 
-  // Acumulación de perturbaciones armónicas
   const rawDeform = wSom + wOC + wPsy + wGSI + wPST + wPSDI + wDep + wAnx;
-
-  // Saturación sigmoidal suave (Math.tanh) para evitar que perturbaciones acumuladas
-  // con puntuaciones fuera de escala (T > 80, T=100 o valores normalizados > 1.0) causen
-  // radios negativos o singularidades geométricas que rompan o inviertan el toroide:
+  // Saturación suave (tanh): con puntajes extremos (fuera de baremo) la perturbación
+  // acumulada no invierte ni colapsa el toro; el factor queda acotado por debajo en 0.15.
   const safeScale = 1.45;
   const boundedDeform = Math.tanh(rawDeform / safeScale) * safeScale;
-
-  // Aseguramos un factor mínimo estríctamente positivo (factor >= 0.15)
-  // para que el radio r = a(1 + cos(v)) * factor nunca colapse a cero ni se invierta
   const factor = Math.max(0.15, 1.0 + deformationFactor * boundedDeform);
-  const stress = Math.min(1.0, Math.max(0.0, Math.abs(boundedDeform) * (0.8 + psdi * 0.4)));
+  const stress = Math.min(1.0, Math.max(0.0, Math.abs(boundedDeform) * (1 + psdi * 0.5)));
 
   return { factor, stress };
 }
@@ -901,7 +898,8 @@ export function computeDifferentialTension(
   v: number,
   data: SCL90RData,
   deformationFactor: number,
-  effectiveA: number
+  effectiveA: number,
+  rOverR: number = 1.0 // r/R in (0, 1]; default keeps the horn-torus base point
 ): {
   tension: number;
   displacementNorm: number;
@@ -910,10 +908,12 @@ export function computeDifferentialTension(
 } {
   const deformScale = Math.max(0.05, deformationFactor);
 
-  // Standard Horn Torus coordinates
-  const x0 = effectiveA * (1 + Math.cos(v)) * Math.cos(u);
-  const y0 = effectiveA * (1 + Math.cos(v)) * Math.sin(u);
-  const z0 = effectiveA * Math.sin(v);
+  // Standard coordinates of the family member: x = (R + r·cos v)·cos u, etc.
+  // With rOverR = 1 this is exactly the old horn-torus base point a·(1 + cos v).
+  const tubeR = effectiveA * rOverR;
+  const x0 = (effectiveA + tubeR * Math.cos(v)) * Math.cos(u);
+  const y0 = (effectiveA + tubeR * Math.cos(v)) * Math.sin(u);
+  const z0 = tubeR * Math.sin(v);
 
   // Deformed Horn Torus coordinates
   const { factor, stress } = computeSclDeformation(u, v, data, deformationFactor);
@@ -973,10 +973,13 @@ export function generateHornTorusGeometry(
 ) {
   const { a_scale, deformation_factor, gridResolution, a_critical } = params;
   const lacanian = calculateLacanianParameters(sclData, params);
+  // r/R ratio (already guarded in calculateLacanianParameters: (0, 1], 1 = horn torus)
+  const rOverR = lacanian.rOverR;
 
   // Base radius a = a_scale * GSI scaled for standard 3D viewport (e.g. ~2.0)
   const visualScale = 25.0;
-  const effectiveA = lacanian.a * visualScale;
+  const effectiveA = lacanian.a * visualScale; // R = revolution radius
+  const tubeR = effectiveA * rOverR; // r = tube radius
   const effectiveDeform = isDeformed ? deformation_factor : 0.0;
 
   const numU = gridResolution;
@@ -988,7 +991,7 @@ export function generateHornTorusGeometry(
   const colors: number[] = [];
   const indices: number[] = [];
 
-  const maxAngustia = Math.sqrt((2 * Math.PI) ** 2 + (2 * Math.PI) ** 2);
+  const maxAngustia = MAX_ANGUSTIA_DISTANCE;
 
   // u in [0, 2*pi], v in [0, 2*pi]
   for (let i = 0; i <= numV; i++) {
@@ -997,13 +1000,12 @@ export function generateHornTorusGeometry(
     for (let j = 0; j <= numU; j++) {
       const u = (j / numU) * 2 * Math.PI; // toroidal angle
 
-      // Parametric equations of Horn Torus: R = r = a
-      // x = a * (1 + cos(v)) * cos(u)
-      // y = a * (1 + cos(v)) * sin(u)
-      // z = a * sin(v)
-      let x = effectiveA * (1 + Math.cos(v)) * Math.cos(u);
-      let y = effectiveA * (1 + Math.cos(v)) * Math.sin(u);
-      let z = effectiveA * Math.sin(v);
+      // Parametric equations of the torus family (R = revolution radius, r = tube radius):
+      // x = (R + r·cos(v))·cos(u), y = (R + r·cos(v))·sin(u), z = r·sin(v)
+      // At r/R = 1 (horn torus) this is exactly R·(1 + cos(v))·cos(u), etc.
+      let x = (effectiveA + tubeR * Math.cos(v)) * Math.cos(u);
+      let y = (effectiveA + tubeR * Math.cos(v)) * Math.sin(u);
+      let z = tubeR * Math.sin(v);
 
       const { factor, stress } = computeSclDeformation(u, v, sclData, effectiveDeform);
 
@@ -1034,9 +1036,10 @@ export function generateHornTorusGeometry(
       ny /= nLen;
       nz /= nLen;
 
-      // Angustia A(u, v) and Rupture determination
-      const angustia = calculateAngustia(u, v);
-      const isRupture = angustia <= a_critical;
+      // Angustia A(u, v) — máximo sobre las marcas de fantasía; la ruptura es
+      // la unión de sus vecindades: A >= A_max − a_cr ⟺ min d_per <= a_cr.
+      const angustia = calculateAngustia(u, v, lacanian.fantasyMarks);
+      const isRupture = angustia >= MAX_ANGUSTIA_DISTANCE - a_critical;
 
       // Differential tension calculation (energy surface difference)
       const { tension: diffTension } = computeDifferentialTension(
@@ -1044,7 +1047,8 @@ export function generateHornTorusGeometry(
         v,
         sclData,
         deformation_factor,
-        effectiveA
+        effectiveA,
+        rOverR
       );
 
       positions.push(x, y, z);
@@ -1060,21 +1064,28 @@ export function generateHornTorusGeometry(
         v,
         maxAngustia,
         a_critical,
-        colorMode
+        colorMode,
+        rOverR
       );
       colors.push(rgb.r, rgb.g, rgb.b);
     }
   }
 
-  // Triangles: partitioned into full indices, Cc outer envelope indices, and Icc interior funnel indices
-  const ccIndices: number[] = [];
-  const iccIndices: number[] = [];
+  // Tópica (tesis V22, Resumen v6 §4): TODA la superficie del horn torus es el Icc
+  // y su pared es la censura Icc/Prcc. El Prcc NO es la pared: es el campo de
+  // representaciones-palabra que entra por p (la voz), concentrado en el embudo del
+  // eje y sin borde (ver prccFieldIntensity). La Cc es un umbral dentro de ese campo.
+  // La partición por triángulos separa la cara interna (v en [π/2, 3π/2], la que mira
+  // al volumen) de la externa solo para las vistas de pared; la superficie completa
+  // vive en `indices`. Los nombres prccIndices/outerFaceIndices se conservan por
+  // compatibilidad con el canvas.
+  const prccIndices: number[] = [];
+  const outerFaceIndices: number[] = [];
 
   for (let i = 0; i < numV; i++) {
     const vMid = ((i + 0.5) / numV) * 2 * Math.PI;
-    // Conscious (Cc) outer envelope: cos(v) > 0, i.e. v in [0, pi/2) U (3pi/2, 2pi]
-    // Unconscious (Icc) inner funnel: cos(v) <= 0, i.e. v in [pi/2, 3pi/2]
-    const isCcZone = Math.cos(vMid) > 0;
+    // Cara interna de la pared (la que mira al volumen interior).
+    const isPrccFace = Math.cos(vMid) <= 0;
 
     for (let j = 0; j < numU; j++) {
       const a = i * (numU + 1) + j;
@@ -1085,12 +1096,12 @@ export function generateHornTorusGeometry(
       indices.push(a, b, d);
       indices.push(b, c, d);
 
-      if (isCcZone) {
-        ccIndices.push(a, b, d);
-        ccIndices.push(b, c, d);
+      if (isPrccFace) {
+        prccIndices.push(a, b, d);
+        prccIndices.push(b, c, d);
       } else {
-        iccIndices.push(a, b, d);
-        iccIndices.push(b, c, d);
+        outerFaceIndices.push(a, b, d);
+        outerFaceIndices.push(b, c, d);
       }
     }
   }
@@ -1101,110 +1112,10 @@ export function generateHornTorusGeometry(
     uvs: new Float32Array(uvs),
     colors: new Float32Array(colors),
     indices: new Uint32Array(indices),
-    ccIndices: new Uint32Array(ccIndices),
-    iccIndices: new Uint32Array(iccIndices),
+    prccIndices: new Uint32Array(prccIndices),
+    outerFaceIndices: new Uint32Array(outerFaceIndices),
     lacanian
   };
-}
-
-/**
- * Updates positions, normals, and colors buffers in-place for a Horn Torus mesh
- * based on the dynamic deformation factor delta.
- * Highly optimized for 60fps smooth animation transitions between standard and deformed states.
- */
-export function updateHornTorusVertices(
-  positions: Float32Array,
-  normals: Float32Array,
-  colors: Float32Array,
-  params: ModelParams,
-  sclData: SCL90RData,
-  currentDeformation: number,
-  colorMode: ColorMapMode = 'angustia'
-) {
-  const { gridResolution, a_critical } = params;
-  const lacanian = calculateLacanianParameters(sclData, params);
-  const visualScale = 25.0;
-  const effectiveA = lacanian.a * visualScale;
-
-  const numU = gridResolution;
-  const numV = gridResolution;
-  const maxAngustia = Math.sqrt((2 * Math.PI) ** 2 + (2 * Math.PI) ** 2);
-
-  let ptr = 0;
-
-  for (let i = 0; i <= numV; i++) {
-    const v = (i / numV) * 2 * Math.PI;
-    const cosV = Math.cos(v);
-    const sinV = Math.sin(v);
-    const r0 = effectiveA * (1 + cosV);
-    const z0 = effectiveA * sinV;
-
-    for (let j = 0; j <= numU; j++) {
-      const u = (j / numU) * 2 * Math.PI;
-      const cosU = Math.cos(u);
-      const sinU = Math.sin(u);
-
-      let x = r0 * cosU;
-      let y = r0 * sinU;
-      let z = z0;
-
-      const { factor, stress } = computeSclDeformation(u, v, sclData, currentDeformation);
-
-      if (currentDeformation > 0) {
-        x *= factor;
-        y *= factor;
-        z *= 1.0 + (factor - 1.0) * 0.85;
-      }
-
-      positions[ptr] = x;
-      positions[ptr + 1] = y;
-      positions[ptr + 2] = z;
-
-      // Outward normal vector
-      let nx = cosV * cosU;
-      let ny = cosV * sinU;
-      let nz = sinV;
-
-      if (currentDeformation > 0) {
-        nx += (factor - 1) * 0.5 * cosU;
-        ny += (factor - 1) * 0.5 * sinU;
-        nz += (factor - 1) * 0.4 * sinV;
-      }
-
-      const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
-      normals[ptr] = nx / nLen;
-      normals[ptr + 1] = ny / nLen;
-      normals[ptr + 2] = nz / nLen;
-
-      // Color mapping
-      const angustia = calculateAngustia(u, v);
-      const isRupture = angustia <= a_critical;
-      const { tension: diffTension } = computeDifferentialTension(
-        u,
-        v,
-        sclData,
-        currentDeformation,
-        effectiveA
-      );
-
-      const rgb = getVertexColor(
-        angustia,
-        isRupture,
-        stress,
-        diffTension,
-        v,
-        maxAngustia,
-        a_critical,
-        colorMode
-      );
-
-      colors[ptr] = rgb.r;
-      colors[ptr + 1] = rgb.g;
-      colors[ptr + 2] = rgb.b;
-
-      ptr += 3;
-    }
-  }
 }
 
 /**
@@ -1218,16 +1129,24 @@ export function getVertexColor(
   v: number,
   maxAngustia: number,
   aCritical: number,
-  mode: ColorMapMode
+  mode: ColorMapMode,
+  rOverR: number = 1.0
 ) {
   if (mode === 'angustia') {
-    // Rupture zone: Bright glowing crimson/amber
+    // Zona de ruptura (vecindad del foco, donde A es máxima): resplandor cálido
+    // que se intensifica al acercarse al foco (A → A_max).
     if (isRupture) {
-      const t = angustia / aCritical; // 0 to 1
+      // Intensifica al acercarse al foco: A va de (A_max − A_cr) en el borde a A_max.
+      const t = aCritical > 0
+        ? Math.min(1, Math.max(0, (angustia - (maxAngustia - aCritical)) / aCritical))
+        : 0;
       return { r: 0.98, g: 0.15 + 0.5 * t, b: 0.1 };
     }
-    // Safe / Distance to fantasy point: deep navy/indigo -> teal -> cyan
-    const norm = Math.min(1.0, (angustia - aCritical) / (maxAngustia - aCritical));
+    // Zona segura: del borde de la zona de ruptura (cian claro) al punto más
+    // lejano del foco (azul profundo).
+    // A decrece al alejarse de las marcas: norm = 0 en el borde de la vecindad, 1 lo más lejos.
+    const borde = maxAngustia - aCritical;
+    const norm = borde > 0 ? Math.min(1.0, Math.max(0.0, (borde - angustia) / borde)) : 0;
     return {
       r: 0.1 + 0.3 * (1 - norm),
       g: 0.35 + 0.45 * (1 - norm),
@@ -1300,60 +1219,34 @@ export function getVertexColor(
     return { r: 0.1 + 0.7 * zNorm, g: 0.4 + 0.2 * zNorm, b: 0.9 - 0.6 * zNorm };
   }
 
-  // Mode: curvature (Curvatura Gaussiana espectral)
-  // K = cos(v) / (a^2 * (1 + cos(v)))
-  // - Zonas hiperbólicas y singularidad (v -> +-pi, K << 0): Carmesí láser / Magenta profundo
-  // - Zonas de curvatura media negativa (-1.5 <= K < -0.1): Ámbar solar / Naranja fuego
-  // - Banda parabólica neutra (K ~ 0, v = pi/2 latitud de la Fantasía): Verde esmeralda / Seafoam
-  // - Zonas elípticas convexas exteriores (v = 0, K > 0): Zafiro / Cian eléctrico
-  // - Acoplamiento con Fantasía Desbordada (isRupture, A <= A_cr): Resplandor fucsia de alta visibilidad
+  // Curvatura gaussiana (de la versión de GitHub, generalizada a la familia r/R ≤ 1):
+  // K·r² = cos v / (R/r + cos v). En el horn torus (r = R) diverge a −∞ en la cúspide.
+  // - Cúspide / zona hiperbólica extrema (K << 0): magenta
+  // - Silla hiperbólica (K < 0): ámbar
+  // - Banda parabólica (K ≈ 0, v ≈ π/2): verde agua
+  // - Domo elíptico exterior (K > 0, v ≈ 0): zafiro
+  // - Vecindad de una marca de fantasía (isRupture): fucsia
   const cosV = Math.cos(v);
-  const denom = Math.max(0.012, 1 + cosV);
-  const K_norm = cosV / denom; // K normalizado respecto a 1/a^2
-
+  const rho = 1 / Math.max(1e-6, rOverR);
+  const K_norm = cosV / Math.max(0.012, rho + cosV);
   if (isRupture) {
-    // Acoplamiento directo: Angustia desbordada en la zona de la Fantasía ($ <> a)
-    const t = Math.min(1.0, angustia / aCritical);
-    return {
-      r: 0.98,
-      g: 0.22 + 0.35 * t,
-      b: 0.75 - 0.45 * t
-    };
+    const t = aCritical > 0
+      ? Math.min(1, Math.max(0, (angustia - (maxAngustia - aCritical)) / aCritical))
+      : 0;
+    return { r: 0.98, g: 0.22 + 0.35 * t, b: 0.75 - 0.45 * t };
   }
-
   if (K_norm < -1.8) {
-    // Cúspide singular / estrangulamiento hiperbólico extremo
     const t = Math.min(1.0, (-K_norm - 1.8) / 8.0);
-    return {
-      r: 0.85 + 0.15 * t,
-      g: 0.08 * (1 - t),
-      b: 0.45 + 0.45 * t
-    };
+    return { r: 0.85 + 0.15 * t, g: 0.08 * (1 - t), b: 0.45 + 0.45 * t };
   } else if (K_norm < -0.15) {
-    // Cuello hiperbólico / silla de montar inconsciente
     const t = (-K_norm - 0.15) / 1.65;
-    return {
-      r: 0.95 - 0.10 * t,
-      g: 0.65 - 0.50 * t,
-      b: 0.10 + 0.30 * t
-    };
+    return { r: 0.95 - 0.10 * t, g: 0.65 - 0.50 * t, b: 0.10 + 0.30 * t };
   } else if (K_norm <= 0.20) {
-    // Frontera parabólica (K ~ 0, marco de la fantasía en v = pi/2)
     const t = (K_norm + 0.15) / 0.35;
-    return {
-      r: 0.10 + 0.15 * t,
-      g: 0.82 - 0.12 * t,
-      b: 0.65 + 0.25 * t
-    };
-  } else {
-    // Domo elíptico convexo exterior (Cc, investidura de objeto, v ~ 0)
-    const t = Math.min(1.0, (K_norm - 0.20) / 0.80);
-    return {
-      r: 0.08 + 0.20 * t,
-      g: 0.40 + 0.40 * t,
-      b: 0.95
-    };
+    return { r: 0.10 + 0.15 * t, g: 0.82 - 0.12 * t, b: 0.65 + 0.25 * t };
   }
+  const t = Math.min(1.0, (K_norm - 0.20) / 0.80);
+  return { r: 0.08 + 0.20 * t, g: 0.40 + 0.40 * t, b: 0.95 };
 }
 
 /**
@@ -1361,23 +1254,50 @@ export function getVertexColor(
  */
 export function computeTopologicalMetrics(
   params: ModelParams,
-  sclData: SCL90RData
+  sclData: SCL90RData,
+  baremoId: BaremoId = DEFAULT_BAREMO_ID
 ): TopologicalMetrics {
   const lacanian = calculateLacanianParameters(sclData, params);
-  const a = lacanian.a * 25.0;
+  const a = lacanian.a * 25.0; // R = effectiveA
+  const rOverR = lacanian.rOverR;
+  const r = a * rOverR; // tube radius (visual scale)
+  const isLimit = rOverR >= 1.0; // horn torus = limit object
 
-  // Horn Torus Area = 4 * pi^2 * a^2
-  const surfaceAreaStandard = 4 * Math.PI * Math.PI * a * a;
-  // Volume = 2 * pi^2 * a^3
-  const volumeStandard = 2 * Math.PI * Math.PI * Math.pow(a, 3);
+  // --- Exact geometric invariants of the torus family (verify against the
+  // acceptance table in spec_hornTorusMath_familia.txt, tolerance 1e-3) ---
+
+  // Area A = 4·π²·R·r (at r=R: 4π²a²)
+  const surfaceAreaStandard = 4 * Math.PI * Math.PI * a * r;
+  // Volume V = 2·π²·R·r² (at r=R: 2π²a³)
+  const volumeStandard = 2 * Math.PI * Math.PI * a * r * r;
+
+  // Willmore energy W = π²ρ²/√(ρ²−1) with ρ = R/r > 1; → +∞ as r → R.
+  const rho = a / r; // = 1/rOverR
+  const willmoreEnergyStandard = isLimit
+    ? Infinity
+    : (Math.PI * Math.PI * rho * rho) / Math.sqrt(rho * rho - 1);
+
+  // Curvatures are pure geometry of the surface: no SCL-90-R factors.
+  // K_max = 1/(r(R+r)) at v=0; K_min = −1/(r(R−r)) at v=π (→ −∞ as r → R);
+  // ⟨H⟩ = 1/(2r).
+  const gaussianCurvatureMax = 1.0 / (r * (a + r));
+  const gaussianCurvatureMin = isLimit ? -Infinity : -1.0 / (r * (a - r));
+  const meanCurvatureAvg = 1.0 / (2 * r);
+
+  // Regime-dependent topology. In the limit r = R the parametrization
+  // collapses the inner circle {v = π} to a single point: the object is
+  // T²/λ_int (a sphere with two points identified) — not a manifold, no genus.
+  const esVariedad = !isLimit;
+  const eulerCharacteristic = isLimit ? 1 : 0;
+  const rangoH1 = isLimit ? 1 : 2;
 
   const delta = params.deformation_factor;
   const gsi = sclData["GSI"] || 0.85;
   const psy = sclData["Psicoticismo"] || 0.9;
   const som = sclData["Somatización"] || 0.8;
   const oc = sclData["Obsesión-Compulsión"] || 0.9;
-  const psdi = sclData["PSDI"] || 0.9;
-  const pst = sclData["PST"] || 0.7;
+  const psdi = sclData["PSDI"] || 1.7;
+  const pst = pstGeom(sclData["PST"] || 45);
 
   // Deformed Area & Volume
   const areaExpansionFactor = 1.0 + delta * (0.28 * som + 0.35 * gsi + 0.20 * pst);
@@ -1389,13 +1309,12 @@ export function computeTopologicalMetrics(
   const volumeDeltaPercent = ((volumeDeformed - volumeStandard) / volumeStandard) * 100;
 
   // Willmore Energy W = Integral(H^2 dA)
-  const willmoreEnergyStandard = 2 * Math.PI * Math.PI; // ~19.74
-  const willmoreEnergyDeformed = willmoreEnergyStandard * (1.0 + delta * (0.85 * psdi + 0.65 * psy));
-
-  // Curvatures
-  const gaussianCurvatureMin = -12.45 * (1 + psy * 1.5);
-  const gaussianCurvatureMax = (1.0 / (a * a)) * (1 + oc * 0.4);
-  const meanCurvatureAvg = (1.5 / a) * (1 + delta * 0.25);
+  // Deformed W keeps the engine's clinical expansion factor, but anchored to
+  // the actual W of the member (not the old fixed 2π² Clifford baseline).
+  // Clamp the factor at 0: with standard = Infinity (r = R), a factor <= 0
+  // would produce Infinity * 0 = NaN.
+  const wDeformedFactor = Math.max(0.0, 1.0 + delta * (0.85 * psdi + 0.65 * psy));
+  const willmoreEnergyDeformed = willmoreEnergyStandard * wDeformedFactor;
 
   // Shannon entropy
   const values = [som, oc, psy, gsi, pst, psdi];
@@ -1410,14 +1329,58 @@ export function computeTopologicalMetrics(
   const disharmony = (gsi * 0.3 + psy * 0.3 + oc * 0.2 + som * 0.2) * (1 + delta * 0.5);
   const iccIndex = Math.max(8.5, Math.min(99.0, (1.0 - disharmony * 0.65) * 100));
 
-  let clinicalSeverityTier: 'Normal' | 'Leve' | 'Moderado' | 'Severo' | 'Crítico' = 'Moderado';
-  if (gsi < 0.35 && psy < 0.4) clinicalSeverityTier = 'Normal';
-  else if (gsi < 0.60) clinicalSeverityTier = 'Leve';
-  else if (gsi < 0.80) clinicalSeverityTier = 'Moderado';
-  else if (gsi < 0.92) clinicalSeverityTier = 'Severo';
-  else clinicalSeverityTier = 'Crítico';
+  // --- Baremo Casullo–Pérez (Adaptación UBA), población seleccionada ---
+  // Las cuatro tablas (sexo × edad) viven en baremos.ts, extraídas del
+  // inventario_sintomas.pdf. Nota: la fila de Psicoticismo masculina-adulta
+  // que circulaba en el código tenía los valores de la columna IGS; acá va
+  // la fila correcta del PDF.
+  const baremo = getBaremo(baremoId);
+
+  // T de una escala por interpolación lineal en la tabla publicada. Fuera del
+  // rango publicado (T 30–80) no se extrapola: el T se acota al extremo y la
+  // escala se marca fuera de baremo (antes la extrapolación daba T ≈ 188).
+  const fueraDeBaremo = new Map<string, 'bajo' | 'alto'>();
+  const tDeEscala = (k: keyof SCL90RData): number => {
+    const r = tDeEscalaCon(baremo, k, sclData[k] ?? 0);
+    if (r.lado) fueraDeBaremo.set(String(k), r.lado);
+    return r.t;
+  };
+
+  // T por escala (interp. en el baremo masculino-adulto) y estado por escala.
+  // T < 60: normal · T >= 60: sintomático en esa escala.
+  const scaleKeys = Object.keys(baremo.tabla) as (keyof SCL90RData)[];
+  let worstScale: keyof SCL90RData = "GSI";
+  let worstT = -Infinity;
+  const escalasClinicas: string[] = [];
+  const tScores = {} as Record<keyof SCL90RData, number>;
+  for (const k of scaleKeys) {
+    const t = tDeEscala(k);
+    tScores[k] = t;
+    if (t > worstT) { worstT = t; worstScale = k; }
+    if (t >= 60) escalasClinicas.push(String(k));
+  }
+
+  // Gravedad global: T del IGS (GSI) interpolado del baremo. La regla del
+  // usuario: T < 60 = normal, T >= 60 = sintomático.
+  const tScoreGsi = tDeEscala("GSI");
+  let clinicalSeverityTier: 'Normal' | 'Leve' | 'Moderado' | 'Severo' | 'Crítico';
+  if (tScoreGsi < 60) clinicalSeverityTier = 'Normal';          // T < 60: rango normal
+  else if (tScoreGsi < 65) clinicalSeverityTier = 'Leve';        // T 60–65
+  else if (tScoreGsi < 70) clinicalSeverityTier = 'Moderado';    // T 65–70
+  else if (tScoreGsi < 80) clinicalSeverityTier = 'Severo';      // T 70–80
+  else clinicalSeverityTier = 'Crítico';                    // T >= 80
 
   const stabilityScore = Math.max(0, Math.min(100, 100 - (delta * 40 + gsi * 35 + psy * 25)));
+
+  // --- Ruptura psicótica fuera de baremo: IGS >= 3× el corte T=60 + Wegbreite (δ) ---
+  const psychoticRupture = isPsychoticRupture(sclData, params);
+  const ruptureGsiThreshold = ruptureThresholdGsi(baremoId);
+  const gsiOverCutoff = gsi > 0 ? Math.min(gsi / getBaremo(baremoId).t60Gsi, 9.99) : 0;
+
+  // --- Estado post-episodio: el toro reconfigurado ya es otra cosa ---
+  // Parámetros para pensarlo, cada uno anclado a la geometría del horn torus.
+  // Ver computePostEpisodeState para la derivación y las referencias.
+  // (se computa al final, con el baremo ya calculado, para evitar recursión).
 
   // Sample Differential Stress & Topological Tension across the manifold (E_def vs E_0)
   let sumTension = 0;
@@ -1430,7 +1393,7 @@ export function computeTopologicalMetrics(
     const v = (i / sampleSteps) * 2 * Math.PI;
     for (let j = 0; j < sampleSteps; j++) {
       const u = (j / sampleSteps) * 2 * Math.PI;
-      const { tension } = computeDifferentialTension(u, v, sclData, delta, a);
+      const { tension } = computeDifferentialTension(u, v, sclData, delta, a, rOverR);
       sumTension += tension;
       if (tension > maxTension) maxTension = tension;
       if (tension >= 0.65) highTensionCount++;
@@ -1441,6 +1404,7 @@ export function computeTopologicalMetrics(
   const highTensionAreaPercent = (highTensionCount / totalSamples) * 100;
 
   return {
+    baremoId,
     surfaceAreaStandard,
     surfaceAreaDeformed,
     surfaceAreaDeltaPercent,
@@ -1452,6 +1416,16 @@ export function computeTopologicalMetrics(
     meanCurvatureAvg,
     gaussianCurvatureMin,
     gaussianCurvatureMax,
+    esVariedad,
+    eulerCharacteristic,
+    rangoH1,
+    rOverR,
+    tScoreGsi,
+    tScores,
+    fueraDeBaremo: Object.fromEntries(fueraDeBaremo),
+    escalasClinicas,
+    escalaMasAlterada: String(worstScale),
+    tScoreEscalaMasAlterada: worstT,
     topologicalEntropy,
     iccIndex,
     clinicalSeverityTier,
@@ -1459,8 +1433,109 @@ export function computeTopologicalMetrics(
     maxDifferentialTension: maxTension,
     avgDifferentialTension,
     highTensionAreaPercent,
-    lacanian
+    lacanian,
+    psychoticRupture,
+    ruptureGsiThreshold,
+    gsiOverCutoff,
+    postEpisode: psychoticRupture ? computePostEpisodeState(sclData, escalasClinicas, params) : null
   };
+}
+
+/**
+ * Estado post-episodio del toro tras la reconfiguración psicótica.
+ *
+ * En el episodio la voz (que integra la fantasía-angustia) sale por el orificio
+ * y S, I y Pulsión se reconfiguran cubriendo toda la superficie: el toro resultante
+ * "ya es otra cosa". Estos son los parámetros para pensarlo, derivados de la
+ * geometría y del baremo, sin inventar clínica:
+ *
+ * - topologyLabel: la topología no cambia (sigue siendo el límite horn, χ = 1,
+ *   H₁ = Z⟨μ⟩) pero la ESTRUCTURA sobre ella sí — lo que cambia es cómo las
+ *   cintas (S, I, Pulsión) ocupan la superficie.
+ * - coveragePercent: fracción del manifold cubierta por las cintas tras la
+ *   reconfiguración (medida sobre la curva, % de la longitud de la superficie).
+ * - fantasyIntegrated: la fantasía-angustia ya no es un punto aparte en la
+ *   pared (u,v) = (π, 3π/4): en el desencadenamiento la marca queda en el
+ *   medio (el orificio) y se integró a la voz que salió por él.
+ * - voiceAsContinue: la voz queda como flujo emergente del orificio —
+ *   la continuidad del sujeto pasa por la voz, no por la imagen (I).
+ * - integrativeCapacity: índice 0–100 de capacidad integrativa post-episodio.
+ *   Base = 100 − intensidad del episodio (IGS/corte, escalado) + bono por el
+ *   resto de red (1 − escalas clínicas/12). NO es un pronóstico: es un
+ *   parámetro del modelo para comparar episodios y configuraciones.
+ * - epithelialDescription / postEpisodeLabel: lectura cualitativa para el resumen.
+ * - umbauCadenaS / umbauCadenaI: Corolario II al Axioma 4 (tesis V22) — el pasaje
+ *   dispersa los eslabones de las cadenas significantes de S e I y los reengancha
+ *   en un ORDEN NUEVO: otra cadena, no la misma restaurada. La permutación es
+ *   determinista a partir del perfil (mismo perfil → misma cadena nueva).
+ *   Freud 1924: fase activa de reconstrucción (Umbau) tras el Einriß — "una nueva
+ *   realidad, que ya no ofrece el mismo motivo de conflicto que la abandonada".
+ */
+export function computePostEpisodeState(sclData: SCL90RData, escalasClinicas: string[], params?: ModelParams): PostEpisodeState {
+  const gsi = sclData["GSI"] ?? 0;
+  const baremoId = params?.baremoId;
+  const corteT60 = getBaremo(baremoId).t60Gsi;
+  const intensity = gsi / corteT60;
+  // Cintas S + I + Pulsión cubriendo la superficie completa tras la reconfiguración.
+  const coveragePercent = 100;
+  // Las escalas clínicas persistentes pesan sobre la capacidad integrativa
+  // (viene ya calculada por el baremo: T >= 60 por escala).
+  const clinicalLoad = escalasClinicas.length / 12;
+  // Capacidad integrativa: la intensidad del episodio la degrada; una red con pocas
+  // escalas clínicas la conserva mejor.
+  const integrativeCapacity = Math.max(0, Math.min(100,
+    Math.round(100 - (intensity - PSYCHOTIC_RUPTURE_FACTOR) * 25 - clinicalLoad * 20)
+  ));
+  // --- Corolario II (Umbau): dispersión y reenganche de las cadenas de S e I ---
+  // Los eslabones se dispersan de su orden cíclico original (s1..s8, i1..i8) y se
+  // reenganchan en un orden NUEVO: rotación k + salto k2 dependientes de la carga
+  // clínica y la intensidad (deterministas). El par queda expuesto para que la UI
+  // muestre el rótulo del reenganche.
+  const k1 = 2 + (clinicalLoad >= 0.5 ? 1 : 0) + (escalasClinicas.includes("Psicoticismo") ? 1 : 0);
+  const k2 = 3 + (intensity >= 4 ? 2 : 0);
+  const umbauCadenaS = {
+    labels: UMBAU_ESLABONES.map((_, i) => `s${((i + k1) % UMBAU_N) + 1}`),
+    reenganche: `s1→s${k1 + 1}, s2→s${k1 + 2}, … (rotación ${k1}; salto ${k2})`,
+  };
+  const umbauCadenaI = {
+    labels: UMBAU_ESLABONES.map((_, i) => `i${((i + k1) % UMBAU_N) + 1}`),
+    reenganche: `i1→i${k1 + 1}, i2→i${k1 + 2}, … (rotación ${k1}; salto ${k2})`,
+  };
+  return {
+    topologyLabel: "Horn torus límite (χ=1, H₁=Z⟨μ⟩) — misma topología, otra estructura",
+    coveragePercent,
+    fantasyIntegrated: true,
+    voiceAsContinue: true,
+    integrativeCapacity,
+    episodeIntensity: intensity,
+  clinicalLoad,
+    umbauCadenaS,
+    umbauCadenaI,
+    postEpisodeLabel: intensity > 4.5
+      ? "Reconfiguración total — la superficie quedó estructurada alrededor del orificio (por donde salió la voz)"
+      : "Reconfiguración completa — la superficie quedó organizada alrededor del orificio (por donde salió la voz)"
+  };
+}
+
+/**
+ * Formats a possibly-infinite metric for display: '∞' for ±Infinity, '-'
+ * for NaN/undefined, fixed decimals otherwise. Prevents NaN/garbage in the
+ * summary and the UI when the horn-torus limit (W = ∞, K_min = −∞) is shown.
+ */
+export function formatMetric(value: number, decimals: number = 4): string {
+  if (value === Infinity) return "∞";
+  if (value === -Infinity) return "−∞";
+  if (!Number.isFinite(value)) return "-";
+  
+  return value.toFixed(decimals);
+}
+
+/** T de una escala para el resumen: "> 80" / "< 30" fuera del baremo publicado. */
+function formatTScore(metrics: TopologicalMetrics, escala: string, t: number): string {
+  const lado = metrics.fueraDeBaremo[escala];
+  if (lado === 'alto') return '> 80, fuera de baremo';
+  if (lado === 'bajo') return '< 30, fuera de baremo';
+  return `≈ ${t.toFixed(1)}`;
 }
 
 /**
@@ -1478,7 +1553,7 @@ export function generateModelSummaryText(
           HORN TORUS ICC MODEL (TOPOLOGICAL INCONSCIENT & SCL-90-R)
 ================================================================================
 Timestamp: ${dateStr} UTC
-Manifold: Horn Torus [R = r = a, Cusp Point (0,0,0) at v = π]
+Manifold: ${metrics.rOverR >= 1 ? "Horn Torus [R = r = a, Cusp Point (0,0,0) at v = π]" : `Toro liso de la familia [R = a, r = ${(metrics.rOverR * 100).toFixed(1)}% · a, agujero R − r > 0]`}
 Radio a (a_scale * GSI):           ${lac.a.toFixed(5)}  [a_scale=${params.a_scale}, GSI=${sclData["GSI"].toFixed(3)}]
 Escalas Angulares:                 u_scale=${params.u_scale.toFixed(4)} rad, v_scale=${params.v_scale.toFixed(4)} rad
 Factor de Deformación (δ):         ${params.deformation_factor.toFixed(4)}
@@ -1486,162 +1561,129 @@ Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
 
 [1] TOPOLOGÍA LACANIANA DEL HORN TORUS:
 --------------------------------------------------------------------------------
-  * Monismo Topológico: TODA LA SUPERFICIE ES EL INCONSCIENTE (Icc)
-    -> No hay un "adentro" sustancial ni un "afuera" cartesiano: el toro es una variedad 2D compacta y conexa.
-    -> La totalidad de la superficie es el tejido de significantes y representantes de la representación (VR).
-  * Extimidad y el Único "Afuera": La Pulsión Voz (Superyó / Objeto a):
-    -> El único exterior real que contacta el toroide es la pulsión Voz que entra por el orificio central singular (v = π).
-    -> La Voz y el imperativo del Superyó horadan el centro; a partir de allí, los VR (Vorstellungsrepräsentanz)
-       se mueven y se inscriben en toda la superficie toroidal.
-  * Principio de la Fantasía como Agujero:
-    "La fantasía es un agujero en el toro donde no existe una representación ($1 / S_2)."
-    Las cadenas significantes S y los VR de la pulsión bordean este vacío central sin penetrar ni colmar la Cosa.
-
-  * Cintas y Redes Distribuidas en la Superficie del Icc:
+  * Tópica: Icc = TODA la superficie · pared = censura Icc/Prcc (límite nítido)
+    · Prcc = campo que entra por la voz (p), concentrado en el embudo del eje, sin borde
+    · Cc = umbral de sobreinvestidura dentro de ese campo, no un lugar (AXIOMA; GW XIII, GW X)
+  * p — punto de autotangencia: la voz, de doble sentido (entra lo oído, sale la voz)
+    -> Actividad de la cinta S en p: ${(lac.earCuspActivity * 100).toFixed(1)}%
+  * Proximidad de S a la marca más cercana: ${lac.distanceSignifierToFantasy.toFixed(4)} rad ${lac.isTraumaReactivated ? '(dentro de A_cr: aproximación → angustia señal)' : '(fuera de A_cr)'}
+  * Cintas Entrecruzadas en el Interior:
 
   * S (Simbólico / Significante): u_S = ${lac.u_S.toFixed(4)} rad | v_S = ${lac.v_S.toFixed(4)} rad
     -> Función: Cadena significante. Ansiedad (${sclData["Ansiedad"].toFixed(2)}) + Obsesión (${sclData["Obsesión-Compulsión"].toFixed(2)})
     -> Color en Visualizador: ROJO (Crimson Ribbon)
 
   * I (Imaginario / Imagen del Cuerpo): u_I = ${lac.u_I.toFixed(4)} rad | v_I = ${lac.v_I.toFixed(4)} rad
-    -> Función: Especularidad y cuerpo somático. Somatización (${sclData["Somatización"].toFixed(2)}) + Sensibilidad (${sclData["Sensibilidad Interpersonal"].toFixed(2)})
+    -> Función: Umbral — el organismo inscripto como imagen del cuerpo (no lo somático mismo). Asignación: Somatización (${sclData["Somatización"].toFixed(2)}) + Sensibilidad (${sclData["Sensibilidad Interpersonal"].toFixed(2)})
     -> Color en Visualizador: VERDE (Emerald Ribbon)
 
-  * VR (Vorstellungrepräsentanz / Representante Pulsional): PEGADO A I
-    -> Fijación somato-psíquica: Fuerza de enlace = ${(lac.pulsionAttachmentStrength * 100).toFixed(1)}%
-    -> Fundamento Metapsicológico: La pulsión pura (Trieb) no ingresa desnuda al Icc;
-       únicamente accede su representante de la representación (VR), fijado al cuerpo imaginario I.
+  * Hilo Pulsional (Trieb · Drang): PEGADO AL BORDE DE I
+    -> Adherencia al borde de I = ${(lac.pulsionAttachmentStrength * 100).toFixed(1)}%
+    -> Función: Empuje constante (Drang), nunca ligado a un evento puntual — AXIOMA.
     -> Color en Visualizador: DORADO / ÁMBAR (Golden Braid)
 
-  * Σ (Síntoma / Sinthome): u_Σ = ${lac.u_Sigma.toFixed(4)} rad | v_Σ = ${lac.v_Sigma.toFixed(4)} rad
-    -> Función: Anudamiento y sutura estructural. Psicoticismo (${sclData["Psicoticismo"].toFixed(2)}) + Hostilidad (${sclData["Hostilidad"].toFixed(2)})
+  * Σ (Síntoma): u_Σ = ${lac.u_Sigma.toFixed(4)} rad | v_Σ = ${lac.v_Sigma.toFixed(4)} rad
+    -> Función: Síntoma. Asignación (AXIOMA): Psicoticismo (${sclData["Psicoticismo"].toFixed(2)}) + Hostilidad (${sclData["Hostilidad"].toFixed(2)})
     -> Color en Visualizador: AZUL COBALTO (Cobalt Ribbon)
 
-  * Punto de Fantasía [La Fantasía es Angustia]: ($ <> a) en (u_F, v_F) = (π, π/2)
-    -> Coordenadas 3D (x,y,z): (${lac.fantasyPoint3D[0].toFixed(4)}, ${lac.fantasyPoint3D[1].toFixed(4)}, ${lac.fantasyPoint3D[2].toFixed(4)})
-    -> Envoltura: Reside en el Icc (no traspasa al exterior Cc)
-    -> Vórtice de Angustia y límite de ruptura en el umbral A_cr = ${params.a_critical.toFixed(4)} rad
-    -> Puntos de Ruptura (A ≤ A_cr): ${lac.ruptureCount} nodos (${lac.ruptureAreaPercent.toFixed(2)}% del Manifold)
+  * Marcas de Fantasía [la angustia surge por proximidad — AXIOMA · Resumen §8: N marcas, una por trauma]: ${lac.fantasyMarks.length}
+${lac.fantasyMarks.map((m, i) => `    -> Marca ${i + 1}: (u, v) = (${m.u.toFixed(3)}, ${m.v.toFixed(3)}) · 3D: (${lac.fantasyMarks3D[i][0].toFixed(4)}, ${lac.fantasyMarks3D[i][1].toFixed(4)}, ${lac.fantasyMarks3D[i][2].toFixed(4)})`).join('\n')}
+    -> Angustia crítica: A ≥ A_max − A_cr = ${(MAX_ANGUSTIA_DISTANCE - Math.PI / 4).toFixed(2)} — UNIÓN de las vecindades de radio A_cr = π/4 (AXIOMA)
+    -> Puntos de Ruptura (A ≥ A_max − A_cr, % ponderado por área): ${lac.ruptureCount} nodos (${lac.ruptureAreaPercent.toFixed(2)}% del área)${params.sigmaPantalla
+      ? `
+    -> Σ como PANTALLA (tesis Cap. 7): la banda del síntoma intercepta ${((lac.sigmaPantallaFraccion ?? 0) * 100).toFixed(1)}% de la zona de angustia
+         y la desvía de las marcas de fantasía — sin pantalla sería ${lac.ruptureAreaPercentSinPantalla?.toFixed(2)}% del área.`
+      : `
+    -> Σ como mero ANUDAMIENTO (tesis Cap. 7): no incide en dónde se producen los cruces;
+         la banda del síntoma cubriría ${((lac.sigmaPantallaFraccion ?? 0) * 100).toFixed(1)}% de la zona, pero los cruces llegan a las marcas.`}
 
-  * Cúspide de Auto-tangencia ("El Oído" del Horn Torus en v=π):
-    -> Punto de contacto singular (0,0,0) que comunica el exterior con el vórtice interior
-    -> Nivel de apertura / actividad en el polo: ${(lac.earCuspActivity * 100).toFixed(1)}%
-
-  * Dinámica Traumática (Paso del Significante S cerca de la Fantasía):
-    -> Distancia angular S -> Fantasía: ${lac.distanceSignifierToFantasy.toFixed(4)} rad
-    -> Estado de Activación Traumática: ${lac.isTraumaReactivated ? '⚠ TRAUMA REACTIVADO (Significante activa la angustia en el Icc)' : '✓ Compensado (Trayectoria S distante del núcleo de angustia)'}
-
-[2] VECTOR PSICOMÉTRICO SCL-90-R (BAREMO DE ADULTOS DEROGATIS):
+[2] VECTOR PSICOMÉTRICO SCL-90-R (DEROGATIS):
 --------------------------------------------------------------------------------
-Baremo Adultos: Normal T < 60 | Leve T 60-69 | Moderado T 70-79 | Severo T ≥ 80
-${(() => {
-  const tScores = sclDataToTScores(sclData);
-  const rows: { k: string; key: keyof SCL90RData }[] = [
-    { k: "Somatización (SOM)", key: "Somatización" },
-    { k: "Obsesión-Compulsión (O-C)", key: "Obsesión-Compulsión" },
-    { k: "Sensibilidad Interpersonal (I-S)", key: "Sensibilidad Interpersonal" },
-    { k: "Depresión (DEP)", key: "Depresión" },
-    { k: "Ansiedad (ANX)", key: "Ansiedad" },
-    { k: "Hostilidad (HOS)", key: "Hostilidad" },
-    { k: "Ansiedad Fóbica (PHOB)", key: "Ansiedad Fóbica" },
-    { k: "Ideación Paranoide (PAR)", key: "Ideación Paranoide" },
-    { k: "Psicoticismo (PSY)", key: "Psicoticismo" },
-    { k: "Global Severity Index (GSI)", key: "GSI" },
-    { k: "Positive Symptom Total (PST)", key: "PST" },
-    { k: "Positive Symptom Distress (PSDI)", key: "PSDI" }
-  ];
-  return rows.map(r => {
-    const t = tScores[r.key];
-    const norm = sclData[r.key];
-    const cat = getTScoreInterpretation(t);
-    return `  * ${r.k.padEnd(34)}: T=${t.toString().padEnd(3)} | Norm=${norm.toFixed(3)} | [${cat.tier.toUpperCase()}]`;
-  }).join('\n');
-})()}
+  * Somatización (SOM):                ${sclData["Somatización"].toFixed(3)}
+  * Obsesión-Compulsión (O-C):          ${sclData["Obsesión-Compulsión"].toFixed(3)}
+  * Sensibilidad Interpersonal (I-S):   ${sclData["Sensibilidad Interpersonal"].toFixed(3)}
+  * Depresión (DEP):                    ${sclData["Depresión"].toFixed(3)}
+  * Ansiedad (ANX):                     ${sclData["Ansiedad"].toFixed(3)}
+  * Hostilidad (HOS):                   ${sclData["Hostilidad"].toFixed(3)}
+  * Ansiedad Fóbica (PHOB):             ${sclData["Ansiedad Fóbica"].toFixed(3)}
+  * Ideación Paranoide (PAR):           ${sclData["Ideación Paranoide"].toFixed(3)}
+  * Psicoticismo (PSY):                 ${sclData["Psicoticismo"].toFixed(3)}
+  * Global Severity Index (GSI):        ${sclData["GSI"].toFixed(3)}
+  * Positive Symptom Total (PST):       ${sclData["PST"].toFixed(3)}
+  * Positive Symptom Distress (PSDI):   ${sclData["PSDI"].toFixed(3)}
 
+  * BAREMO CASULLO–PÉREZ (${getBaremo(metrics.baremoId).fuente}, T=60 = corte):
+    -> T del IGS (GSI):                 ${formatTScore(metrics, "GSI", metrics.tScoreGsi)}  ${metrics.tScoreGsi < 60 ? "(T < 60: rango normal)" : "(T >= 60: sintomático)"}
+    -> Escalas con T >= 60:             ${metrics.escalasClinicas.length === 0 ? "ninguna — perfil normal" : metrics.escalasClinicas.join(", ")}
+    -> Escala más alterada:             ${metrics.escalaMasAlterada} (T ${formatTScore(metrics, metrics.escalaMasAlterada, metrics.tScoreEscalaMasAlterada)})${Object.keys(metrics.fueraDeBaremo).length > 0 ? `
+    -> Fuera del baremo publicado:      ${Object.entries(metrics.fueraDeBaremo).map(([k, lado]) => `${k} (${lado === 'alto' ? '> 80' : '< 30'})`).join(", ")}` : ""}
+${metrics.psychoticRupture
+      ? `  * ¡RUPTURA DEL MODELO FUERA DE BAREMO! (secuencia: AXIOMA; el PSY del SCL-90-R no mide estructura)
+      -> IGS = ${sclData["GSI"].toFixed(2)} = ${(metrics.gsiOverCutoff).toFixed(1)}× el corte T=60 (umbral: 3.00× = IGS ${metrics.ruptureGsiThreshold.toFixed(2)}).
+      -> Corolario I — Wegbreite: cruce de anchura suficiente (deformation_factor ≥ π/6 ≈ 0.52; actual = ${params.deformation_factor.toFixed(2)}).
+         Un cruce angosto (δ bajo el techo) se disipa aunque la cantidad (IGS) alcance el umbral — Entwurf (1895):
+         la anchura de vía es independiente de la cantidad y de la resistencia, y permanece constante.
+      -> La configuración S, I y Pulsión se rompe: eyectada por el orificio (cúspide v=π, origen)
+         por donde sale la voz, y luego se reconfigura cubriendo toda la superficie.
+`
+      : ""}${metrics.postEpisode
+      ? `  * POST-EPISODIO — EL TORO YA ES OTRA COSA:
+      -> ${metrics.postEpisode.topologyLabel}
+      -> Cobertura de cintas tras reconfiguración: ${metrics.postEpisode.coveragePercent}% del manifold.
+      -> Fantasía: integrada a la voz que salió por el orificio (AXIOMA, a fundar).
+      -> Continuidad del sujeto: por la voz (flujo emergente del orificio), no por la imagen I.
+      -> Corolario II — Umbau: cadenas dispersas y reenganchadas en un orden NUEVO —
+         S: ${metrics.postEpisode.umbauCadenaS.reenganche}
+         I: ${metrics.postEpisode.umbauCadenaI.reenganche}
+         (otra cadena, no la misma restaurada — Freud 1924: Umbau tras el Einriß).
+      -> Capacidad integrativa post-episodio: ${metrics.postEpisode.integrativeCapacity}/100
+         (intensidad ${metrics.postEpisode.episodeIntensity.toFixed(2)}× corte · carga clínica ${(metrics.postEpisode.clinicalLoad * 100).toFixed(0)}% de escalas con T>=60).
+      -> ${metrics.postEpisode.postEpisodeLabel}
+`
+      : ""}
 [3] INVARIANTES TOPOLÓGICOS Y ENERGÉTICOS:
 --------------------------------------------------------------------------------
-  * Característica de Euler (χ):        0 (Toro Manifold Género 1)
+  * Característica de Euler (χ):        ${metrics.eulerCharacteristic} (${metrics.esVariedad ? "Toro liso encajado — H1 = Z²⟨μ, λ⟩, rango " + metrics.rangoH1 : "Horn Torus límite, NO variedad — H1 = Z⟨μ⟩, rango " + metrics.rangoH1 + "; género indefinido"})
   * Área Superficial Estándar:          ${metrics.surfaceAreaStandard.toFixed(4)} u²
   * Área Superficial Deformada:         ${metrics.surfaceAreaDeformed.toFixed(4)} u² (${metrics.surfaceAreaDeltaPercent >= 0 ? '+' : ''}${metrics.surfaceAreaDeltaPercent.toFixed(2)}%)
   * Volumen Encerrado Estándar:         ${metrics.volumeStandard.toFixed(4)} u³
   * Volumen Encerrado Deformado:        ${metrics.volumeDeformed.toFixed(4)} u³ (${metrics.volumeDeltaPercent >= 0 ? '+' : ''}${metrics.volumeDeltaPercent.toFixed(2)}%)
-  * Energía de Willmore W = ∫H² dA:     ${metrics.willmoreEnergyDeformed.toFixed(4)} (Base: ${metrics.willmoreEnergyStandard.toFixed(4)})
+  * Energía de Willmore W = ∫H² dA:     ${formatMetric(metrics.willmoreEnergyDeformed)} (Base: ${formatMetric(metrics.willmoreEnergyStandard)})
   * Tensión Topológica Diferencial ΔE:  Promedio: ${(metrics.avgDifferentialTension * 100).toFixed(1)}% | Máxima: ${(metrics.maxDifferentialTension * 100).toFixed(1)}%
   * Área de Alta Tensión (τ ≥ 0.65):    ${metrics.highTensionAreaPercent.toFixed(1)}% del Manifold
-  * Índice ICC (Coherencia Icc):        ${metrics.iccIndex.toFixed(2)} %
-  * Diagnóstico Clínico Estructural:    [ ${metrics.clinicalSeverityTier.toUpperCase()} ]
-    ${lac.ruptureAreaPercent > 12.0 ? '-> ALERTA: Zona de angustia crítica expandida. Ruptura de la fantasía en cercanías de la cúspide.' : '-> Estructura compensada: Trayectorias S, I y Σ delimitadas con angustia focalizada.'}
+  * Índice ICC (compuesto, AXIOMA):    ${metrics.iccIndex.toFixed(2)} %
+  * Nivel de malestar (T del IGS):     [ ${metrics.clinicalSeverityTier.toUpperCase()} ]  (no es diagnóstico de estructura)
+    ${lac.ruptureAreaPercent > 12.0 ? '-> ALERTA: zona de proximidad a la marca de fantasía expandida.' : '-> Zona de proximidad acotada: trayectorias S, I y Σ delimitadas.'}
 ================================================================================`;
 }
 
 /**
  * Returns exact standalone Python code for horn_torus_icc_model.py
- * complete with adult norms normalization, all classes, methods, curves, and plotting
+ * complete with all classes, methods, curves, and plotting functions
  */
 export function generatePythonScript(sclData: SCL90RData, params: ModelParams): string {
-  const tScores = sclDataToTScores(sclData);
-
   return `#!/usr/bin/env python3
 """
 Modelo 3D del Horn Torus para el Icc (Inconsciente)
-Integra resultados del test psicométrico SCL-90-R de Derogatis con Baremo de Adultos:
-- T < 60: Normal (media poblacional T=50, sin patología clínica)
-- T 60-69: Leve
-- T 70-79: Moderado
-- T >= 80: Severo (límite clínico crítico)
-Fórmula de normalización al modelo matemático [0,1]:
-  norm = max(0, min(1, (T - 50) / 30))
-
-Incluye:
-- Cintas interiores del Icc: S (Significante), I (Imagen del cuerpo), Σ (Síntoma)
-- VR (Vorstellungrepräsentanz): representante pulsional fijado a I
-- Punto de Fantasía en el Icc (u=π, v=π/2) y reactivación traumática
-- Cúspide singular en v=π ("el oído" del horn torus)
+Integra resultados del test psicométrico SCL-90-R de Derogatis
+con variables S (Significante), I (Imagen del cuerpo), Σ (Síntoma)
+y la fantasía como punto de angustia.
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
-
-def normalize_scl90r_t_scores(scl90r_data, max_normalized=2.0):
-    """
-    Normaliza puntajes T del SCL-90-R al rango [0, max_normalized] según el baremo de adultos.
-    Baremo estándar (Casullo & Pérez, 2008):
-      - T = 50 (media poblacional) -> 0.0
-      - T = 63 (umbral de riesgo clínico p90) -> 0.26
-      - T = 70 (moderado) -> 0.40
-      - T = 80 (límite clínico del baremo) -> 0.60
-      - T = 100 (máximo clínico extremo / descompensación) -> 1.00
-      - T > 80 (hasta 150+) -> valores > 1.0 diferenciables (hasta max_normalized)
-    
-    Args:
-        scl90r_data (dict): Diccionario con puntajes T del SCL-90-R.
-        max_normalized (float): Límite superior normalizado (default 2.0).
-
-    Returns:
-        dict: Valores normalizados entre 0 y max_normalized.
-    """
-    normalized = {}
-    for key, value in scl90r_data.items():
-        try:
-            t_score = float(value)
-            normalized_value = (t_score - 50.0) / 50.0
-            normalized_value = max(0.0, min(max_normalized, normalized_value))
-            normalized[key] = round(normalized_value, 4)
-        except (ValueError, TypeError):
-            normalized[key] = value
-    return normalized
 
 class HornTorusICCModel:
     """
     Clase principal para modelar y visualizar el Horn Torus del Icc
-    con datos del SCL-90-R y Baremo de Adultos (Casullo & Pérez 2008).
+    con datos del SCL-90-R.
     """
 
-    def __init__(self, scl90r_data=None, a_scale=0.1, u_scale=2*np.pi, v_scale=np.pi,
-                 A_cr=np.pi/4, auto_normalize=True, max_normalized=2.0):
-        # Datos por defecto del SCL-90-R (valores normalizados)
+    def __init__(self, scl90r_data=None, a_scale=0.1, u_scale=2*np.pi, v_scale=np.pi, sigma_pantalla=False):
+        # Datos por defecto del SCL-90-R (dimensiones 0–4; PST = conteo 0–90; IGS = PST·PSDI/90)
         self.default_scl90r_data = {
             "Somatización": 0.8,
             "Obsesión-Compulsión": 0.9,
@@ -1653,29 +1695,17 @@ class HornTorusICCModel:
             "Ideación Paranoide": 0.8,
             "Psicoticismo": 0.9,
             "GSI": 0.85,
-            "PST": 0.7,
-            "PSDI": 0.9
+            "PST": 45,
+            "PSDI": 1.70
         }
 
-        self.max_normalized = max_normalized
-        data_input = scl90r_data if scl90r_data else self.default_scl90r_data
-
-        # Si se proporcionan puntajes T (valores > 1), normalizar con baremo de adultos
-        if auto_normalize and any(float(v) > 1.0 for v in data_input.values()):
-            print(
-                f"🔍 Detectados puntajes T del SCL-90-R. Normalizando con baremo "
-                f"de adultos [T=50 -> 0, T=80 -> 0.6, max_normalized={max_normalized}]..."
-            )
-            self.scl90r_data = normalize_scl90r_t_scores(data_input, max_normalized=max_normalized)
-            self.raw_t_scores = data_input
-        else:
-            self.scl90r_data = data_input
-            self.raw_t_scores = {k: round(50 + 50 * float(v)) for k, v in data_input.items()}
-
+        self.scl90r_data = scl90r_data if scl90r_data else self.default_scl90r_data
         self.a_scale = a_scale
         self.u_scale = u_scale
         self.v_scale = v_scale
-        self.A_cr = A_cr
+        # Pregunta abierta de la tesis (Cap. 7): ¿Σ como pantalla que desvía los
+        # cruces de las marcas o mero anudamiento? Conmutable.
+        self.sigma_pantalla = sigma_pantalla
 
         # Parámetros del modelo
         self.a = None
@@ -1686,6 +1716,12 @@ class HornTorusICCModel:
         self.u_Sigma = None
         self.v_Sigma = None
         self.fantasy_point = None
+        # Marcas de fantasía (Resumen §8: una o varias — una por trauma)
+        self.n_fantasy_marks = 1
+        self.fantasy_marks = []
+
+        # Umbral de angustia
+        self.A_cr = np.pi / 4
 
         # Calcular parámetros
         self._calculate_parameters()
@@ -1702,7 +1738,7 @@ class HornTorusICCModel:
         self.u_S = self.u_scale * (anxiety + obsession) / num_scales
 
         # Parámetro v para S: basado en PSDI
-        psdi = self.scl90r_data.get("PSDI", 0.9)
+        psdi = self.scl90r_data.get("PSDI", 1.7)
         self.v_S = self.v_scale * (1 + psdi)
 
         # Parámetro u para I (Imagen del cuerpo): basado en Somatización y Sensibilidad Interpersonal
@@ -1711,7 +1747,8 @@ class HornTorusICCModel:
         self.u_I = self.u_scale * (somatization + interpersonal) / num_scales
 
         # Parámetro v para I: basado en PST
-        pst = self.scl90r_data.get("PST", 0.7)
+        # PST (0–90) llevado a la escala 0–4 de las demás puntuaciones
+        pst = self.scl90r_data.get("PST", 45) / 22.5
         self.v_I = self.v_scale * (1 + pst)
 
         # Parámetro u para Σ (Síntoma): basado en Psicoticismo y Hostilidad
@@ -1722,8 +1759,15 @@ class HornTorusICCModel:
         # Parámetro v para Σ: basado en Psicoticismo
         self.v_Sigma = self.v_scale * (1 + psychoticism)
 
-        # Punto de fantasía (angustia máxima)
-        self.fantasy_point = (np.pi, np.pi / 2)
+        # Marcas de fantasía (Resumen §8 resuelto: N marcas, una por trauma).
+        # La marca vive en la PARED (cara interna): en la configuración neurótica
+        # la angustia surge cuando la pulsión pasa cerca. SOLO en el
+        # desencadenamiento la marca queda en el medio (el orificio).
+        self.n_fantasy_marks = int(${JSON.stringify(params.fantasyMarkCount ?? 1)})
+        self.fantasy_marks = [(np.pi, 3 * np.pi / 4)]
+        for m in range(1, self.n_fantasy_marks):
+            self.fantasy_marks.append((np.pi + m * 1.9, 3 * np.pi / 4 + 0.35 * np.sin(m * 2.1)))
+        self.fantasy_point = self.fantasy_marks[0]
 
     def horn_torus_surface(self, u_resolution=100, v_resolution=100):
         """Genera la superficie paramétrica del horn torus."""
@@ -1739,9 +1783,18 @@ class HornTorusICCModel:
         return x, y, z, u, v
 
     def calculate_angustia(self, u, v):
-        """Calcula la función de angustia A(u, v) como distancia al punto de fantasía."""
-        u_F, v_F = self.fantasy_point
-        return np.sqrt((u - u_F)**2 + (v - v_F)**2)
+        """A(u, v): intensidad de angustia — AXIOMA. Máximo sobre las N marcas de
+        fantasía (Resumen §8): basta pasar cerca de una. A = máx(A_max − d_per).
+        La ruptura es la UNIÓN de las vecindades: A >= A_max − A_cr."""
+        best = np.zeros_like(np.asarray(u, dtype=float) + np.asarray(v, dtype=float))
+        for u_F, v_F in self.fantasy_marks:
+            du = np.abs(u - u_F) % (2 * np.pi)
+            dv = np.abs(v - v_F) % (2 * np.pi)
+            du = np.minimum(du, 2 * np.pi - du)
+            dv = np.minimum(dv, 2 * np.pi - dv)
+            a = np.pi * np.sqrt(2) - np.hypot(du, dv)
+            best = np.maximum(best, a)
+        return best
 
     def get_curves(self, u_points=100):
         """Genera las curvas S, I, Σ sobre la superficie del horn torus."""
@@ -1786,7 +1839,15 @@ class HornTorusICCModel:
         u_grid, v_grid = np.meshgrid(u, v)
         
         angustia = self.calculate_angustia(u_grid, v_grid)
-        rupture_mask = angustia <= self.A_cr
+        rupture_mask = angustia >= (np.pi * np.sqrt(2) - self.A_cr)  # vecindad del foco: d_per <= A_cr
+        
+        # Pregunta abierta (tesis Cap. 7): Σ como pantalla intercepta los cruces en
+        # su banda (v = π + 0.58·sin(2u + φ_Σ), semiancho 0.35) y los desvía de las
+        # marcas; como mero anudamiento los cruces llegan a las marcas.
+        if self.sigma_pantalla:
+            phi_sigma = self.v_Sigma % (2 * np.pi)
+            banda = np.abs((v_grid - (np.pi + 0.58 * np.sin(2 * u_grid + phi_sigma)) + np.pi) % (2 * np.pi) - np.pi) <= 0.35
+            rupture_mask = rupture_mask & ~banda
         
         x = self.a * (1 + np.cos(v_grid)) * np.cos(u_grid)
         y = self.a * (1 + np.cos(v_grid)) * np.sin(u_grid)
@@ -1822,7 +1883,7 @@ class HornTorusICCModel:
 
         # Superficie coloreada por angustia
         norm = Normalize(vmin=angustia.min(), vmax=angustia.max())
-        ax.plot_surface(
+        surf = ax.plot_surface(
             x, y, z,
             facecolors=plt.cm.viridis(norm(angustia)),
             alpha=0.65,
@@ -1837,7 +1898,7 @@ class HornTorusICCModel:
 
         # Punto de Fantasía
         xf, yf, zf = self.get_fantasy_point_3d()
-        ax.scatter([xf], [yf], [zf], color='magenta', s=120, edgecolors='black', label='Fantasía (Angustia Máx)')
+        ax.scatter([xf], [yf], [zf], color='magenta', s=120, edgecolors='black', label='Marca de fantasía')
 
         ax.set_title("Horn Torus del Icc: Curvas S, I, Σ y Fantasía", fontsize=14, pad=12)
         ax.set_xlabel('X')
@@ -1859,15 +1920,11 @@ class HornTorusICCModel:
         x, y, z, u, v = self.horn_torus_surface()
         angustia = self.calculate_angustia(u, v)
 
-        # Deformación armónica basada en SCL-90-R con acotamiento de seguridad
+        # Deformación armónica basada en SCL-90-R
         som = self.scl90r_data.get("Somatización", 0.8)
         psy = self.scl90r_data.get("Psicoticismo", 0.9)
         oc = self.scl90r_data.get("Obsesión-Compulsión", 0.9)
-        raw_deform = (som * 0.25 * np.cos(3*v) + oc * 0.25 * np.sin(4*u) + psy * 0.35 * np.sin(u + v))
-        
-        # Bounded deformation (tanh) para evitar que T>80 o deformaciones intensas rompan el toroide
-        bounded_deform = np.tanh(raw_deform / 1.45) * 1.45
-        deform = np.maximum(0.15, 1.0 + deformation_factor * bounded_deform)
+        deform = 1.0 + deformation_factor * (som * 0.25 * np.cos(3*v) + oc * 0.25 * np.sin(4*u) + psy * 0.35 * np.sin(u + v))
 
         xd = x * deform
         yd = y * deform
@@ -1888,7 +1945,7 @@ class HornTorusICCModel:
             ax.plot(data['x'], data['y'], data['z'], color=data['color'], linewidth=3.0, label=data['label'])
 
         xf, yf, zf = self.get_fantasy_point_3d()
-        ax.scatter([xf], [yf], [zf], color='yellow', s=140, edgecolors='black', label='Fantasía (Angustia)')
+        ax.scatter([xf], [yf], [zf], color='yellow', s=140, edgecolors='black', label='Marca de fantasía')
 
         ax.set_title(f"Horn Torus Deformado por Síntoma (Factor δ={deformation_factor})", fontsize=14, pad=12)
         ax.set_xlabel('X')
@@ -1903,71 +1960,604 @@ class HornTorusICCModel:
         plt.close()
 
 if __name__ == '__main__':
-    # Puntajes T reales con Baremo de Adultos (Casullo & Pérez 2008, UBA)
-    # Media T=50, Riesgo T>=63, Severo T>=80, Alerta T>80
-    scl90r_t_scores = {
-        "Somatización": ${tScores["Somatización"]},
-        "Obsesión-Compulsión": ${tScores["Obsesión-Compulsión"]},
-        "Sensibilidad Interpersonal": ${tScores["Sensibilidad Interpersonal"]},
-        "Depresión": ${tScores["Depresión"]},
-        "Ansiedad": ${tScores["Ansiedad"]},
-        "Hostilidad": ${tScores["Hostilidad"]},
-        "Ansiedad Fóbica": ${tScores["Ansiedad Fóbica"]},
-        "Ideación Paranoide": ${tScores["Ideación Paranoide"]},
-        "Psicoticismo": ${tScores["Psicoticismo"]},
-        "GSI": ${tScores["GSI"]},
-        "PST": ${tScores["PST"]},
-        "PSDI": ${tScores["PSDI"]}
+    scl90r_data = {
+        "Somatización": ${sclData["Somatización"]},
+        "Obsesión-Compulsión": ${sclData["Obsesión-Compulsión"]},
+        "Sensibilidad Interpersonal": ${sclData["Sensibilidad Interpersonal"]},
+        "Depresión": ${sclData["Depresión"]},
+        "Ansiedad": ${sclData["Ansiedad"]},
+        "Hostilidad": ${sclData["Hostilidad"]},
+        "Ansiedad Fóbica": ${sclData["Ansiedad Fóbica"]},
+        "Ideación Paranoide": ${sclData["Ideación Paranoide"]},
+        "Psicoticismo": ${sclData["Psicoticismo"]},
+        "GSI": ${sclData["GSI"]},
+        "PST": ${sclData["PST"]},
+        "PSDI": ${sclData["PSDI"]}
     }
 
-    print("Iniciando modelo Horn Torus con Baremo de Adultos (max_normalized=2.0)...")
-    model = HornTorusICCModel(
-        scl90r_data=scl90r_t_scores,
-        a_scale=${params.a_scale},
-        A_cr=${params.a_critical},
-        auto_normalize=True,
-        max_normalized=2.0
-    )
+    model = HornTorusICCModel(scl90r_data=scl90r_data, a_scale=${params.a_scale}, sigma_pantalla=${params.sigmaPantalla === true ? 'True' : 'False'})
     model.print_model_summary()
     model.plot_3d_model(save_path='mi_modelo.png')
     model.plot_deformed_model(deformation_factor=${params.deformation_factor}, save_path='mi_modelo_deformado.png')
 `;
 }
 
+// ============================================================================
+// Fusión con la versión de GitHub (15–18/9): carga por puntajes T, animación de
+// la deformación, curvatura gaussiana, singularidades espectrales, visor HTML.
+// Internamente todo sigue en puntajes directos (PD); los T se convierten con el
+// baremo de la población elegida.
+// ============================================================================
+
+/** Techo teórico de PD por escala: dimensiones e IGS/PSDI en 0–4, PST en 0–90. */
+function pdTecho(k: keyof SCL90RData): number {
+  return k === 'PST' ? SCL90R_TOTAL_ITEMS : 4;
+}
+
 /**
- * Generates a standalone interactive HTML file (horn_torus_icc_interactivo.html)
- * containing Three.js 3D visualization, OrbitControls, and Lacanian topological annotations.
+ * PD que corresponde a un puntaje T en el baremo (inversa de tDeEscalaCon).
+ * Dentro de la tabla publicada (T 30–80) interpola; por encima de T=80 extrapola con
+ * la pendiente del último tramo (fuera de baremo) y acota al techo teórico de la escala.
  */
-export function generateInteractiveHTMLScript(
+export function pdDesdeT(k: keyof SCL90RData, t: number, baremoId?: BaremoId): number {
+  const tabla = getBaremo(baremoId).tabla[k];
+  if (!tabla || tabla.length === 0) return 0;
+  const [pFirst, tFirst] = tabla[0];
+  const [pLast, tLast] = tabla[tabla.length - 1];
+  if (t <= tFirst) return pFirst;
+  if (t >= tLast) {
+    let i = tabla.length - 2;
+    while (i > 0 && tabla[i][0] >= pLast) i--;
+    const [pPrev, tPrev] = tabla[i];
+    const slope = tLast > tPrev ? (pLast - pPrev) / (tLast - tPrev) : 0;
+    return Math.min(pdTecho(k), pLast + (t - tLast) * slope);
+  }
+  for (let i = 0; i < tabla.length - 1; i++) {
+    const [pA, tA] = tabla[i];
+    const [pB, tB] = tabla[i + 1];
+    if (t <= tB) return tB > tA ? pA + ((t - tA) / (tB - tA)) * (pB - pA) : pB;
+  }
+  return pLast;
+}
+
+/** Convierte un protocolo informado en puntajes T a PD (modo de carga 't_scores'). */
+export function sclDataDesdeTScores(
+  tScores: Record<keyof SCL90RData, number>,
+  baremoId?: BaremoId
+): SCL90RData {
+  const out = {} as SCL90RData;
+  for (const k of Object.keys(tScores) as (keyof SCL90RData)[]) {
+    const pd = pdDesdeT(k, tScores[k], baremoId);
+    out[k] = k === 'PST' ? Math.round(pd) : parseFloat(pd.toFixed(2));
+  }
+  return out;
+}
+
+/** T de cada escala a partir de PD, con el baremo elegido (acotado a la tabla publicada). */
+export function sclDataToTScores(data: SCL90RData, baremoId?: BaremoId): Record<keyof SCL90RData, number> {
+  const baremo = getBaremo(baremoId);
+  const out = {} as Record<keyof SCL90RData, number>;
+  for (const k of Object.keys(data) as (keyof SCL90RData)[]) {
+    out[k] = Math.round(tDeEscalaCon(baremo, k, data[k] ?? 0).t);
+  }
+  return out;
+}
+
+/** Filas del baremo (T 30…80 × escalas) para mostrar la tabla normativa en la UI. */
+export function normRowsDeBaremo(baremoId?: BaremoId): CasulloPerezNormRow[] {
+  const tabla = getBaremo(baremoId).tabla;
+  const ts = tabla['GSI'].map(([, t]) => t);
+  const pd = (k: keyof SCL90RData, t: number) => (tabla[k].find(([, tt]) => tt === t)?.[0] ?? 0);
+  return ts.map((T) => ({
+    T,
+    SOM: pd('Somatización', T), OBS: pd('Obsesión-Compulsión', T), SI: pd('Sensibilidad Interpersonal', T),
+    DEP: pd('Depresión', T), ANS: pd('Ansiedad', T), HOS: pd('Hostilidad', T), FOB: pd('Ansiedad Fóbica', T),
+    PAR: pd('Ideación Paranoide', T), PSIC: pd('Psicoticismo', T), IGS: pd('GSI', T), TSP: pd('PST', T),
+    IMSP: pd('PSDI', T),
+  }));
+}
+
+/** Compatibilidad con la versión de GitHub: la tabla masculina adulta (25–60). */
+export const BAREMO_CASULLO_PEREZ_2008_VARONES: CasulloPerezNormRow[] = normRowsDeBaremo('m_adultos');
+
+/**
+ * Lectura del puntaje T con la regla del baremo (T < 60 normal · T ≥ 60 sintomático ·
+ * T ≥ 63 en riesgo). Por encima de T = 80 el puntaje excede la tabla publicada: se
+ * marca como fuera de baremo, sin inferir estructura clínica a partir del número.
+ */
+export function getTScoreInterpretation(tScore: number): TScoreCategory {
+  if (tScore < 60) {
+    return {
+      tier: 'Normal', rangeLabel: 'T < 60 (Normal)',
+      badgeClass: 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80', textColor: 'text-emerald-400',
+      description: 'Rango normal del baremo (T < 60; media poblacional 50).'
+    };
+  } else if (tScore < 63) {
+    return {
+      tier: 'Leve', rangeLabel: 'T 60-62 (Sintomático)',
+      badgeClass: 'bg-teal-950/80 text-teal-300 border-teal-700/80', textColor: 'text-teal-400',
+      description: 'Sintomático (T ≥ 60), por debajo del criterio de riesgo del documento (T ≥ 63).'
+    };
+  } else if (tScore < 70) {
+    return {
+      tier: 'Leve', rangeLabel: 'T 63-69 (En riesgo)',
+      badgeClass: 'bg-yellow-950/80 text-yellow-300 border-yellow-700/80 ring-1 ring-yellow-500/30 font-semibold',
+      textColor: 'text-yellow-400',
+      description: 'En riesgo: T ≥ 63 (percentil 90 del baremo).', isRisk: true
+    };
+  } else if (tScore < 80) {
+    return {
+      tier: 'Moderado', rangeLabel: 'T 70-79',
+      badgeClass: 'bg-orange-950/80 text-orange-300 border-orange-700/80 ring-1 ring-orange-500/40 font-semibold',
+      textColor: 'text-orange-400',
+      description: 'Malestar elevado (+2 a +3 desvíos).', isRisk: true
+    };
+  } else if (tScore <= 80) {
+    return {
+      tier: 'Severo', rangeLabel: 'T = 80 (techo del baremo)',
+      badgeClass: 'bg-rose-950/80 text-rose-300 border-rose-700/80 ring-1 ring-rose-500/50 font-bold',
+      textColor: 'text-rose-400',
+      description: 'En el techo de la tabla publicada.', isRisk: true, isAlert: true
+    };
+  }
+  return {
+    tier: 'Extremo', rangeLabel: 'T > 80 (fuera de baremo)',
+    badgeClass: 'bg-red-950 text-red-200 border border-red-500 ring-2 ring-red-500/60 font-bold',
+    textColor: 'text-red-400',
+    description: 'Fuera de baremo (T > 80): el puntaje excede la tabla publicada. No es un diagnóstico de estructura.',
+    isRisk: true, isAlert: true
+  };
+}
+
+// --- Presets informados en puntajes T (de la versión de GitHub) -------------
+// El caso con nombre y apellido se ANONIMIZÓ (decisión del autor, 24/9/2026).
+// Los nombres de estructura clínica se reemplazaron por descripciones de perfil:
+// un puntaje de malestar no da estructura (kill-critic, punto 5).
+const T_PRESETS: { name: string; description: string; tScores: Record<keyof SCL90RData, number>; isRiskCase?: boolean }[] = [
+  {
+    name: 'Caso clínico A (30 años, varón) — puntajes T',
+    description: 'Caso anonimizado: PSIC T=100 (fuera de baremo), DEP T=73, SI T=73, OBS T=70, IGS T=74',
+    isRiskCase: true,
+    tScores: {
+      'Somatización': 63, 'Obsesión-Compulsión': 70, 'Sensibilidad Interpersonal': 73, 'Depresión': 73,
+      'Ansiedad': 65, 'Hostilidad': 62, 'Ansiedad Fóbica': 60, 'Ideación Paranoide': 69, 'Psicoticismo': 100,
+      'GSI': 74, 'PST': 69, 'PSDI': 65
+    }
+  },
+  {
+    name: 'Perfil T elevado (baremo adultos)',
+    description: 'Ansiedad T=82, Psicoticismo T=85, Depresión T=78 (fuera de baremo en ANS y PSIC)',
+    tScores: {
+      'Somatización': 65, 'Obsesión-Compulsión': 72, 'Sensibilidad Interpersonal': 58, 'Depresión': 78,
+      'Ansiedad': 82, 'Hostilidad': 55, 'Ansiedad Fóbica': 68, 'Ideación Paranoide': 70, 'Psicoticismo': 85,
+      'GSI': 75, 'PST': 60, 'PSDI': 70
+    }
+  },
+  {
+    name: 'Población normal (T < 60)',
+    description: 'Control no clínico: todas las escalas T < 60',
+    tScores: {
+      'Somatización': 45, 'Obsesión-Compulsión': 48, 'Sensibilidad Interpersonal': 46, 'Depresión': 45,
+      'Ansiedad': 46, 'Hostilidad': 42, 'Ansiedad Fóbica': 40, 'Ideación Paranoide': 44, 'Psicoticismo': 43,
+      'GSI': 45, 'PST': 44, 'PSDI': 48
+    }
+  },
+  {
+    name: 'Perfil O-C elevado — puntajes T',
+    description: 'O-C T=79 y Ansiedad T=78: curva S dominante',
+    tScores: {
+      'Somatización': 54, 'Obsesión-Compulsión': 79, 'Sensibilidad Interpersonal': 60, 'Depresión': 64,
+      'Ansiedad': 78, 'Hostilidad': 52, 'Ansiedad Fóbica': 58, 'Ideación Paranoide': 58, 'Psicoticismo': 52,
+      'GSI': 66, 'PST': 62, 'PSDI': 72
+    }
+  },
+  {
+    name: 'Perfil extremo (T ≥ 80) — puntajes T',
+    description: 'PSIC T=88, PAR T=82, ANS T=84: fuera de baremo en varias escalas (no es diagnóstico de estructura)',
+    tScores: {
+      'Somatización': 68, 'Obsesión-Compulsión': 70, 'Sensibilidad Interpersonal': 78, 'Depresión': 76,
+      'Ansiedad': 84, 'Hostilidad': 75, 'Ansiedad Fóbica': 72, 'Ideación Paranoide': 82, 'Psicoticismo': 88,
+      'GSI': 82, 'PST': 78, 'PSDI': 86
+    }
+  },
+  {
+    name: 'Perfil somatización + SI — puntajes T',
+    description: 'Somatización T=82 y Sensibilidad T=75: curva I desfasada',
+    tScores: {
+      'Somatización': 82, 'Obsesión-Compulsión': 52, 'Sensibilidad Interpersonal': 75, 'Depresión': 66,
+      'Ansiedad': 74, 'Hostilidad': 50, 'Ansiedad Fóbica': 68, 'Ideación Paranoide': 54, 'Psicoticismo': 52,
+      'GSI': 68, 'PST': 70, 'PSDI': 76
+    }
+  },
+];
+for (const p of T_PRESETS) {
+  CLINICAL_PRESETS.push({
+    name: p.name,
+    description: p.description,
+    mode: 't_scores',
+    tScores: p.tScores,
+    data: sclDataDesdeTScores(p.tScores, DEFAULT_BAREMO_ID),
+    isRiskCase: p.isRiskCase
+  });
+}
+
+// --- Prcc: campo que entra por la voz (tesis V22, Resumen v6 §4) ------------
+
+/**
+ * Intensidad del campo Prcc en un punto del espacio exterior al horn torus — AXIOMA.
+ * El Prcc es el campo de representaciones-palabra que entra por p (la voz, en el
+ * origen): máximo en el embudo que el exterior forma a lo largo del eje (z), decrece
+ * con la distancia y NO se anula (sin borde). La Cc no es un lugar sino un umbral
+ * de sobreinvestidura dentro de este campo (segunda censura, GW X secc. VI).
+ * Devuelve un valor en (0, 1]; `R` es el radio de revolución en unidades visuales.
+ */
+export function prccFieldIntensity(x: number, y: number, z: number, R: number): number {
+  const rho = Math.hypot(x, y) / Math.max(1e-6, R);    // distancia al eje
+  const d = Math.hypot(x, y, z) / Math.max(1e-6, R);    // distancia a p
+  const embudo = Math.exp(-rho / 0.35);
+  const f = Math.exp(-d / 1.4) * (0.45 + 0.55 * embudo);
+  return Math.max(0.03, Math.min(1, f));
+}
+
+/**
+ * Nube de puntos del campo Prcc para el visor: muestreo por rechazo con densidad
+ * proporcional a prccFieldIntensity, SOLO fuera del volumen interior (el Prcc no
+ * está en el Icc). Determinista (semilla fija) para que la escena no parpadee.
+ */
+export function generatePrccFieldPoints(R: number, count: number = 1400, seed: number = 7) {
+  let s = seed >>> 0;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  const positions: number[] = [];
+  const intensities: number[] = [];
+  const ext = 2.6 * R;
+  let guard = 0;
+  while (positions.length / 3 < count && guard < count * 60) {
+    guard++;
+    const x = (rnd() * 2 - 1) * ext;
+    const y = (rnd() * 2 - 1) * ext;
+    const z = (rnd() * 2 - 1) * ext;
+    // fuera del sólido (ρ − R)² + z² ≤ R² (el interior U del horn torus)
+    const rhoXY = Math.hypot(x, y);
+    if ((rhoXY - R) ** 2 + z * z <= R * R) continue;
+    const f = prccFieldIntensity(x, y, z, R);
+    if (rnd() > f) continue;
+    positions.push(x, y, z);
+    intensities.push(f);
+  }
+  return { positions: new Float32Array(positions), intensities: new Float32Array(intensities) };
+}
+
+// --- Animación de la deformación (de GitHub, adaptada) ----------------------
+
+/**
+ * Actualiza en el lugar posiciones, normales y colores de la malla del horn torus
+ * para un factor de deformación intermedio (transiciones animadas a 60 fps). Usa la
+ * misma geometría de la familia r/R, las marcas de fantasía y la semántica de
+ * angustia de generateHornTorusGeometry.
+ */
+export function updateHornTorusVertices(
+  positions: Float32Array,
+  normals: Float32Array,
+  colors: Float32Array,
+  params: ModelParams,
   sclData: SCL90RData,
-  params: ModelParams
-): string {
-  const gsi = sclData['GSI'] ?? 0.85;
-  const rawA = params.a_scale * gsi;
-  const aVal = (rawA >= 0.4 && rawA <= 1.5 ? rawA : 0.85).toFixed(2);
+  currentDeformation: number,
+  colorMode: ColorMapMode = 'angustia'
+) {
+  const { gridResolution, a_critical } = params;
+  const lacanian = calculateLacanianParameters(sclData, params);
+  const rOverR = lacanian.rOverR;
+  const effectiveA = lacanian.a * 25.0;
+  const tubeR = effectiveA * rOverR;
+  const numU = gridResolution;
+  const numV = gridResolution;
+  let ptr = 0;
+  for (let i = 0; i <= numV; i++) {
+    const v = (i / numV) * 2 * Math.PI;
+    const cosV = Math.cos(v);
+    const sinV = Math.sin(v);
+    for (let j = 0; j <= numU; j++) {
+      const u = (j / numU) * 2 * Math.PI;
+      const cosU = Math.cos(u);
+      const sinU = Math.sin(u);
+      let x = (effectiveA + tubeR * cosV) * cosU;
+      let y = (effectiveA + tubeR * cosV) * sinU;
+      let z = tubeR * sinV;
+      const { factor, stress } = computeSclDeformation(u, v, sclData, currentDeformation);
+      if (currentDeformation > 0) {
+        x *= factor;
+        y *= factor;
+        z *= 1.0 + (factor - 1.0) * 0.85;
+      }
+      positions[ptr] = x;
+      positions[ptr + 1] = y;
+      positions[ptr + 2] = z;
+      let nx = cosV * cosU;
+      let ny = cosV * sinU;
+      let nz = sinV;
+      if (currentDeformation > 0) {
+        nx += (factor - 1) * 0.5 * cosU;
+        ny += (factor - 1) * 0.5 * sinU;
+        nz += (factor - 1) * 0.4 * sinV;
+      }
+      const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+      normals[ptr] = nx / nLen;
+      normals[ptr + 1] = ny / nLen;
+      normals[ptr + 2] = nz / nLen;
+      const angustia = calculateAngustia(u, v, lacanian.fantasyMarks);
+      const isRupture = angustia >= MAX_ANGUSTIA_DISTANCE - a_critical;
+      const { tension: diffTension } = computeDifferentialTension(u, v, sclData, currentDeformation, effectiveA, rOverR);
+      const rgb = getVertexColor(angustia, isRupture, stress, diffTension, v, MAX_ANGUSTIA_DISTANCE, a_critical, colorMode, rOverR);
+      colors[ptr] = rgb.r;
+      colors[ptr + 1] = rgb.g;
+      colors[ptr + 2] = rgb.b;
+      ptr += 3;
+    }
+  }
+}
+
+// --- Curvatura gaussiana y singularidades espectrales (de GitHub, adaptadas) ---
+
+/**
+ * Curvatura gaussiana K y media H en (u, v), estándar y deformada. Para la familia
+ * (R, r = rOverR·R): K0 = cos v / (r (R + r cos v)). En el horn torus (r = R) K → −∞
+ * en la cúspide v = π (se regulariza numéricamente).
+ */
+export function computePointGaussianCurvature(
+  u: number,
+  v: number,
+  params: ModelParams,
+  sclData: SCL90RData,
+  isDeformed: boolean = true
+): { K: number; H: number; classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular' } {
+  const lac = calculateLacanianParameters(sclData, params);
+  const R = Math.max(0.2, lac.R);
+  const r = Math.max(0.2 * lac.rOverR, lac.r);
+  const delta = isDeformed ? params.deformation_factor : 0;
+  const cosV = Math.cos(v);
+  const denomBase = R + r * cosV;
+
+  if (Math.abs(denomBase) < 0.008 * R) {
+    return { K: -18.5 * (1 + delta * 2), H: 0, classification: 'singular' };
+  }
+  const K0 = cosV / (r * Math.max(0.008 * R, denomBase));
+  const H0 = (R + 2 * r * cosV) / (2 * r * Math.max(0.008 * R, denomBase));
+  const clasificar = (K: number, singular: boolean) =>
+    singular ? 'singular' as const : K > 0.08 ? 'eliptica' as const : K < -0.08 ? 'hiperbolica' as const : 'parabolica' as const;
+
+  if (!isDeformed || delta <= 0.0001) {
+    return { K: K0, H: H0, classification: clasificar(K0, Math.abs(denomBase) < 0.04 * R) };
+  }
+
+  const du = 0.002;
+  const dv = 0.002;
+  const evalPt = (uu: number, vv: number): [number, number, number] => {
+    const { factor } = computeSclDeformation(uu, vv, sclData, delta);
+    const rr = R + r * Math.cos(vv);
+    return [rr * Math.cos(uu) * factor, rr * Math.sin(uu) * factor, r * Math.sin(vv) * (1.0 + (factor - 1.0) * 0.85)];
+  };
+  const sub = (a: number[], b: number[]) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const pC = evalPt(u, v), pUp = evalPt(u + du, v), pUm = evalPt(u - du, v), pVp = evalPt(u, v + dv), pVm = evalPt(u, v - dv);
+  const ru = sub(pUp, pUm).map((c) => c / (2 * du));
+  const rv = sub(pVp, pVm).map((c) => c / (2 * dv));
+  const E = ru[0] * ru[0] + ru[1] * ru[1] + ru[2] * ru[2];
+  const F = ru[0] * rv[0] + ru[1] * rv[1] + ru[2] * rv[2];
+  const G = rv[0] * rv[0] + rv[1] * rv[1] + rv[2] * rv[2];
+  let nx = ru[1] * rv[2] - ru[2] * rv[1];
+  let ny = ru[2] * rv[0] - ru[0] * rv[2];
+  let nz = ru[0] * rv[1] - ru[1] * rv[0];
+  const nLen = Math.hypot(nx, ny, nz);
+  if (nLen > 1e-6) { nx /= nLen; ny /= nLen; nz /= nLen; }
+  const ruu = [0, 1, 2].map((c) => (pUp[c] - 2 * pC[c] + pUm[c]) / (du * du));
+  const rvv = [0, 1, 2].map((c) => (pVp[c] - 2 * pC[c] + pVm[c]) / (dv * dv));
+  const pPP = evalPt(u + du, v + dv), pPM = evalPt(u + du, v - dv), pMP = evalPt(u - du, v + dv), pMM = evalPt(u - du, v - dv);
+  const ruv = [0, 1, 2].map((c) => (pPP[c] - pPM[c] - pMP[c] + pMM[c]) / (4 * du * dv));
+  const e = ruu[0] * nx + ruu[1] * ny + ruu[2] * nz;
+  const f = ruv[0] * nx + ruv[1] * ny + ruv[2] * nz;
+  const g = rvv[0] * nx + rvv[1] * ny + rvv[2] * nz;
+  const det = E * G - F * F;
+  let K = K0;
+  let H = H0;
+  if (det > 1e-6) {
+    K = Math.max(-150, Math.min(150, (e * g - f * f) / det));
+    H = Math.max(-50, Math.min(50, (e * G - 2 * f * F + g * E) / (2 * det)));
+  }
+  return { K, H, classification: clasificar(K, Math.abs(denomBase) < 0.04 * R || K < -12.0) };
+}
+
+/**
+ * Análisis de singularidades espectrales: curvatura gaussiana en puntos críticos de la
+ * superficie y su acoplamiento con la angustia (vecindades A_cr de las marcas).
+ * Las lecturas clínicas son homologías del modelo (AXIOMA), no inferencias de estructura.
+ */
+export function computeSpectralSingularityAnalysis(params: ModelParams, sclData: SCL90RData): SpectralSingularityReport {
+  const lac = calculateLacanianParameters(sclData, params);
+  const effectiveA = lac.a * 25.0;
+  const tubeR = effectiveA * lac.rOverR;
+  const aCritical = params.a_critical;
+  const delta = params.deformation_factor;
+  const marks = lac.fantasyMarks;
+  const mark = marks[0];
+  const umbral = MAX_ANGUSTIA_DISTANCE - aCritical;
+
+  const getPos3D = (u: number, v: number): [number, number, number] => {
+    const { factor } = computeSclDeformation(u, v, sclData, delta);
+    const rr = effectiveA + tubeR * Math.cos(v);
+    return [rr * Math.cos(u) * factor, rr * Math.sin(u) * factor, tubeR * Math.sin(v) * (1.0 + (factor - 1.0) * 0.85)];
+  };
+
+  const rawPoints = [
+    { id: 'fantasy_point', name: 'Marca de fantasía (principal)', lacanianLabel: 'Marca Icc de trauma (Axioma 4)',
+      u: mark.u, v: mark.v,
+      clinicalMeaning: 'Marca de fantasía sobre la cara interna. La angustia surge por proximidad: un cruce que se acerca (señal) o pasa por ella (situación traumática). Homología del modelo — AXIOMA.' },
+    { id: 'cusp_singular', name: 'p — punto de autotangencia (la voz)', lacanianLabel: 'Orificio de doble sentido (v = π)',
+      u: Math.PI, v: Math.PI - 0.02,
+      clinicalMeaning: 'Único orificio fijo del Icc: entra lo oído (el campo Prcc) y sale la voz. Curvatura hiperbólica divergente (K → −∞) en el horn torus.' },
+    { id: 'rupture_boundary', name: 'Borde de la vecindad crítica', lacanianLabel: 'Borde de A_cr alrededor de la marca',
+      u: mark.u + aCritical, v: mark.v,
+      clinicalMeaning: 'Límite de la vecindad de la marca: más allá, el cruce ya no está en aproximación.' },
+    { id: 'conscious_equator', name: 'Ecuador exterior', lacanianLabel: 'Cara externa de la pared (v = 0)',
+      u: 0, v: 0,
+      clinicalMeaning: 'Zona elíptica de curvatura positiva estable (K > 0), la más alejada de p.' },
+    { id: 'lower_parabolic', name: 'Inflexión parabólica inferior', lacanianLabel: 'Línea parabólica (v = 3π/2)',
+      u: Math.PI, v: (3 * Math.PI) / 2,
+      clinicalMeaning: 'Transición parabólica entre la cara externa y la cara interna de la pared.' },
+    { id: 'symptom_sigma', name: 'Síntoma (Σ)', lacanianLabel: 'Cinta Σ',
+      u: lac.u_Sigma % (2 * Math.PI), v: lac.v_Sigma % (2 * Math.PI),
+      clinicalMeaning: 'Tramo de la cinta Σ; su ubicación depende de la asignación axiomática a Psicoticismo y Hostilidad.' },
+    { id: 'body_image_I', name: 'Imagen del cuerpo (I)', lacanianLabel: 'Cinta I y borde del hilo pulsional',
+      u: lac.u_I % (2 * Math.PI), v: lac.v_I % (2 * Math.PI),
+      clinicalMeaning: 'Umbral donde el organismo se inscribe como imagen del cuerpo; el hilo pulsional corre pegado a su borde.' },
+    { id: 'signifier_S', name: 'Cadena significante (S)', lacanianLabel: 'Cinta S',
+      u: lac.u_S % (2 * Math.PI), v: lac.v_S % (2 * Math.PI),
+      clinicalMeaning: 'Tramo de la cinta S (asignación axiomática a Ansiedad y Obsesión).' },
+  ];
+
+  const criticalPoints: SingularityCriticalPoint[] = rawPoints.map((pt) => {
+    const cur0 = computePointGaussianCurvature(pt.u, pt.v, params, sclData, false);
+    const curDef = computePointGaussianCurvature(pt.u, pt.v, params, sclData, true);
+    const angustia = calculateAngustia(pt.u, pt.v, marks);
+    const isAnguishOverflow = angustia >= umbral;
+    const anguishRatio = MAX_ANGUSTIA_DISTANCE > 0 ? angustia / MAX_ANGUSTIA_DISTANCE : 0;
+    const deltaK = curDef.K - cur0.K;
+    const deltaKPercent = Math.abs(cur0.K) > 0.001 ? (deltaK / Math.abs(cur0.K)) * 100 : deltaK * 100;
+    const { stress } = computeSclDeformation(pt.u, pt.v, sclData, delta);
+    const { tension } = computeDifferentialTension(pt.u, pt.v, sclData, delta, effectiveA, lac.rOverR);
+    return {
+      id: pt.id, name: pt.name, lacanianLabel: pt.lacanianLabel, u: pt.u, v: pt.v,
+      uDeg: Math.round((pt.u * 180) / Math.PI), vDeg: Math.round((pt.v * 180) / Math.PI),
+      K0: parseFloat(cur0.K.toFixed(3)), K_def: parseFloat(curDef.K.toFixed(3)),
+      deltaK: parseFloat(deltaK.toFixed(3)), deltaKPercent: parseFloat(deltaKPercent.toFixed(1)),
+      H0: parseFloat(cur0.H.toFixed(3)), H_def: parseFloat(curDef.H.toFixed(3)),
+      angustia: parseFloat(angustia.toFixed(3)), isAnguishOverflow, anguishRatio: parseFloat(anguishRatio.toFixed(3)),
+      stress: parseFloat(stress.toFixed(3)), differentialTension: parseFloat(tension.toFixed(3)),
+      classification: curDef.classification, clinicalMeaning: pt.clinicalMeaning, position3D: getPos3D(pt.u, pt.v)
+    };
+  });
+
+  const gridSteps = 28;
+  let maxHyp = 0;
+  let maxEll = -Infinity;
+  let overflowCount = 0;
+  let overflowHighCurvCount = 0;
+  const samples: { u: number; v: number; K: number; angustia: number; isOverflow: boolean; intensity: number }[] = [];
+  const scatterPoints: { u: number; v: number; K: number; angustia: number; isOverflow: boolean }[] = [];
+  for (let i = 0; i < gridSteps; i++) {
+    const v = (i / gridSteps) * 2 * Math.PI;
+    for (let j = 0; j < gridSteps; j++) {
+      const u = (j / gridSteps) * 2 * Math.PI;
+      const { K } = computePointGaussianCurvature(u, v, params, sclData, true);
+      const angustia = calculateAngustia(u, v, marks);
+      const isOverflow = angustia >= umbral;
+      const intensity = aCritical > 0 ? Math.max(0, angustia - umbral) / aCritical : 0;
+      if (K < maxHyp) maxHyp = K;
+      if (K > maxEll) maxEll = K;
+      if (isOverflow) {
+        overflowCount++;
+        if (Math.abs(K) > 0.85 || K < -1.0) overflowHighCurvCount++;
+      }
+      samples.push({ u, v, K, angustia, isOverflow, intensity });
+      if (i % 3 === 0 && j % 3 === 0) {
+        scatterPoints.push({ u: parseFloat(u.toFixed(2)), v: parseFloat(v.toFixed(2)), K: parseFloat(K.toFixed(2)), angustia: parseFloat(angustia.toFixed(2)), isOverflow });
+      }
+    }
+  }
+  const n = samples.length;
+  const meanAbsK = samples.reduce((acc, s) => acc + Math.abs(s.K), 0) / n;
+  const meanI = samples.reduce((acc, s) => acc + s.intensity, 0) / n;
+  let cov = 0, varK = 0, varI = 0;
+  for (const s of samples) {
+    const dK = Math.abs(s.K) - meanAbsK;
+    const dI = s.intensity - meanI;
+    cov += dK * dI; varK += dK * dK; varI += dI * dI;
+  }
+  const denom = Math.sqrt(varK * varI);
+  const pearsonCorrelationCurvatureAnguish = denom > 1e-6 ? parseFloat((cov / denom).toFixed(3)) : 0;
+  const highCurvatureAnguishOverlapPercent = overflowCount > 0 ? parseFloat(((overflowHighCurvCount / overflowCount) * 100).toFixed(1)) : 0;
+
+  const binEdges = [-8.0, -4.5, -2.5, -1.2, -0.4, 0.1, 0.6, 1.2, 2.5, 5.0];
+  const curvatureSpectrum = binEdges.map((edge, idx) => {
+    const next = binEdges[idx + 1] ?? 15.0;
+    const binCenter = parseFloat(((edge + next) / 2).toFixed(2));
+    const matching = samples.filter((s) => s.K >= edge && s.K < next);
+    const count = matching.length;
+    return {
+      binCenter,
+      count,
+      avgAngustia: count > 0 ? parseFloat((matching.reduce((a, m) => a + m.angustia, 0) / count).toFixed(2)) : 0,
+      criticalAnguishCount: matching.filter((s) => s.isOverflow).length,
+      type: (binCenter < -0.3 ? 'hiperbolica' : binCenter > 0.3 ? 'eliptica' : 'parabolica') as 'hiperbolica' | 'parabolica' | 'eliptica'
+    };
+  });
+
+  // Estado de la marca principal. La marca está siempre dentro de su propia vecindad, así
+  // que el criterio no puede ser la angustia EN la marca: es si la cinta S pasa por su
+  // vecindad (Axioma 4, aproximación) y cuánto cambia la curvatura con la deformación.
+  const fp = criticalPoints.find((p) => p.id === 'fantasy_point')!;
+  const sCerca = lac.isTraumaReactivated;
+  let structuralIntegrity: 'Integra' | 'Tensa' | 'Desbordada' | 'Colapsada' = 'Integra';
+  if (sCerca && Math.abs(fp.deltaK) > 1.2) structuralIntegrity = 'Colapsada';
+  else if (sCerca) structuralIntegrity = 'Desbordada';
+  else if (Math.abs(fp.deltaK) > 0.25) structuralIntegrity = 'Tensa';
+
+  // Estado de la cúspide por el T de Psicoticismo (baremo elegido) y la curvatura:
+  // describe tensión geométrica del modelo; no infiere estructura clínica.
+  const cusp = criticalPoints.find((p) => p.id === 'cusp_singular')!;
+  const tPsy = tDeEscalaCon(getBaremo(params.baremoId), 'Psicoticismo', sclData['Psicoticismo'] ?? 0).t;
+  // La curvatura en la cúspide diverge por geometría en cualquier perfil: el estado se lee
+  // solo del T de Psicoticismo y de δ; K_def se informa aparte.
+  let status: 'Compensada' | 'Cizalladura Leve' | 'Estrangulamiento' | 'Tensión extrema' = 'Compensada';
+  if (tPsy >= 80) status = 'Tensión extrema';
+  else if (tPsy >= 70) status = 'Estrangulamiento';
+  else if (tPsy >= 60 || delta > 0.25) status = 'Cizalladura Leve';
+
+  return {
+    criticalPoints,
+    pearsonCorrelationCurvatureAnguish,
+    highCurvatureAnguishOverlapPercent,
+    maxHyperbolicCurvature: parseFloat(maxHyp.toFixed(2)),
+    maxEllipticCurvature: parseFloat(maxEll.toFixed(2)),
+    fantasyPointDistortion: { K0: fp.K0, K_def: fp.K_def, deltaK: fp.deltaK, angustia: fp.angustia, isRuptured: sCerca, structuralIntegrity },
+    cuspSingularityDistortion: { K_def: cusp.K_def, strain: cusp.differentialTension, shearTension: cusp.stress, status },
+    curvatureSpectrum,
+    samplePoints: scatterPoints
+  };
+}
+
+// --- Visor HTML autónomo (de GitHub, reescrito con marcas de fantasía y Prcc) ---
+
+/**
+ * Genera un HTML autónomo (Three.js por CDN) con el horn torus, las marcas de fantasía
+ * sobre la superficie, p (la voz) y el campo Prcc que entra por p a lo largo del eje.
+ */
+export function generateInteractiveHTMLScript(sclData: SCL90RData, params: ModelParams): string {
+  const lac = calculateLacanianParameters(sclData, params);
+  const aVal = 1.0;
   const deltaVal = params.deformation_factor.toFixed(2);
   const aCrVal = params.a_critical.toFixed(4);
+  const marksJson = JSON.stringify(lac.fantasyMarks.map((m) => [m.u, m.v]));
+  const som = (sclData['Somatización'] ?? 0).toFixed(3);
+  const oc = (sclData['Obsesión-Compulsión'] ?? 0).toFixed(3);
+  const psy = (sclData['Psicoticismo'] ?? 0).toFixed(3);
 
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Horn Torus ICC - Visor Interactivo Topológico (Lacan)</title>
+  <title>Horn Torus Icc — visor interactivo</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #030712; color: #f3f4f6; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; overflow: hidden; }
+    body { background: #030712; color: #f3f4f6; font-family: ui-sans-serif, system-ui, sans-serif; overflow: hidden; }
     #canvas-container { width: 100vw; height: 100vh; }
-    #ui-panel { position: absolute; top: 16px; left: 16px; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(12px); padding: 18px; border-radius: 12px; border: 1px solid rgba(51, 65, 85, 0.8); max-width: 360px; font-size: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); z-index: 10; }
-    h1 { font-size: 15px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; letter-spacing: -0.01em; }
+    #ui-panel { position: absolute; top: 16px; left: 16px; background: rgba(15, 23, 42, 0.88); padding: 18px; border-radius: 12px; border: 1px solid rgba(51, 65, 85, 0.8); max-width: 360px; font-size: 12px; z-index: 10; }
+    h1 { font-size: 15px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; }
     .subtitle { font-size: 11px; color: #94a3b8; margin-bottom: 12px; line-height: 1.4; }
-    .quote-box { background: rgba(2, 6, 23, 0.6); border-left: 3px solid #f59e0b; padding: 8px 10px; margin-bottom: 12px; border-radius: 4px; font-size: 11px; color: #fef3c7; }
+    .quote-box { background: rgba(2, 6, 23, 0.6); border-left: 3px solid #2b9fa9; padding: 8px 10px; margin-bottom: 12px; border-radius: 4px; font-size: 11px; color: #d7f3f5; line-height: 1.45; }
     .badge-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; font-family: monospace; font-size: 10px; }
     .badge { padding: 3px 7px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #38bdf8; }
-    .badge-amber { color: #fbbf24; border-color: #78350f; background: #451a03; }
-    .btn { width: 100%; padding: 9px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; transition: all 0.2s; margin-top: 4px; }
-    .btn:hover { background: #0369a1; }
-    .controls-hint { margin-top: 10px; text-align: center; font-size: 10px; color: #64748b; font-family: monospace; }
+    .btn { width: 100%; padding: 9px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; margin-top: 4px; }
+    .hint { margin-top: 10px; text-align: center; font-size: 10px; color: #64748b; font-family: monospace; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -1975,152 +2565,123 @@ export function generateInteractiveHTMLScript(
 <body>
   <div id="canvas-container"></div>
   <div id="ui-panel">
-    <h1>Horn Torus ICC Interactivo</h1>
-    <div class="subtitle">Topología Lacaniana del Inconsciente & Psicometría SCL-90-R</div>
+    <h1>Horn Torus Icc</h1>
+    <div class="subtitle">Toda la superficie es el Icc; la pared es la censura Icc/Prcc.</div>
     <div class="quote-box">
-      <strong>Principio Fundamental:</strong><br>
-      <em>"La fantasía es un agujero en el toro donde no existe una representación ($1 / S_2)."</em>
+      <strong>p — la voz:</strong> único orificio fijo, de doble sentido: entra lo oído y sale la voz.<br>
+      <strong>Prcc:</strong> campo que entra por p, concentrado en el embudo del eje y sin borde.<br>
+      <strong>Cc:</strong> umbral de sobreinvestidura dentro de ese campo, no un lugar.<br>
+      <strong>Marcas de fantasía</strong> (rosa): la angustia surge por proximidad. Geometría: AXIOMA.
     </div>
     <div class="badge-grid">
-      <span class="badge">Escala Visual: Multiplicada x10</span>
       <span class="badge">A_cr: ${aCrVal}</span>
-      <span class="badge badge-amber">Deformación δ: ${deltaVal}</span>
+      <span class="badge">δ: ${deltaVal}</span>
+      <span class="badge">marcas: ${lac.fantasyMarks.length}</span>
     </div>
-    <button class="btn" onclick="toggleDeformation()">Conmutar Deformación / Reposo</button>
-    <div class="controls-hint">Arrastrar: Rotar | Rueda: Zoom | Click Dcho: Pan</div>
+    <button class="btn" onclick="toggleDeformation()">Conmutar deformación / reposo</button>
+    <div class="hint">Arrastrar: rotar · Rueda: zoom · Clic derecho: desplazar</div>
   </div>
-
   <script>
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x030712);
-
     const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 3.5, 4.5); // Ajustada para ver el embudo superior e interior
-
+    camera.position.set(0, 3.2, 4.6);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
-
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+    const l1 = new THREE.DirectionalLight(0x38bdf8, 1.4); l1.position.set(5, 10, 7); scene.add(l1);
+    const l2 = new THREE.DirectionalLight(0xf43f5e, 0.9); l2.position.set(-5, -5, -5); scene.add(l2);
 
-    // Luces optimizadas
-    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-    const light1 = new THREE.DirectionalLight(0x38bdf8, 1.5);
-    light1.position.set(5, 10, 7);
-    scene.add(light1);
-
-    const light2 = new THREE.DirectionalLight(0xf43f5e, 1.0);
-    light2.position.set(-5, -5, -5);
-    scene.add(light2);
-
-    let isDeformed = true;
-    // Se escala 'a' internamente para que la geometría sea visible con el tamaño de los anillos de la fantasía
-    const a = ${aVal}; 
+    const a = ${aVal};
     const delta = ${deltaVal};
+    const som = ${som}, oc = ${oc}, psy = ${psy};
+    const marks = ${marksJson};
+    let isDeformed = true;
 
-    function createHornTorusGeometry(deformed) {
-      const uSegs = 80, vSegs = 80;
-      const geo = new THREE.BufferGeometry();
-      const pos = [], indices = [];
-
-      for (let i = 0; i <= vSegs; i++) {
-        const v = (i / vSegs) * 2 * Math.PI;
-        const cosV = Math.cos(v);
-        const sinV = Math.sin(v);
-
-        for (let j = 0; j <= uSegs; j++) {
-          const u = (j / uSegs) * 2 * Math.PI;
-          
-          // Ecuación estándar del Horn Torus (R = r) => r0 pasa a depender de (1 + cos(v))
-          const r0 = a * (1 + cosV);
-          
-          let factor = 1.0;
-          if (deformed) {
-            // Modulación armónica simulando la distorsión del SCL-90-R (Ej: Somatización/Ansiedad)
-            factor = 1.0 + delta * 0.35 * (Math.sin(u * 2) * Math.cos(v));
-          }
-
-          // Orientación espacial corregida para que el plano del "agujero" coincida con los anillos de la fantasía
-          const x = r0 * Math.cos(u) * factor;
-          const z = r0 * Math.sin(u) * factor;
-          const y = a * sinV * (1.0 + (factor - 1.0) * 0.5);
-
-          pos.push(x, y, z);
-        }
+    function factorAt(u, v, d) {
+      const raw = som * 0.28 * Math.cos(3 * v) + oc * 0.32 * Math.sin(4 * u) * Math.cos(v)
+        + psy * 0.45 * Math.pow(Math.abs(Math.sin(v / 2)), 3) * Math.sin(2 * u + v);
+      return Math.max(0.15, 1 + d * Math.tanh(raw / 1.45) * 1.45);
+    }
+    // Y es el eje de revolución en esta escena (p en el origen).
+    function pointAt(u, v, d) {
+      const f = factorAt(u, v, d);
+      const r0 = a * (1 + Math.cos(v));
+      return new THREE.Vector3(r0 * Math.cos(u) * f, a * Math.sin(v) * (1 + (f - 1) * 0.85), r0 * Math.sin(u) * f);
+    }
+    function createGeometry(deformed) {
+      const N = 90, geo = new THREE.BufferGeometry(), pos = [], idx = [];
+      for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+        const p = pointAt((j / N) * 2 * Math.PI, (i / N) * 2 * Math.PI, deformed ? delta : 0);
+        pos.push(p.x, p.y, p.z);
       }
-
-      for (let i = 0; i < vSegs; i++) {
-        for (let j = 0; j < uSegs; j++) {
-          const aIdx = i * (uSegs + 1) + j;
-          const bIdx = aIdx + uSegs + 1;
-          indices.push(aIdx, bIdx, aIdx + 1);
-          indices.push(bIdx, bIdx + 1, aIdx + 1);
-        }
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+        const q = i * (N + 1) + j, w = q + N + 1;
+        idx.push(q, w, q + 1, w, w + 1, q + 1);
       }
-
       geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      geo.setIndex(indices);
+      geo.setIndex(idx);
       geo.computeVertexNormals();
       return geo;
     }
+    const torus = new THREE.Mesh(createGeometry(true), new THREE.MeshStandardMaterial({
+      color: 0xc0392b, metalness: 0.15, roughness: 0.45, side: THREE.DoubleSide, transparent: true, opacity: 0.55
+    }));
+    scene.add(torus);
 
-    const torusMat = new THREE.MeshStandardMaterial({
-      color: 0x0284c7,
-      metalness: 0.2,
-      roughness: 0.4,
-      side: THREE.DoubleSide,
-      wireframe: false
+    const markMeshes = marks.map(([u, v]) => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.07, 20, 20),
+        new THREE.MeshStandardMaterial({ color: 0xd9468f, emissive: 0x8e1b5f, emissiveIntensity: 0.7 }));
+      scene.add(m);
+      return { m, u, v };
     });
+    function placeMarks() {
+      markMeshes.forEach(({ m, u, v }) => m.position.copy(pointAt(u, v, isDeformed ? delta : 0).multiplyScalar(0.96)));
+    }
+    placeMarks();
 
-    let torusMesh = new THREE.Mesh(createHornTorusGeometry(isDeformed), torusMat);
-    scene.add(torusMesh);
+    const voice = new THREE.Mesh(new THREE.SphereGeometry(0.06, 20, 20), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    scene.add(voice);
 
-    // Núcleo de la Fantasía ($ <> a) - Posicionado exactamente en el vacío central del Horn Torus
-    const fantasyGroup = new THREE.Group();
-    
-    // Anillo exterior dorado ($)
-    const voidRingGeo = new THREE.TorusGeometry(0.35, 0.02, 16, 48);
-    const voidRingMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.6 });
-    const voidRing = new THREE.Mesh(voidRingGeo, voidRingMat);
-    voidRing.rotation.x = Math.PI / 2; // Acostado sobre el plano XZ
-    fantasyGroup.add(voidRing);
-
-    // Objeto a minúscula (Cuerpo central pulsante)
-    const sphereGeo = new THREE.SphereGeometry(0.12, 32, 32);
-    const sphereMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0xe11d48, emissiveIntensity: 0.8 });
-    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-    fantasyGroup.add(sphere);
-
-    scene.add(fantasyGroup);
+    // Campo Prcc: puntos fuera del volumen, más densos en el embudo del eje (Y) y sin borde.
+    const prccPos = [];
+    let s = 7;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    for (let k = 0, guard = 0; k < 1600 && guard < 120000; guard++) {
+      const x = (rnd() * 2 - 1) * 2.6 * a, y = (rnd() * 2 - 1) * 2.6 * a, z = (rnd() * 2 - 1) * 2.6 * a;
+      const rho = Math.hypot(x, z);
+      if ((rho - a) ** 2 + y * y <= a * a) continue;
+      const d = Math.hypot(x, y, z) / a;
+      const f = Math.exp(-d / 1.4) * (0.45 + 0.55 * Math.exp(-(rho / a) / 0.35));
+      if (rnd() > f) continue;
+      prccPos.push(x, y, z); k++;
+    }
+    const prccGeo = new THREE.BufferGeometry();
+    prccGeo.setAttribute('position', new THREE.Float32BufferAttribute(prccPos, 3));
+    scene.add(new THREE.Points(prccGeo, new THREE.PointsMaterial({ color: 0x2b9fa9, size: 0.03, transparent: true, opacity: 0.55 })));
 
     function toggleDeformation() {
       isDeformed = !isDeformed;
-      torusMesh.geometry.dispose();
-      torusMesh.geometry = createHornTorusGeometry(isDeformed);
+      torus.geometry.dispose();
+      torus.geometry = createGeometry(isDeformed);
+      placeMarks();
     }
+    window.toggleDeformation = toggleDeformation;
 
-    let clock = new THREE.Clock();
-
-    function animate() {
+    const clock = new THREE.Clock();
+    (function animate() {
       requestAnimationFrame(animate);
-      const elapsedTime = clock.getElapsedTime();
-
-      // Rotación suave del Toro
-      torusMesh.rotation.y = elapsedTime * 0.15;
-      
-      // Animación sutil de pulsación para el objeto a (Real Inalcanzable)
-      const pulse = 1 + Math.sin(elapsedTime * 3) * 0.15;
-      sphere.scale.set(pulse, pulse, pulse);
-
+      const t = clock.getElapsedTime();
+      const pulse = 1 + Math.sin(t * 3) * 0.2;
+      voice.scale.set(pulse, pulse, pulse);
       controls.update();
       renderer.render(scene, camera);
-    }
-    animate();
-
+    })();
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
@@ -2129,441 +2690,4 @@ export function generateInteractiveHTMLScript(
   </script>
 </body>
 </html>`;
-}
-
-/**
- * Computes Gaussian Curvature K and Mean Curvature H at point (u, v) on the Horn Torus,
- * both for standard geometry and deformed geometry under psychometric perturbation.
- *
- * For standard Horn Torus (R = r = a):
- *   K0(v) = cos(v) / [ a^2 * (1 + cos(v)) ]
- *   - Outside (cos v > 0): K > 0 (elliptic dome)
- *   - Boundary (cos v = 0, v = pi/2): K = 0 (parabolic line, where Fantasy resides)
- *   - Inside (cos v < 0): K < 0 (hyperbolic saddle)
- *   - Cusp (v -> +-pi): 1 + cos(v) -> 0 => K -> -Infinity (intrinsic topological singularity)
- */
-export function computePointGaussianCurvature(
-  u: number,
-  v: number,
-  params: ModelParams,
-  sclData: SCL90RData,
-  isDeformed: boolean = true
-): {
-  K: number;
-  H: number;
-  classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular';
-} {
-  const gsi = sclData['GSI'] ?? 0.85;
-  const a = Math.max(0.2, params.a_scale * gsi); // natural scaling ~0.85
-  const delta = isDeformed ? params.deformation_factor : 0;
-
-  const cosV = Math.cos(v);
-  const denomBase = 1 + cosV;
-
-  // Regularize near singular cusp v = pi
-  if (Math.abs(denomBase) < 0.008) {
-    const psy = sclData['Psicoticismo'] ?? 0.5;
-    const singularK = -18.5 * (1 + delta * (1.5 + psy * 3.0));
-    return {
-      K: singularK,
-      H: 0,
-      classification: 'singular'
-    };
-  }
-
-  // Analytical standard Horn Torus Gaussian curvature
-  const K0 = cosV / (a * a * Math.max(0.008, denomBase));
-  const H0 = (1 + 2 * cosV) / (2 * a * Math.max(0.008, denomBase));
-
-  if (!isDeformed || delta <= 0.0001) {
-    let classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular' = 'parabolica';
-    if (Math.abs(denomBase) < 0.04) classification = 'singular';
-    else if (K0 > 0.08) classification = 'eliptica';
-    else if (K0 < -0.08) classification = 'hiperbolica';
-    return { K: K0, H: H0, classification };
-  }
-
-  // With deformation: numerical perturbation using central finite differences
-  const du = 0.002;
-  const dv = 0.002;
-
-  const evalPt = (uVal: number, vVal: number): [number, number, number] => {
-    const cV = Math.cos(vVal);
-    const sV = Math.sin(vVal);
-    const cU = Math.cos(uVal);
-    const sU = Math.sin(uVal);
-    const r0 = a * (1 + cV);
-    const { factor } = computeSclDeformation(uVal, vVal, sclData, delta);
-    const x = r0 * cU * factor;
-    const y = r0 * sU * factor;
-    const z = a * sV * (1.0 + (factor - 1.0) * 0.85);
-    return [x, y, z];
-  };
-
-  const pCenter = evalPt(u, v);
-  const pUp = evalPt(u + du, v);
-  const pUm = evalPt(u - du, v);
-  const pVp = evalPt(u, v + dv);
-  const pVm = evalPt(u, v - dv);
-
-  const ru: [number, number, number] = [
-    (pUp[0] - pUm[0]) / (2 * du),
-    (pUp[1] - pUm[1]) / (2 * du),
-    (pUp[2] - pUm[2]) / (2 * du)
-  ];
-  const rv: [number, number, number] = [
-    (pVp[0] - pVm[0]) / (2 * dv),
-    (pVp[1] - pVm[1]) / (2 * dv),
-    (pVp[2] - pVm[2]) / (2 * dv)
-  ];
-
-  const E = ru[0] * ru[0] + ru[1] * ru[1] + ru[2] * ru[2];
-  const F = ru[0] * rv[0] + ru[1] * rv[1] + ru[2] * rv[2];
-  const G = rv[0] * rv[0] + rv[1] * rv[1] + rv[2] * rv[2];
-
-  let nx = ru[1] * rv[2] - ru[2] * rv[1];
-  let ny = ru[2] * rv[0] - ru[0] * rv[2];
-  let nz = ru[0] * rv[1] - ru[1] * rv[0];
-  const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
-  if (nLen > 1e-6) {
-    nx /= nLen;
-    ny /= nLen;
-    nz /= nLen;
-  }
-
-  const ruu: [number, number, number] = [
-    (pUp[0] - 2 * pCenter[0] + pUm[0]) / (du * du),
-    (pUp[1] - 2 * pCenter[1] + pUm[1]) / (du * du),
-    (pUp[2] - 2 * pCenter[2] + pUm[2]) / (du * du)
-  ];
-  const rvv: [number, number, number] = [
-    (pVp[0] - 2 * pCenter[0] + pVm[0]) / (dv * dv),
-    (pVp[1] - 2 * pCenter[1] + pVm[1]) / (dv * dv),
-    (pVp[2] - 2 * pCenter[2] + pVm[2]) / (dv * dv)
-  ];
-
-  const pUpVp = evalPt(u + du, v + dv);
-  const pUpVm = evalPt(u + du, v - dv);
-  const pUmVp = evalPt(u - du, v + dv);
-  const pUmVm = evalPt(u - du, v - dv);
-  const ruv: [number, number, number] = [
-    (pUpVp[0] - pUpVm[0] - pUmVp[0] + pUmVm[0]) / (4 * du * dv),
-    (pUpVp[1] - pUpVm[1] - pUmVp[1] + pUmVm[1]) / (4 * du * dv),
-    (pUpVp[2] - pUpVm[2] - pUmVp[2] + pUmVm[2]) / (4 * du * dv)
-  ];
-
-  const e = ruu[0] * nx + ruu[1] * ny + ruu[2] * nz;
-  const f = ruv[0] * nx + ruv[1] * ny + ruv[2] * nz;
-  const g = rvv[0] * nx + rvv[1] * ny + rvv[2] * nz;
-
-  const det1 = E * G - F * F;
-  let K = K0;
-  let H = H0;
-
-  if (det1 > 1e-6) {
-    const rawK = (e * g - f * f) / det1;
-    const rawH = (e * G - 2 * f * F + g * E) / (2 * det1);
-    K = Math.max(-150.0, Math.min(150.0, rawK));
-    H = Math.max(-50.0, Math.min(50.0, rawH));
-  }
-
-  let classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular' = 'parabolica';
-  if (Math.abs(denomBase) < 0.04 || K < -12.0) classification = 'singular';
-  else if (K > 0.08) classification = 'eliptica';
-  else if (K < -0.08) classification = 'hiperbolica';
-
-  return { K, H, classification };
-}
-
-/**
- * Computes comprehensive Spectral Singularity Analysis in real-time,
- * linking Gaussian curvature at critical surface points with the zones of overflowing anguish ($ <> a).
- */
-export function computeSpectralSingularityAnalysis(
-  params: ModelParams,
-  sclData: SCL90RData
-): SpectralSingularityReport {
-  const lacanian = calculateLacanianParameters(sclData, params);
-  const effectiveA = lacanian.a * 25.0; // scale for 3D coordinates
-  const aCritical = params.a_critical;
-  const delta = params.deformation_factor;
-
-  const getPos3D = (u: number, v: number, isDef: boolean): [number, number, number] => {
-    const r0 = effectiveA * (1 + Math.cos(v));
-    const { factor } = computeSclDeformation(u, v, sclData, isDef ? delta : 0);
-    const f = isDef ? factor : 1.0;
-    return [
-      r0 * Math.cos(u) * f,
-      r0 * Math.sin(u) * f,
-      effectiveA * Math.sin(v) * (1.0 + (f - 1.0) * 0.85)
-    ];
-  };
-
-  // Critical Points Definition
-  const rawPoints = [
-    {
-      id: 'fantasy_point',
-      name: 'Foco de la Fantasía Inconsciente',
-      lacanianLabel: '$ ◇ a (Foco Fantasmático)',
-      u: Math.PI,
-      v: Math.PI / 2,
-      clinicalMeaning:
-        'Límite del marco defensivo neurótico. En el toro puro K0 = 0 (parabólico). Con deformación sintomática el marco se comba; si la angustia desborda (A ≤ A_cr), el sujeto queda expuesto a la falta de la falta.'
-    },
-    {
-      id: 'cusp_singular',
-      name: 'Cúspide Singular Central',
-      lacanianLabel: 'Garganta / Polo Singular (v = ±π)',
-      u: Math.PI,
-      v: Math.PI - 0.02,
-      clinicalMeaning:
-        'Punto de auto-tangencia del Horn Torus. Curvatura hiperbólica divergente (K -> -∞). En el brote psicótico sufre cizalladura extrema por forclusión del significante del Nombre-del-Padre.'
-    },
-    {
-      id: 'rupture_boundary',
-      name: 'Frontera de Angustia Crítica',
-      lacanianLabel: 'Borde de Ruptura (A = A_cr)',
-      u: Math.PI + aCritical,
-      v: Math.PI / 2,
-      clinicalMeaning:
-        'Perímetro de la barrera de seguridad fantasmática. Traspasar esta frontera sumerge la superficie en saturación carmesí de angustia clínica.'
-    },
-    {
-      id: 'conscious_equator',
-      name: 'Ecuador Convexo Exterior (Cc)',
-      lacanianLabel: 'Corteza Consciente (v = 0)',
-      u: 0,
-      v: 0,
-      clinicalMeaning:
-        'Zona elíptica de curvatura positiva estable (K > 0). Representa la investidura de objeto exterior y la realidad compartida.'
-    },
-    {
-      id: 'lower_parabolic',
-      name: 'Inflexión Parabólica Inferior',
-      lacanianLabel: 'Embudo Inconsciente (v = 3π/2)',
-      u: Math.PI,
-      v: (3 * Math.PI) / 2,
-      clinicalMeaning:
-        'Línea de transición parabólica hacia la fosa pulsional inferior del Ello.'
-    },
-    {
-      id: 'symptom_sigma',
-      name: 'Nudo del Síntoma (Σ)',
-      lacanianLabel: 'Torsión Sintomática Σ (Sinthome)',
-      u: lacanian.u_Sigma % (2 * Math.PI),
-      v: lacanian.v_Sigma % (2 * Math.PI),
-      clinicalMeaning:
-        'Punto de amarre del síntoma modulado por Psicoticismo y Hostilidad. Funciona como condensador de goce o cuarto nudo.'
-    },
-    {
-      id: 'body_image_I',
-      name: 'Investidura Corporal (I)',
-      lacanianLabel: 'Imagen del Cuerpo & Hilo Pulsional',
-      u: lacanian.u_I % (2 * Math.PI),
-      v: lacanian.v_I % (2 * Math.PI),
-      clinicalMeaning:
-        'Anclaje somático de la imagen corporal y recorrido del Hilo Pulsional (Trieb). Sometido a distorsión por Somatización.'
-    },
-    {
-      id: 'signifier_S',
-      name: 'Cadena Significante (S)',
-      lacanianLabel: 'Representación Significante S',
-      u: lacanian.u_S % (2 * Math.PI),
-      v: lacanian.v_S % (2 * Math.PI),
-      clinicalMeaning:
-        'Trayectoria meridional del significante (Ansiedad y Obsesión). Intersecta la cinta I modulando la ligadura del afecto.'
-    }
-  ];
-
-  const criticalPoints: SingularityCriticalPoint[] = rawPoints.map((pt) => {
-    const cur0 = computePointGaussianCurvature(pt.u, pt.v, params, sclData, false);
-    const curDef = computePointGaussianCurvature(pt.u, pt.v, params, sclData, true);
-    const angustia = calculateAngustia(pt.u, pt.v);
-    const isAnguishOverflow = angustia <= aCritical;
-    const anguishRatio = aCritical > 0 ? angustia / aCritical : 1.0;
-    const deltaK = curDef.K - cur0.K;
-    const deltaKPercent = Math.abs(cur0.K) > 0.001 ? (deltaK / Math.abs(cur0.K)) * 100 : deltaK * 100;
-
-    const { factor, stress } = computeSclDeformation(pt.u, pt.v, sclData, delta);
-    const { tension: diffTension } = computeDifferentialTension(pt.u, pt.v, sclData, delta, effectiveA);
-
-    return {
-      id: pt.id,
-      name: pt.name,
-      lacanianLabel: pt.lacanianLabel,
-      u: pt.u,
-      v: pt.v,
-      uDeg: Math.round((pt.u * 180) / Math.PI),
-      vDeg: Math.round((pt.v * 180) / Math.PI),
-      K0: parseFloat(cur0.K.toFixed(3)),
-      K_def: parseFloat(curDef.K.toFixed(3)),
-      deltaK: parseFloat(deltaK.toFixed(3)),
-      deltaKPercent: parseFloat(deltaKPercent.toFixed(1)),
-      H0: parseFloat(cur0.H.toFixed(3)),
-      H_def: parseFloat(curDef.H.toFixed(3)),
-      angustia: parseFloat(angustia.toFixed(3)),
-      isAnguishOverflow,
-      anguishRatio: parseFloat(anguishRatio.toFixed(3)),
-      stress: parseFloat(stress.toFixed(3)),
-      differentialTension: parseFloat(diffTension.toFixed(3)),
-      classification: curDef.classification,
-      clinicalMeaning: pt.clinicalMeaning,
-      position3D: getPos3D(pt.u, pt.v, true)
-    };
-  });
-
-  // Dense sampling across torus grid to analyze curvature distribution and coupling with anguish
-  const gridSteps = 28;
-  let sumK = 0;
-  let sumAnguish = 0;
-  let maxHyp = 0;
-  let maxEll = -Infinity;
-  let overflowCount = 0;
-  let overflowHighCurvCount = 0;
-
-  interface SampleData {
-    u: number;
-    v: number;
-    K: number;
-    angustia: number;
-    isOverflow: boolean;
-    overflowIntensity: number;
-  }
-
-  const samples: SampleData[] = [];
-  const scatterPoints: { u: number; v: number; K: number; angustia: number; isOverflow: boolean }[] = [];
-
-  for (let i = 0; i < gridSteps; i++) {
-    const v = (i / gridSteps) * 2 * Math.PI;
-    for (let j = 0; j < gridSteps; j++) {
-      const u = (j / gridSteps) * 2 * Math.PI;
-      const { K } = computePointGaussianCurvature(u, v, params, sclData, true);
-      const angustia = calculateAngustia(u, v);
-      const isOverflow = angustia <= aCritical;
-      const overflowIntensity = Math.max(0, aCritical - angustia) / aCritical;
-
-      if (K < maxHyp) maxHyp = K;
-      if (K > maxEll) maxEll = K;
-
-      if (isOverflow) {
-        overflowCount++;
-        if (Math.abs(K) > 0.85 || K < -1.0) {
-          overflowHighCurvCount++;
-        }
-      }
-
-      samples.push({ u, v, K, angustia, isOverflow, overflowIntensity });
-
-      // Collect lightweight subset for scatter display
-      if ((i % 3 === 0) && (j % 3 === 0)) {
-        scatterPoints.push({
-          u: parseFloat(u.toFixed(2)),
-          v: parseFloat(v.toFixed(2)),
-          K: parseFloat(K.toFixed(2)),
-          angustia: parseFloat(angustia.toFixed(2)),
-          isOverflow
-        });
-      }
-    }
-  }
-
-  // Pearson correlation between |K| and Anguish Overflow Intensity
-  const n = samples.length;
-  let meanAbsK = 0;
-  let meanOverflow = 0;
-  samples.forEach((s) => {
-    meanAbsK += Math.abs(s.K);
-    meanOverflow += s.overflowIntensity;
-  });
-  meanAbsK /= n;
-  meanOverflow /= n;
-
-  let numCov = 0;
-  let varK = 0;
-  let varOverflow = 0;
-  samples.forEach((s) => {
-    const dK = Math.abs(s.K) - meanAbsK;
-    const dO = s.overflowIntensity - meanOverflow;
-    numCov += dK * dO;
-    varK += dK * dK;
-    varOverflow += dO * dO;
-  });
-
-  const denomCorr = Math.sqrt(varK * varOverflow);
-  const pearsonCorrelationCurvatureAnguish =
-    denomCorr > 1e-6 ? parseFloat((numCov / denomCorr).toFixed(3)) : 0.72;
-
-  const highCurvatureAnguishOverlapPercent =
-    overflowCount > 0 ? parseFloat(((overflowHighCurvCount / overflowCount) * 100).toFixed(1)) : 0;
-
-  // Build Curvature Spectrum Histogram (10 bins from -8 to +4)
-  const binEdges = [-8.0, -4.5, -2.5, -1.2, -0.4, 0.1, 0.6, 1.2, 2.5, 5.0];
-  const curvatureSpectrum = binEdges.map((edge, idx) => {
-    const nextEdge = binEdges[idx + 1] ?? 15.0;
-    const binCenter = parseFloat(((edge + nextEdge) / 2).toFixed(2));
-    const matching = samples.filter((s) => s.K >= edge && s.K < nextEdge);
-    const count = matching.length;
-    const criticalAnguishCount = matching.filter((s) => s.isOverflow).length;
-    const avgAngustia =
-      count > 0 ? parseFloat((matching.reduce((acc, m) => acc + m.angustia, 0) / count).toFixed(2)) : 0;
-
-    let type: 'hiperbolica' | 'parabolica' | 'eliptica' = 'parabolica';
-    if (binCenter < -0.3) type = 'hiperbolica';
-    else if (binCenter > 0.3) type = 'eliptica';
-
-    return {
-      binCenter,
-      count,
-      avgAngustia,
-      criticalAnguishCount,
-      type
-    };
-  });
-
-  // Fantasy Point Distortion Diagnostic
-  const fp = criticalPoints.find((p) => p.id === 'fantasy_point')!;
-  let fantasyIntegrity: 'Integra' | 'Tensa' | 'Desbordada' | 'Colapsada' = 'Integra';
-  if (fp.isAnguishOverflow && Math.abs(fp.deltaK) > 1.2) {
-    fantasyIntegrity = 'Colapsada';
-  } else if (fp.isAnguishOverflow) {
-    fantasyIntegrity = 'Desbordada';
-  } else if (Math.abs(fp.deltaK) > 0.25) {
-    fantasyIntegrity = 'Tensa';
-  }
-
-  // Cusp Singularity Distortion Diagnostic
-  const cusp = criticalPoints.find((p) => p.id === 'cusp_singular')!;
-  const psyScore = sclData['Psicoticismo'] ?? 0.5;
-  let cuspStatus: 'Compensada' | 'Cizalladura Leve' | 'Estrangulamiento' | 'Forclusión Aguda' = 'Compensada';
-  if (psyScore >= 0.85 || Math.abs(cusp.K_def) > 35) {
-    cuspStatus = 'Forclusión Aguda';
-  } else if (psyScore >= 0.70 || Math.abs(cusp.K_def) > 22) {
-    cuspStatus = 'Estrangulamiento';
-  } else if (psyScore >= 0.40 || delta > 0.25) {
-    cuspStatus = 'Cizalladura Leve';
-  }
-
-  return {
-    criticalPoints,
-    pearsonCorrelationCurvatureAnguish,
-    highCurvatureAnguishOverlapPercent,
-    maxHyperbolicCurvature: parseFloat(maxHyp.toFixed(2)),
-    maxEllipticCurvature: parseFloat(maxEll.toFixed(2)),
-    fantasyPointDistortion: {
-      K0: fp.K0,
-      K_def: fp.K_def,
-      deltaK: fp.deltaK,
-      angustia: fp.angustia,
-      isRuptured: fp.isAnguishOverflow,
-      structuralIntegrity: fantasyIntegrity
-    },
-    cuspSingularityDistortion: {
-      K_def: cusp.K_def,
-      strain: cusp.differentialTension,
-      shearTension: cusp.stress,
-      status: cuspStatus
-    },
-    curvatureSpectrum,
-    samplePoints: scatterPoints
-  };
 }
