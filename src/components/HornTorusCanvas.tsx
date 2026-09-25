@@ -366,8 +366,10 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   const lastRuptureReportRef = useRef(0);
   const onRuptureTimeRef = useRef<((t: number) => void) | null>(null);
   const onRuptureEndRef = useRef<(() => void) | null>(null);
-  useEffect(() => { onRuptureTimeRef.current = onRuptureTime ?? null; }, [onRuptureTime]);
-  useEffect(() => { onRuptureEndRef.current = onRuptureEnd ?? null; }, [onRuptureEnd]);
+  const onRuptureVisualChangeRef = useRef<((state: RuptureVisualState) => void) | null>(null);
+  onRuptureTimeRef.current = onRuptureTime ?? null;
+  onRuptureEndRef.current = onRuptureEnd ?? null;
+  onRuptureVisualChangeRef.current = onRuptureVisualChange ?? null;
   const rupturePhaseRef = useRef<RuptureVisualState>('idle');
   const ruptureTimerRef = useRef(0);
   const preRuptureRadiusRef = useRef<number | null>(null); // radio de cámara antes del auto-encuadre
@@ -403,7 +405,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
           voiceGroupRef.current = null;
           voiceStateRef.current = null;
         }
-        onRuptureVisualChange?.('idle');
+        onRuptureVisualChangeRef.current?.('idle');
       }
       return;
     }
@@ -428,9 +430,9 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         voiceStateRef.current = { phases, drifts, speeds, count };
         scene.add(group);
       }
-      onRuptureVisualChange?.('ejected');
+      onRuptureVisualChangeRef.current?.('ejected');
     }
-  }, [sclData, params, onRuptureVisualChange]);
+  }, [sclData, params]);
 
   // Reflejar el reloj externo (App) en el reloj interno: pausa, scrub y replay.
   // Sincronización directa: los reportes propios (~10 Hz) son idempotentes y el
@@ -451,7 +453,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       ribbonsDetachedRef.current = false;
       ruptureOrigRef.current = { S: null, I: null, P: null };
       rupturePhaseRef.current = 'covered';
-      onRuptureVisualChange?.('covered');
+      onRuptureVisualChangeRef.current?.('covered');
       onRuptureEndRef.current?.();
       const lacC = calculateLacanianParameters(sclDataRef.current, paramsRef.current);
       const cov = getLacanianCurves(lacC, 220, 25.0, 'covered');
@@ -475,7 +477,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
         applyCurveGeometry(curvePulsionRef.current, st.curvePulsion);
       }
       rupturePhaseRef.current = 'ejected';
-      onRuptureVisualChange?.('ejected');
+      onRuptureVisualChangeRef.current?.('ejected');
     }
   }, [ruptureClockProp, rupturePlaying]);
 
@@ -499,23 +501,13 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
   const onViewModeChangeRef = useRef(onViewModeChange);
   const onToggleDeformationAnimationRef = useRef(onToggleDeformationAnimation);
 
-  useEffect(() => {
-    colorMapRef.current = colorMap;
-  }, [colorMap]);
-
-  useEffect(() => {
-    onDeformationFactorChangeRef.current = onDeformationFactorChange;
-    onViewModeChangeRef.current = onViewModeChange;
-    onToggleDeformationAnimationRef.current = onToggleDeformationAnimation;
-  }, [onDeformationFactorChange, onViewModeChange, onToggleDeformationAnimation]);
-
-  useEffect(() => {
-    deformAnimModeRef.current = deformAnimMode;
-  }, [deformAnimMode]);
-
-  useEffect(() => {
-    deformAnimSpeedRef.current = deformAnimSpeed;
-  }, [deformAnimSpeed]);
+  // Keep references fresh on every render without triggering effects
+  onDeformationFactorChangeRef.current = onDeformationFactorChange;
+  onViewModeChangeRef.current = onViewModeChange;
+  onToggleDeformationAnimationRef.current = onToggleDeformationAnimation;
+  colorMapRef.current = colorMap;
+  deformAnimModeRef.current = deformAnimMode;
+  deformAnimSpeedRef.current = deformAnimSpeed;
 
   useEffect(() => {
     if (!isAnimatingDeformRef.current) {
@@ -527,40 +519,55 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     }
   }, [params.deformation_factor]);
 
-  // Synchronize external animation trigger from App header if provided
+  // Synchronize external animation state without circular toggle feedback
   useEffect(() => {
-    if (
-      isAnimatingDeformationExternal !== undefined &&
-      isAnimatingDeformationExternal !== isAnimatingDeformRef.current
-    ) {
-      handleToggleDeformationAnimation();
+    if (isAnimatingDeformationExternal !== undefined) {
+      const targetState = Boolean(isAnimatingDeformationExternal);
+      if (isAnimatingDeformRef.current !== targetState) {
+        isAnimatingDeformRef.current = targetState;
+        setIsAnimatingDeformation(targetState);
+
+        if (targetState) {
+          if (deformProgressRef.current >= 0.99) {
+            deformProgressRef.current = 0.0;
+            deformDirectionRef.current = 1;
+          }
+          if (viewModeRef.current === 'standard' && onViewModeChangeRef.current) {
+            onViewModeChangeRef.current('deformed');
+          }
+        } else {
+          if (onDeformationFactorChangeRef.current) {
+            onDeformationFactorChangeRef.current(currentAnimatedDeltaRef.current);
+          }
+        }
+      }
     }
   }, [isAnimatingDeformationExternal]);
 
   const handleToggleDeformationAnimation = () => {
-    const nextState = !isAnimatingDeformRef.current;
-    setIsAnimatingDeformation(nextState);
-    isAnimatingDeformRef.current = nextState;
-
-    if (nextState) {
-      // If at end or near top, restart from 0
-      if (deformProgressRef.current >= 0.99) {
-        deformProgressRef.current = 0.0;
-        deformDirectionRef.current = 1;
-      }
-      // Ensure deformed or xray view is active so the morphing is clearly visible
-      if (viewModeRef.current === 'standard' && onViewModeChangeRef.current) {
-        onViewModeChangeRef.current('deformed');
-      }
-    } else {
-      // Paused: sync final deformation factor to parent
-      if (onDeformationFactorChangeRef.current) {
-        onDeformationFactorChangeRef.current(currentAnimatedDeltaRef.current);
-      }
-    }
-
     if (onToggleDeformationAnimationRef.current) {
       onToggleDeformationAnimationRef.current();
+    } else {
+      const nextState = !isAnimatingDeformRef.current;
+      isAnimatingDeformRef.current = nextState;
+      setIsAnimatingDeformation(nextState);
+
+      if (nextState) {
+        // If at end or near top, restart from 0
+        if (deformProgressRef.current >= 0.99) {
+          deformProgressRef.current = 0.0;
+          deformDirectionRef.current = 1;
+        }
+        // Ensure deformed or xray view is active so the morphing is clearly visible
+        if (viewModeRef.current === 'standard' && onViewModeChangeRef.current) {
+          onViewModeChangeRef.current('deformed');
+        }
+      } else {
+        // Paused: sync final deformation factor to parent
+        if (onDeformationFactorChangeRef.current) {
+          onDeformationFactorChangeRef.current(currentAnimatedDeltaRef.current);
+        }
+      }
     }
   };
 

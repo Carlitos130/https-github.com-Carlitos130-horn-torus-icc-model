@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { SCL90RData, ModelParams, ViewMode, ColorMapMode, SCL90RInputMode } from './types';
 import { DEFAULT_SCL90R_DATA, computeTopologicalMetrics, CLINICAL_PRESETS, sclDataToTScores } from './utils/hornTorusMath';
 import { formatMetricSafe } from './utils/formatMetric';
@@ -87,16 +87,16 @@ export default function App() {
   // de la población, con Wegbreite suficiente). Secuencia AXIOMA, no diagnóstico.
   const isPsychoticBreakActive = metrics.psychoticRupture;
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
-  };
+  }, []);
 
   // Lanzar la ruptura psicótica: carga el perfil fuera de baremo (IGS 3.30 = 3×
   // el corte T=60) con la Wegbreite suficiente (Corolario I: la pared se adelgaza a
   // δ = 0.55 ≥ π/6). El canvas dispara la secuencia: eyección de S, I y Pulsión por
   // el orificio (v=π, sale la voz) y reconfiguración cubriendo toda la superficie.
-  const launchPsychoticRupture = () => {
+  const launchPsychoticRupture = useCallback(() => {
     const preset = CLINICAL_PRESETS.find(p => p.name === 'Ruptura del modelo (IGS extremo)');
     if (preset) {
       setSclData({ ...preset.data }); // objeto nuevo: el efecto del canvas re-dispara la secuencia
@@ -106,48 +106,54 @@ export default function App() {
       setRupturePlaying(true);
       showToast('⚠ Ruptura psicótica: IGS ' + preset.data["GSI"].toFixed(2) + ' = 3× el corte T=60 + Wegbreite (δ 0.55)');
     }
-  };
+  }, [showToast]);
 
   // Scrub temporal: fijar el reloj de la secuencia (pausa mientras se explora).
-  const handleRuptureTimeChange = (t: number) => {
+  const handleRuptureTimeChange = useCallback((t: number) => {
     setRuptureClock(t);
     setScrubTime(t);
     setRupturePlaying(false);
-  };
+  }, []);
 
   // Volver al perfil estable: abandona la ruptura y restablece el reloj.
-  const resetToStable = () => {
+  const resetToStable = useCallback(() => {
     setInputMode('pd');
     setSclData({ ...DEFAULT_SCL90R_DATA });
     setRuptureClock(0);
     setScrubTime(0);
     setRupturePlaying(true);
-  };
+  }, []);
 
-  const handleDeformationFactorChange = (factor: number) => {
-    setParams((prev) => ({ ...prev, deformation_factor: parseFloat(factor.toFixed(3)) }));
-  };
+  const handleDeformationFactorChange = useCallback((factor: number) => {
+    const rounded = parseFloat(factor.toFixed(3));
+    setParams((prev) => {
+      if (Math.abs(prev.deformation_factor - rounded) < 0.0005) {
+        return prev;
+      }
+      return { ...prev, deformation_factor: rounded };
+    });
+  }, []);
 
-  const handleToggleDeformationAnimation = () => {
+  const handleToggleDeformationAnimation = useCallback(() => {
     setIsAnimatingDeformation((prev) => !prev);
-  };
+  }, []);
 
   // Botones heredados de la versión de GitHub: disparan la secuencia de ruptura del
   // modelo (Corolario II: eyección por la voz y reconfiguración) y la vista de rayos X.
-  const handleTriggerPsychoticBreak = () => {
+  const handleTriggerPsychoticBreak = useCallback(() => {
     launchPsychoticRupture();
     setViewMode('xray_icc');
     setCcOpacity(0.18);
-  };
+  }, [launchPsychoticRupture]);
 
-  const handleResetPsychoticBreak = () => {
+  const handleResetPsychoticBreak = useCallback(() => {
     resetToStable();
     setParams((prev) => ({ ...prev, deformation_factor: 0.3 }));
     setViewMode('deformed');
     setCcOpacity(0.92);
-  };
+  }, [resetToStable]);
 
-  const handleCapturePng = (type: 'standard' | 'deformed', dataUrl: string) => {
+  const handleCapturePng = useCallback((type: 'standard' | 'deformed', dataUrl: string) => {
     const filename = type === 'standard' ? 'mi_modelo.png' : 'mi_modelo_deformado.png';
     setGallery((prev) => [
       {
@@ -158,7 +164,25 @@ export default function App() {
       ...prev.slice(0, 5)
     ]);
     showToast(`✓ Imagen guardada exitosamente como "${filename}"`);
-  };
+  }, [showToast]);
+
+  const handleRuptureTime = useCallback((t: number) => {
+    setRuptureClock(t);
+    setScrubTime(t);
+  }, []);
+
+  const handleRuptureEnd = useCallback(() => {
+    setRupturePlaying(false);
+  }, []);
+
+  const handleViewModeChange = useCallback((m: ViewMode) => {
+    setViewMode(m);
+    setCcOpacity((prevCc) => {
+      if (m === 'interior_icc' && prevCc > 0.3) return 0.20;
+      if (m === 'standard' && prevCc < 0.5) return 0.92;
+      return prevCc;
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -661,8 +685,8 @@ export default function App() {
             onLaunchRupture={launchPsychoticRupture}
             ruptureClock={ruptureClock}
             rupturePlaying={rupturePlaying}
-            onRuptureTime={(t) => { setRuptureClock(t); setScrubTime(t); }}
-            onRuptureEnd={() => setRupturePlaying(false)}
+            onRuptureTime={handleRuptureTime}
+            onRuptureEnd={handleRuptureEnd}
             scrubTime={scrubTime}
             onRuptureTimeChange={handleRuptureTimeChange}
             onRupturePlayingChange={setRupturePlaying}
@@ -670,11 +694,7 @@ export default function App() {
             onResetToStable={resetToStable}
             onDeformationFactorChange={handleDeformationFactorChange}
             onToggleDeformationAnimation={handleToggleDeformationAnimation}
-            onViewModeChange={(m) => {
-              setViewMode(m);
-              if (m === 'interior_icc' && ccOpacity > 0.3) setCcOpacity(0.20);
-              if (m === 'standard' && ccOpacity < 0.5) setCcOpacity(0.92);
-            }}
+            onViewModeChange={handleViewModeChange}
             onCapturePng={handleCapturePng}
           />
         </section>
