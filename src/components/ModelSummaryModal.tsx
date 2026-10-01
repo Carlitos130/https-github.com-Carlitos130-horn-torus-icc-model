@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TopologicalMetrics, SCL90RData, ModelParams } from '../types';
 import { generateModelSummaryText } from '../utils/hornTorusMath';
+import { formatMetricSafe } from '../utils/formatMetric';
 import { Terminal, Copy, Check, Download, ShieldCheck, Activity, TrendingUp, Info } from 'lucide-react';
 
 interface ModelSummaryModalProps {
@@ -52,13 +53,13 @@ export const ModelSummaryModal: React.FC<ModelSummaryModalProps> = ({
           <div className="text-lg font-bold font-mono text-cyan-400 mt-0.5">
             {metrics.iccIndex.toFixed(1)}%
           </div>
-          <div className="text-[9px] text-slate-400 mt-0.5">Coherencia</div>
+          <div className="text-[9px] text-slate-400 mt-0.5">Compuesto (AXIOMA)</div>
         </div>
 
         <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-2.5">
           <div className="text-[10px] text-slate-400 font-mono">Energía Willmore</div>
           <div className="text-lg font-bold font-mono text-amber-400 mt-0.5">
-            {metrics.willmoreEnergyDeformed.toFixed(2)}
+            {formatMetricSafe(metrics.willmoreEnergyDeformed, 2)}
           </div>
           <div className="text-[9px] text-slate-400 mt-0.5">Base: 2π² ≈ 19.74</div>
         </div>
@@ -80,7 +81,7 @@ export const ModelSummaryModal: React.FC<ModelSummaryModalProps> = ({
         </div>
 
         <div className={`rounded-lg p-2.5 border ${severityColors[metrics.clinicalSeverityTier]}`}>
-          <div className="text-[10px] font-mono opacity-80">Nivel Clínico</div>
+          <div className="text-[10px] font-mono opacity-80">Malestar (T IGS)</div>
           <div className="text-lg font-bold font-mono mt-0.5 tracking-wider">
             {metrics.clinicalSeverityTier}
           </div>
