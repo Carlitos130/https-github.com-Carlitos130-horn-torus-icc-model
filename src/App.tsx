@@ -6,6 +6,8 @@ import { HornTorusCanvas } from './components/HornTorusCanvas';
 import { Scl90rForm } from './components/Scl90rForm';
 import { ModelSummaryModal } from './components/ModelSummaryModal';
 import { PythonCodeExport } from './components/PythonCodeExport';
+import { TheoreticalManual } from './components/TheoreticalManualModal';
+import { SpectralSingularityPanel } from './components/SpectralSingularityPanel';
 import {
   Boxes,
   Sliders,
@@ -22,7 +24,8 @@ import {
   Palette,
   Activity,
   Radio,
-  Scan
+  Scan,
+  BookOpen
 } from 'lucide-react';
 import type { RuptureVisualState } from './types';
 
@@ -67,7 +70,7 @@ export default function App() {
   const [scrubTime, setScrubTime] = useState(0);
 
   // UI Active Sidebar Tab
-  const [activeTab, setActiveTab] = useState<'parameters' | 'summary' | 'python' | 'gallery'>('parameters');
+  const [activeTab, setActiveTab] = useState<'parameters' | 'singularities' | 'summary' | 'python' | 'manual' | 'gallery'>('parameters');
 
   // Captured snapshots gallery
   const [gallery, setGallery] = useState<{ type: string; url: string; time: string }[]>([]);
@@ -566,6 +569,19 @@ export default function App() {
             </button>
 
             <button
+              id="tab-singularities-btn"
+              onClick={() => setActiveTab('singularities')}
+              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                activeTab === 'singularities'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Espectral K</span>
+            </button>
+
+            <button
               id="tab-summary-btn"
               onClick={() => setActiveTab('summary')}
               className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
@@ -589,6 +605,19 @@ export default function App() {
             >
               <Code className="w-3.5 h-3.5" />
               <span>Python</span>
+            </button>
+
+            <button
+              id="tab-manual-btn"
+              onClick={() => setActiveTab('manual')}
+              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                activeTab === 'manual'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Manual & Lacan</span>
             </button>
 
             {gallery.length > 0 && (
@@ -619,6 +648,18 @@ export default function App() {
               />
             )}
 
+            {activeTab === 'singularities' && (
+              <SpectralSingularityPanel
+                params={params}
+                sclData={sclData}
+                colorMap={colorMap}
+                onSetColorMap={setColorMap}
+                onSetViewMode={setViewMode}
+                onTriggerPsychoticBreak={launchPsychoticRupture}
+                isPsychoticBreakActive={ruptureVisual !== 'idle'}
+              />
+            )}
+
             {activeTab === 'summary' && (
               <ModelSummaryModal
                 sclData={sclData}
@@ -631,6 +672,12 @@ export default function App() {
               <PythonCodeExport
                 sclData={sclData}
                 params={params}
+              />
+            )}
+
+            {activeTab === 'manual' && (
+              <TheoreticalManual
+                onTriggerPsychoticBreak={launchPsychoticRupture}
               />
             )}
 

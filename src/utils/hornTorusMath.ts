@@ -1,4 +1,4 @@
-import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates, ColorMapMode, PostEpisodeState } from '../types';
+import { SCL90RData, ModelParams, TopologicalMetrics, LacanianCoordinates, ColorMapMode, PostEpisodeState, SpectralSingularityReport, SingularityCriticalPoint } from '../types';
 import { BAREMOS, DEFAULT_BAREMO_ID, BaremoId, getBaremo, tDeEscalaCon, ruptureThresholdGsi, BAREMO_IDS } from './baremos';
 export { BAREMOS, DEFAULT_BAREMO_ID, getBaremo, BAREMO_IDS, ruptureThresholdGsi, tDeEscalaCon, publishedRange } from './baremos';
 export type { BaremoId } from './baremos';
@@ -1898,4 +1898,397 @@ if __name__ == '__main__':
     model.plot_3d_model(save_path='mi_modelo.png')
     model.plot_deformed_model(deformation_factor=${params.deformation_factor}, save_path='mi_modelo_deformado.png')
 `;
+}
+
+export function computePointGaussianCurvature(
+  u: number,
+  v: number,
+  params: ModelParams,
+  sclData: SCL90RData,
+  isDeformed: boolean = true
+): { K: number; H: number; classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular' } {
+  const lac = calculateLacanianParameters(sclData, params);
+  const R = Math.max(0.2, lac.R);
+  const r = Math.max(0.2 * lac.rOverR, lac.r);
+  const delta = isDeformed ? params.deformation_factor : 0;
+  const cosV = Math.cos(v);
+  const denomBase = R + r * cosV;
+
+  if (Math.abs(denomBase) < 0.008 * R) {
+    return { K: -18.5 * (1 + delta * 2), H: 0, classification: 'singular' };
+  }
+  const K0 = cosV / (r * Math.max(0.008 * R, denomBase));
+  const H0 = (R + 2 * r * cosV) / (2 * r * Math.max(0.008 * R, denomBase));
+  const clasificar = (K: number, singular: boolean) =>
+    singular ? 'singular' as const : K > 0.08 ? 'eliptica' as const : K < -0.08 ? 'hiperbolica' as const : 'parabolica' as const;
+
+  if (!isDeformed || delta <= 0.0001) {
+    return { K: K0, H: H0, classification: clasificar(K0, Math.abs(denomBase) < 0.04 * R) };
+  }
+
+  const du = 0.002;
+  const dv = 0.002;
+  const evalPt = (uu: number, vv: number): [number, number, number] => {
+    const { factor } = computeSclDeformation(uu, vv, sclData, delta);
+    const rr = R + r * Math.cos(vv);
+    return [rr * Math.cos(uu) * factor, rr * Math.sin(uu) * factor, r * Math.sin(vv) * (1.0 + (factor - 1.0) * 0.85)];
+  };
+  const sub = (a: number[], b: number[]) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const pC = evalPt(u, v), pUp = evalPt(u + du, v), pUm = evalPt(u - du, v), pVp = evalPt(u, v + dv), pVm = evalPt(u, v - dv);
+  const ru = sub(pUp, pUm).map((c) => c / (2 * du));
+  const rv = sub(pVp, pVm).map((c) => c / (2 * dv));
+  const E = ru[0] * ru[0] + ru[1] * ru[1] + ru[2] * ru[2];
+  const F = ru[0] * rv[0] + ru[1] * rv[1] + ru[2] * rv[2];
+  const G = rv[0] * rv[0] + rv[1] * rv[1] + rv[2] * rv[2];
+  let nx = ru[1] * rv[2] - ru[2] * rv[1];
+  let ny = ru[2] * rv[0] - ru[0] * rv[2];
+  let nz = ru[0] * rv[1] - ru[1] * rv[0];
+  const nLen = Math.hypot(nx, ny, nz);
+  if (nLen > 1e-6) { nx /= nLen; ny /= nLen; nz /= nLen; }
+  const ruu = [0, 1, 2].map((c) => (pUp[c] - 2 * pC[c] + pUm[c]) / (du * du));
+  const rvv = [0, 1, 2].map((c) => (pVp[c] - 2 * pC[c] + pVm[c]) / (dv * dv));
+  const pPP = evalPt(u + du, v + dv), pPM = evalPt(u + du, v - dv), pMP = evalPt(u - du, v + dv), pMM = evalPt(u - du, v - dv);
+  const ruv = [0, 1, 2].map((c) => (pPP[c] - pPM[c] - pMP[c] + pMM[c]) / (4 * du * dv));
+  const e = ruu[0] * nx + ruu[1] * ny + ruu[2] * nz;
+  const f = ruv[0] * nx + ruv[1] * ny + ruv[2] * nz;
+  const g = rvv[0] * nx + rvv[1] * ny + rvv[2] * nz;
+  const det = E * G - F * F;
+  let K = K0;
+  let H = H0;
+  if (det > 1e-6) {
+    K = Math.max(-150, Math.min(150, (e * g - f * f) / det));
+    H = Math.max(-50, Math.min(50, (e * G - 2 * f * F + g * E) / (2 * det)));
+  }
+  return { K, H, classification: clasificar(K, Math.abs(denomBase) < 0.04 * R || K < -12.0) };
+}
+
+/**
+ * Análisis de singularidades espectrales: curvatura gaussiana en puntos críticos de la
+ * superficie y su acoplamiento con la angustia (vecindades A_cr de las marcas).
+ * Las lecturas clínicas son homologías del modelo (AXIOMA), no inferencias de estructura.
+ */
+export function computeSpectralSingularityAnalysis(params: ModelParams, sclData: SCL90RData): SpectralSingularityReport {
+  const lac = calculateLacanianParameters(sclData, params);
+  const effectiveA = lac.a * 25.0;
+  const tubeR = effectiveA * lac.rOverR;
+  const aCritical = params.a_critical;
+  const delta = params.deformation_factor;
+  const marks = lac.fantasyMarks;
+  const mark = marks[0];
+  const umbral = MAX_ANGUSTIA_DISTANCE - aCritical;
+
+  const getPos3D = (u: number, v: number): [number, number, number] => {
+    const { factor } = computeSclDeformation(u, v, sclData, delta);
+    const rr = effectiveA + tubeR * Math.cos(v);
+    return [rr * Math.cos(u) * factor, rr * Math.sin(u) * factor, tubeR * Math.sin(v) * (1.0 + (factor - 1.0) * 0.85)];
+  };
+
+  const rawPoints = [
+    { id: 'fantasy_point', name: 'Marca de fantasía (principal)', lacanianLabel: 'Marca Icc de trauma (Axioma 4)',
+      u: mark.u, v: mark.v,
+      clinicalMeaning: 'Marca de fantasía sobre la cara interna. La angustia surge por proximidad: un cruce que se acerca (señal) o pasa por ella (situación traumática). Homología del modelo — AXIOMA.' },
+    { id: 'cusp_singular', name: 'p — punto de autotangencia (la voz)', lacanianLabel: 'Orificio de doble sentido (v = π)',
+      u: Math.PI, v: Math.PI - 0.02,
+      clinicalMeaning: 'Único orificio fijo del Icc: entra lo oído (el campo Prcc) y sale la voz. Curvatura hiperbólica divergente (K → −∞) en el horn torus.' },
+    { id: 'rupture_boundary', name: 'Borde de la vecindad crítica', lacanianLabel: 'Borde de A_cr alrededor de la marca',
+      u: mark.u + aCritical, v: mark.v,
+      clinicalMeaning: 'Límite de la vecindad de la marca: más allá, el cruce ya no está en aproximación.' },
+    { id: 'conscious_equator', name: 'Ecuador exterior', lacanianLabel: 'Cara externa de la pared (v = 0)',
+      u: 0, v: 0,
+      clinicalMeaning: 'Zona elíptica de curvatura positiva estable (K > 0), la más alejada de p.' },
+    { id: 'lower_parabolic', name: 'Inflexión parabólica inferior', lacanianLabel: 'Línea parabólica (v = 3π/2)',
+      u: Math.PI, v: (3 * Math.PI) / 2,
+      clinicalMeaning: 'Transición parabólica entre la cara externa y la cara interna de la pared.' },
+    { id: 'symptom_sigma', name: 'Síntoma (Σ)', lacanianLabel: 'Cinta Σ',
+      u: lac.u_Sigma % (2 * Math.PI), v: lac.v_Sigma % (2 * Math.PI),
+      clinicalMeaning: 'Tramo de la cinta Σ; su ubicación depende de la asignación axiomática a Psicoticismo y Hostilidad.' },
+    { id: 'body_image_I', name: 'Imagen del cuerpo (I)', lacanianLabel: 'Cinta I y borde del hilo pulsional',
+      u: lac.u_I % (2 * Math.PI), v: lac.v_I % (2 * Math.PI),
+      clinicalMeaning: 'Umbral donde el organismo se inscribe como imagen del cuerpo; el hilo pulsional corre pegado a su borde.' },
+    { id: 'signifier_S', name: 'Cadena significante (S)', lacanianLabel: 'Cinta S',
+      u: lac.u_S % (2 * Math.PI), v: lac.v_S % (2 * Math.PI),
+      clinicalMeaning: 'Tramo de la cinta S (asignación axiomática a Ansiedad y Obsesión).' },
+  ];
+
+  const criticalPoints: SingularityCriticalPoint[] = rawPoints.map((pt) => {
+    const cur0 = computePointGaussianCurvature(pt.u, pt.v, params, sclData, false);
+    const curDef = computePointGaussianCurvature(pt.u, pt.v, params, sclData, true);
+    const angustia = calculateAngustia(pt.u, pt.v, marks);
+    const isAnguishOverflow = angustia >= umbral;
+    const anguishRatio = MAX_ANGUSTIA_DISTANCE > 0 ? angustia / MAX_ANGUSTIA_DISTANCE : 0;
+    const deltaK = curDef.K - cur0.K;
+    const deltaKPercent = Math.abs(cur0.K) > 0.001 ? (deltaK / Math.abs(cur0.K)) * 100 : deltaK * 100;
+    const { stress } = computeSclDeformation(pt.u, pt.v, sclData, delta);
+    const { tension } = computeDifferentialTension(pt.u, pt.v, sclData, delta, effectiveA, lac.rOverR);
+    return {
+      id: pt.id, name: pt.name, lacanianLabel: pt.lacanianLabel, u: pt.u, v: pt.v,
+      uDeg: Math.round((pt.u * 180) / Math.PI), vDeg: Math.round((pt.v * 180) / Math.PI),
+      K0: parseFloat(cur0.K.toFixed(3)), K_def: parseFloat(curDef.K.toFixed(3)),
+      deltaK: parseFloat(deltaK.toFixed(3)), deltaKPercent: parseFloat(deltaKPercent.toFixed(1)),
+      H0: parseFloat(cur0.H.toFixed(3)), H_def: parseFloat(curDef.H.toFixed(3)),
+      angustia: parseFloat(angustia.toFixed(3)), isAnguishOverflow, anguishRatio: parseFloat(anguishRatio.toFixed(3)),
+      stress: parseFloat(stress.toFixed(3)), differentialTension: parseFloat(tension.toFixed(3)),
+      classification: curDef.classification, clinicalMeaning: pt.clinicalMeaning, position3D: getPos3D(pt.u, pt.v)
+    };
+  });
+
+  const gridSteps = 28;
+  let maxHyp = 0;
+  let maxEll = -Infinity;
+  let overflowCount = 0;
+  let overflowHighCurvCount = 0;
+  const samples: { u: number; v: number; K: number; angustia: number; isOverflow: boolean; intensity: number }[] = [];
+  const scatterPoints: { u: number; v: number; K: number; angustia: number; isOverflow: boolean }[] = [];
+  for (let i = 0; i < gridSteps; i++) {
+    const v = (i / gridSteps) * 2 * Math.PI;
+    for (let j = 0; j < gridSteps; j++) {
+      const u = (j / gridSteps) * 2 * Math.PI;
+      const { K } = computePointGaussianCurvature(u, v, params, sclData, true);
+      const angustia = calculateAngustia(u, v, marks);
+      const isOverflow = angustia >= umbral;
+      const intensity = aCritical > 0 ? Math.max(0, angustia - umbral) / aCritical : 0;
+      if (K < maxHyp) maxHyp = K;
+      if (K > maxEll) maxEll = K;
+      if (isOverflow) {
+        overflowCount++;
+        if (Math.abs(K) > 0.85 || K < -1.0) overflowHighCurvCount++;
+      }
+      samples.push({ u, v, K, angustia, isOverflow, intensity });
+      if (i % 3 === 0 && j % 3 === 0) {
+        scatterPoints.push({ u: parseFloat(u.toFixed(2)), v: parseFloat(v.toFixed(2)), K: parseFloat(K.toFixed(2)), angustia: parseFloat(angustia.toFixed(2)), isOverflow });
+      }
+    }
+  }
+  const n = samples.length;
+  const meanAbsK = samples.reduce((acc, s) => acc + Math.abs(s.K), 0) / n;
+  const meanI = samples.reduce((acc, s) => acc + s.intensity, 0) / n;
+  let cov = 0, varK = 0, varI = 0;
+  for (const s of samples) {
+    const dK = Math.abs(s.K) - meanAbsK;
+    const dI = s.intensity - meanI;
+    cov += dK * dI; varK += dK * dK; varI += dI * dI;
+  }
+  const denom = Math.sqrt(varK * varI);
+  const pearsonCorrelationCurvatureAnguish = denom > 1e-6 ? parseFloat((cov / denom).toFixed(3)) : 0;
+  const highCurvatureAnguishOverlapPercent = overflowCount > 0 ? parseFloat(((overflowHighCurvCount / overflowCount) * 100).toFixed(1)) : 0;
+
+  const binEdges = [-8.0, -4.5, -2.5, -1.2, -0.4, 0.1, 0.6, 1.2, 2.5, 5.0];
+  const curvatureSpectrum = binEdges.map((edge, idx) => {
+    const next = binEdges[idx + 1] ?? 15.0;
+    const binCenter = parseFloat(((edge + next) / 2).toFixed(2));
+    const matching = samples.filter((s) => s.K >= edge && s.K < next);
+    const count = matching.length;
+    return {
+      binCenter,
+      count,
+      avgAngustia: count > 0 ? parseFloat((matching.reduce((a, m) => a + m.angustia, 0) / count).toFixed(2)) : 0,
+      criticalAnguishCount: matching.filter((s) => s.isOverflow).length,
+      type: (binCenter < -0.3 ? 'hiperbolica' : binCenter > 0.3 ? 'eliptica' : 'parabolica') as 'hiperbolica' | 'parabolica' | 'eliptica'
+    };
+  });
+
+  // Estado de la marca principal. La marca está siempre dentro de su propia vecindad, así
+  // que el criterio no puede ser la angustia EN la marca: es si la cinta S pasa por su
+  // vecindad (Axioma 4, aproximación) y cuánto cambia la curvatura con la deformación.
+  const fp = criticalPoints.find((p) => p.id === 'fantasy_point')!;
+  // Axioma 4 (aproximación): la cinta S está reactivada si pasa dentro de la
+  // vecindad A_cr de alguna marca de fantasía (distancia angular envuelta).
+  const wrapAng = (x: number) => Math.atan2(Math.sin(x), Math.cos(x));
+  const sCerca = lac.fantasyMarks.some((m) => Math.hypot(wrapAng(lac.u_S - m.u), wrapAng(lac.v_S - m.v)) <= aCritical);
+  let structuralIntegrity: 'Integra' | 'Tensa' | 'Desbordada' | 'Colapsada' = 'Integra';
+  if (sCerca && Math.abs(fp.deltaK) > 1.2) structuralIntegrity = 'Colapsada';
+  else if (sCerca) structuralIntegrity = 'Desbordada';
+  else if (Math.abs(fp.deltaK) > 0.25) structuralIntegrity = 'Tensa';
+
+  // Estado de la cúspide por el T de Psicoticismo (baremo elegido) y la curvatura:
+  // describe tensión geométrica del modelo; no infiere estructura clínica.
+  const cusp = criticalPoints.find((p) => p.id === 'cusp_singular')!;
+  const tPsy = tDeEscalaCon(getBaremo(params.baremoId), 'Psicoticismo', sclData['Psicoticismo'] ?? 0).t;
+  // La curvatura en la cúspide diverge por geometría en cualquier perfil: el estado se lee
+  // solo del T de Psicoticismo y de δ; K_def se informa aparte.
+  let status: 'Compensada' | 'Cizalladura Leve' | 'Estrangulamiento' | 'Tensión extrema' = 'Compensada';
+  if (tPsy >= 80) status = 'Tensión extrema';
+  else if (tPsy >= 70) status = 'Estrangulamiento';
+  else if (tPsy >= 60 || delta > 0.25) status = 'Cizalladura Leve';
+
+  return {
+    criticalPoints,
+    pearsonCorrelationCurvatureAnguish,
+    highCurvatureAnguishOverlapPercent,
+    maxHyperbolicCurvature: parseFloat(maxHyp.toFixed(2)),
+    maxEllipticCurvature: parseFloat(maxEll.toFixed(2)),
+    fantasyPointDistortion: { K0: fp.K0, K_def: fp.K_def, deltaK: fp.deltaK, angustia: fp.angustia, isRuptured: sCerca, structuralIntegrity },
+    cuspSingularityDistortion: { K_def: cusp.K_def, strain: cusp.differentialTension, shearTension: cusp.stress, status },
+    curvatureSpectrum,
+    samplePoints: scatterPoints
+  };
+}
+
+
+// --- Visor HTML autónomo (de GitHub, reescrito con marcas de fantasía y Prcc) ---
+
+/**
+ * Genera un HTML autónomo (Three.js por CDN) con el horn torus, las marcas de fantasía
+ * sobre la superficie, p (la voz) y el campo Prcc que entra por p a lo largo del eje.
+ */
+export function generateInteractiveHTMLScript(sclData: SCL90RData, params: ModelParams): string {
+  const lac = calculateLacanianParameters(sclData, params);
+  const aVal = 1.0;
+  const deltaVal = params.deformation_factor.toFixed(2);
+  const aCrVal = params.a_critical.toFixed(4);
+  const marksJson = JSON.stringify(lac.fantasyMarks.map((m) => [m.u, m.v]));
+  const som = (sclData['Somatización'] ?? 0).toFixed(3);
+  const oc = (sclData['Obsesión-Compulsión'] ?? 0).toFixed(3);
+  const psy = (sclData['Psicoticismo'] ?? 0).toFixed(3);
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Horn Torus Icc — visor interactivo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #030712; color: #f3f4f6; font-family: ui-sans-serif, system-ui, sans-serif; overflow: hidden; }
+    #canvas-container { width: 100vw; height: 100vh; }
+    #ui-panel { position: absolute; top: 16px; left: 16px; background: rgba(15, 23, 42, 0.88); padding: 18px; border-radius: 12px; border: 1px solid rgba(51, 65, 85, 0.8); max-width: 360px; font-size: 12px; z-index: 10; }
+    h1 { font-size: 15px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; }
+    .subtitle { font-size: 11px; color: #94a3b8; margin-bottom: 12px; line-height: 1.4; }
+    .quote-box { background: rgba(2, 6, 23, 0.6); border-left: 3px solid #2b9fa9; padding: 8px 10px; margin-bottom: 12px; border-radius: 4px; font-size: 11px; color: #d7f3f5; line-height: 1.45; }
+    .badge-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; font-family: monospace; font-size: 10px; }
+    .badge { padding: 3px 7px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; color: #38bdf8; }
+    .btn { width: 100%; padding: 9px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; margin-top: 4px; }
+    .hint { margin-top: 10px; text-align: center; font-size: 10px; color: #64748b; font-family: monospace; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div id="ui-panel">
+    <h1>Horn Torus Icc</h1>
+    <div class="subtitle">Toda la superficie es el Icc; la pared es la censura Icc/Prcc.</div>
+    <div class="quote-box">
+      <strong>p — la voz:</strong> único orificio fijo, de doble sentido: entra lo oído y sale la voz.<br>
+      <strong>Prcc:</strong> campo que entra por p, concentrado en el embudo del eje y sin borde.<br>
+      <strong>Cc:</strong> umbral de sobreinvestidura dentro de ese campo, no un lugar.<br>
+      <strong>Marcas de fantasía</strong> (rosa): la angustia surge por proximidad. Geometría: AXIOMA.
+    </div>
+    <div class="badge-grid">
+      <span class="badge">A_cr: ${aCrVal}</span>
+      <span class="badge">δ: ${deltaVal}</span>
+      <span class="badge">marcas: ${lac.fantasyMarks.length}</span>
+    </div>
+    <button class="btn" onclick="toggleDeformation()">Conmutar deformación / reposo</button>
+    <div class="hint">Arrastrar: rotar · Rueda: zoom · Clic derecho: desplazar</div>
+  </div>
+  <script>
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x030712);
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 3.2, 4.6);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+    const l1 = new THREE.DirectionalLight(0x38bdf8, 1.4); l1.position.set(5, 10, 7); scene.add(l1);
+    const l2 = new THREE.DirectionalLight(0xf43f5e, 0.9); l2.position.set(-5, -5, -5); scene.add(l2);
+
+    const a = ${aVal};
+    const delta = ${deltaVal};
+    const som = ${som}, oc = ${oc}, psy = ${psy};
+    const marks = ${marksJson};
+    let isDeformed = true;
+
+    function factorAt(u, v, d) {
+      const raw = som * 0.28 * Math.cos(3 * v) + oc * 0.32 * Math.sin(4 * u) * Math.cos(v)
+        + psy * 0.45 * Math.pow(Math.abs(Math.sin(v / 2)), 3) * Math.sin(2 * u + v);
+      return Math.max(0.15, 1 + d * Math.tanh(raw / 1.45) * 1.45);
+    }
+    // Y es el eje de revolución en esta escena (p en el origen).
+    function pointAt(u, v, d) {
+      const f = factorAt(u, v, d);
+      const r0 = a * (1 + Math.cos(v));
+      return new THREE.Vector3(r0 * Math.cos(u) * f, a * Math.sin(v) * (1 + (f - 1) * 0.85), r0 * Math.sin(u) * f);
+    }
+    function createGeometry(deformed) {
+      const N = 90, geo = new THREE.BufferGeometry(), pos = [], idx = [];
+      for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+        const p = pointAt((j / N) * 2 * Math.PI, (i / N) * 2 * Math.PI, deformed ? delta : 0);
+        pos.push(p.x, p.y, p.z);
+      }
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+        const q = i * (N + 1) + j, w = q + N + 1;
+        idx.push(q, w, q + 1, w, w + 1, q + 1);
+      }
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setIndex(idx);
+      geo.computeVertexNormals();
+      return geo;
+    }
+    const torus = new THREE.Mesh(createGeometry(true), new THREE.MeshStandardMaterial({
+      color: 0xc0392b, metalness: 0.15, roughness: 0.45, side: THREE.DoubleSide, transparent: true, opacity: 0.55
+    }));
+    scene.add(torus);
+
+    const markMeshes = marks.map(([u, v]) => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.07, 20, 20),
+        new THREE.MeshStandardMaterial({ color: 0xd9468f, emissive: 0x8e1b5f, emissiveIntensity: 0.7 }));
+      scene.add(m);
+      return { m, u, v };
+    });
+    function placeMarks() {
+      markMeshes.forEach(({ m, u, v }) => m.position.copy(pointAt(u, v, isDeformed ? delta : 0).multiplyScalar(0.96)));
+    }
+    placeMarks();
+
+    const voice = new THREE.Mesh(new THREE.SphereGeometry(0.06, 20, 20), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    scene.add(voice);
+
+    // Campo Prcc: puntos fuera del volumen, más densos en el embudo del eje (Y) y sin borde.
+    const prccPos = [];
+    let s = 7;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    for (let k = 0, guard = 0; k < 1600 && guard < 120000; guard++) {
+      const x = (rnd() * 2 - 1) * 2.6 * a, y = (rnd() * 2 - 1) * 2.6 * a, z = (rnd() * 2 - 1) * 2.6 * a;
+      const rho = Math.hypot(x, z);
+      if ((rho - a) ** 2 + y * y <= a * a) continue;
+      const d = Math.hypot(x, y, z) / a;
+      const f = Math.exp(-d / 1.4) * (0.45 + 0.55 * Math.exp(-(rho / a) / 0.35));
+      if (rnd() > f) continue;
+      prccPos.push(x, y, z); k++;
+    }
+    const prccGeo = new THREE.BufferGeometry();
+    prccGeo.setAttribute('position', new THREE.Float32BufferAttribute(prccPos, 3));
+    scene.add(new THREE.Points(prccGeo, new THREE.PointsMaterial({ color: 0x2b9fa9, size: 0.03, transparent: true, opacity: 0.55 })));
+
+    function toggleDeformation() {
+      isDeformed = !isDeformed;
+      torus.geometry.dispose();
+      torus.geometry = createGeometry(isDeformed);
+      placeMarks();
+    }
+    window.toggleDeformation = toggleDeformation;
+
+    const clock = new THREE.Clock();
+    (function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      const pulse = 1 + Math.sin(t * 3) * 0.2;
+      voice.scale.set(pulse, pulse, pulse);
+      controls.update();
+      renderer.render(scene, camera);
+    })();
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>`;
 }

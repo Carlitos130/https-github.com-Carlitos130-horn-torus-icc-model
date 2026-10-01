@@ -151,3 +151,65 @@ export interface TopologicalMetrics {
   lacanian: LacanianCoordinates;
 }
 
+
+export interface SingularityCriticalPoint {
+  id: string;
+  name: string;
+  lacanianLabel: string;
+  u: number;
+  v: number;
+  uDeg: number;
+  vDeg: number;
+  K0: number; // Curvatura Gaussiana en el Toro Horn estándar
+  K_def: number; // Curvatura Gaussiana con deformación sintomática
+  deltaK: number; // K_def - K0
+  deltaKPercent: number;
+  H0: number; // Curvatura Media estándar
+  H_def: number; // Curvatura Media deformada
+  angustia: number;
+  isAnguishOverflow: boolean; // dentro de la vecindad A_cr de una marca de fantasía
+  anguishRatio: number;
+  stress: number;
+  differentialTension: number;
+  classification: 'eliptica' | 'parabolica' | 'hiperbolica' | 'singular';
+  clinicalMeaning: string;
+  position3D: [number, number, number];
+}
+
+export interface SpectralSingularityReport {
+  criticalPoints: SingularityCriticalPoint[];
+  pearsonCorrelationCurvatureAnguish: number;
+  highCurvatureAnguishOverlapPercent: number;
+  maxHyperbolicCurvature: number;
+  maxEllipticCurvature: number;
+  fantasyPointDistortion: {
+    K0: number;
+    K_def: number;
+    deltaK: number;
+    angustia: number;
+    isRuptured: boolean;
+    structuralIntegrity: 'Integra' | 'Tensa' | 'Desbordada' | 'Colapsada';
+  };
+  cuspSingularityDistortion: {
+    K_def: number;
+    strain: number;
+    shearTension: number;
+    status: 'Compensada' | 'Cizalladura Leve' | 'Estrangulamiento' | 'Tensión extrema';
+  };
+  curvatureSpectrum: {
+    binCenter: number;
+    count: number;
+    avgAngustia: number;
+    criticalAnguishCount: number;
+    type: 'hiperbolica' | 'parabolica' | 'eliptica';
+  }[];
+  samplePoints: {
+    u: number;
+    v: number;
+    K: number;
+    angustia: number;
+    isOverflow: boolean;
+  }[];
+}
+
+
