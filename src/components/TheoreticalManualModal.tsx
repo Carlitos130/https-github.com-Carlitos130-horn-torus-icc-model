@@ -40,7 +40,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               Tratado Teórico & Manual Clínico
             </h2>
             <p className="text-[10.5px] text-slate-400">
-              Topología del Inconsciente, Metapsicología Freudiana y Estructura Lacaniana
+              Topología del Inconsciente, Metapsicología Freudiana y Estructura Lacaniana · alineado a la tesis V47 (Axioma 2 rearticulado)
             </p>
           </div>
         </div>
@@ -167,7 +167,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 demuestra que la metáfora esférica induce un engaño cartesiano (adentro vs. afuera).
               </p>
               <p className="text-[11px] text-slate-400">
-                En este modelo <strong>toda la superficie es el Icc</strong> y su pared es la <strong>censura</strong> Icc/Prcc.
+                En este modelo <strong>toda la superficie es el Icc</strong> (AXIOMA); la censura es una propiedad de la marca, no un espesor de la pared (X sin espesor — V35), y la cinta S-I-Σ es el <strong>soporte de las series</strong> de Vorstellungsrepräsentanzen (V46): las VR de S se inscriben sobre una banda y las de I sobre otra.
                 El Prcc no es un espesor: es el campo de representaciones-palabra que entra por el oído (GW XIII, cap. II),
                 y la Cc no es un lugar sino un umbral de sobreinvestidura dentro de ese campo (GW X, secc. VI).
                 La geometría (embudo, campo sin borde) es construcción del autor — AXIOMA.
@@ -231,14 +231,14 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                   <strong>1. La voz y lo oído:</strong> el oído es, para Lacan, el único orificio del campo del inconsciente que no puede cerrarse (Seminario XI, 20 de mayo de 1964). En el horn torus ese orificio es p $(v = \pi)$, de doble sentido: por él entra lo oído —las representaciones-palabra que forman el Prcc (GW XIII, cap. II)— y sale la voz. El superyó procede de lo oído, pero su energía viene del ello (GW XIII, cap. V).
                 </p>
                 <p>
-                  <strong>2. Los $V_R$ (Vorstellungsrepräsentanz) en toda la Superficie:</strong> A partir de ese orificio central de contacto con el Ello/Superyó, los representantes de la representación de la pulsión ($V_R$) <strong>se desplazan, circulan y se anudan sobre la totalidad de la superficie toroidal</strong>. No están confinados a un rincón interno: circulan continuamente sobre la superficie del Inconsciente bordeando el agujero central sin jamás colmarlo.
+                  <strong>2. Los $V_R$ (Vorstellungsrepräsentanz) sobre los soportes de las dos series (tesis V44/V46):</strong> las VR se inscriben una por una sobre la cara interna de Ding —las de S sobre su banda, las de I sobre la suya (Axioma 1)— y cada inscripción repite el trayecto A→a' del esquema L. <strong>Configuración (Axioma 2 rearticulado, V47):</strong> (a) <em>neurosis</em> — soportes en <strong>superposición</strong> (unión conexa; trayecto A→a' sin trecho; correspondencia de origen): Σ es <strong>contingente</strong>; (b) <em>Border</em> (psicosis no desencadenada) — soportes <strong>disjuntos</strong> (trecho; la correspondencia de origen falta): Σ es <strong>exigida</strong>. Σ no se redefine: cambia el estatuto modal de su operación (contingente / exigida). El botón «Config Axioma 2» de la app desfasa el dibujo de la banda S en (b), sin tocar el cálculo.
                 </p>
               </div>
             </div>
 
             <div className="bg-slate-950/50 border border-slate-800/80 p-3 rounded-lg space-y-1.5">
               <h4 className="font-semibold text-amber-300">
-                C. La fantasía: marcas de trauma sobre la cara interna (tesis V22, Axioma 4)
+                C. La fantasía: marcas de trauma sobre la cara interna (tesis V40–V46, Axioma 4)
               </h4>
               <p className="text-[11px] text-slate-300 leading-relaxed">
                 La fantasía (concepto freudiano) se formaliza como <strong>marcas Icc de trauma</strong> sobre la cara interna de la pared, distintas entre sí y de contenido desconocido: se ven sus efectos (Agieren, síntoma), no lo que son. La angustia surge por <strong>proximidad</strong>: cuando un cruce se acerca a una marca (señal) o pasa por ella (situación traumática). AXIOMA.
@@ -279,7 +279,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               En Lacan (Seminario III), el desencadenamiento psicótico se piensa desde la <strong>forclusión del Nombre-del-Padre</strong>.
               Este modelo <strong>no infiere estructura clínica</strong> a partir del SCL-90-R: un Psicoticismo alto no es forclusión, y un
               IGS extremo no es un diagnóstico. La «ruptura» de la app es una secuencia del modelo (Corolario II, AXIOMA): se dispara con
-              IGS ≥ 3× el corte T=60 de la población y Wegbreite suficiente; la cinta S-I-Σ sale por la voz (p) y se reconfigura sobre la superficie.
+              IGS ≥ 3× el corte T=60 de la población y Wegbreite suficiente; la cinta S-I-Σ sale por la voz (p) y se reconfigura sobre la superficie. <strong>V47:</strong> el Corolario II queda <strong>condicional a la configuración (b)</strong> del Axioma 2 rearticulado —en (a) la correspondencia de origen no pasa por Σ y el pasaje traumático ni dispersa las cadenas ni eyecta la cinta—; el caso Joyce se conserva como paradigma de (b).
             </p>
           </div>
 
@@ -384,9 +384,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 <span>El Sinthome como Prótesis Topológica (Seminario XXIII)</span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Lacan propuso que James Joyce evitó el brote psicótico gracias a su escritura como <strong>cuarto nudo (Sinthome)</strong>.
-                Podemos modelar matemáticamente un <strong>lazo de corrección homotópica</strong> sobre la singularidad del Horn Torus,
-                demostrando cómo creaciones sublimatorias o suplencias estabilizan el aparato sin necesidad de la metáfora paterna tradicional.
+                Lacan propuso que James Joyce evitó el brote psicótico gracias a su escritura como <strong>cuarto nudo (Sinthome)</strong>. En la tesis V47 el sinthome sigue <strong>sin definirse</strong> (la cita del Seminario XXIII queda como material en espera) y Joyce se conserva como <strong>paradigma de la configuración (b)</strong>: la consistencia la sostiene la operación Σ exigida en acto —por la modalidad de la operación, no por un borromeo—. La formalización como lazo de corrección sobre la singularidad del Horn Torus queda como material secundario en espera (L = S∪I∪Σ, PENDIENTE).
               </p>
             </div>
 
@@ -439,7 +437,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               <ul className="list-disc pl-5 space-y-1 text-[11px] text-slate-400">
                 <li><strong>Estándar:</strong> Geometría pura del Horn Torus (δ = 0, R = r = a) sin perturbación psicométrica.</li>
                 <li><strong>Deformado:</strong> Aplicación de la perturbación armónica 1.0 + δ · deform basada en el vector SCL-90-R.</li>
-                <li><strong>Vórtice Central (Icc):</strong> La cámara se orienta hacia el orificio singular central donde penetra la pulsión Voz, revelando el despliegue continuo de los VR en la superficie, el punto de fantasía y las cintas simbólicas e imaginarias.</li>
+                <li><strong>Vórtice Central (Icc):</strong> La cámara se orienta hacia el orificio singular central donde penetra la pulsión Voz, revelando las cintas S, I y Σ —soportes de las series de VR (V46)—, las marcas de fantasía y el hilo pulsional pegado al borde de I.</li>
                 <li><strong>Rayos X Icc:</strong> Aplica transparencia selectiva al toro para observar la red de significantes y el flujo de los VR a través de toda la superficie continua.</li>
                 <li><strong>Dual:</strong> Renderiza ambos estados morfológicos en ventanas contiguas para comparación directa.</li>
               </ul>
@@ -465,6 +463,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               </h4>
               <ul className="list-disc pl-5 space-y-1 text-[11px] text-slate-400">
                 <li><strong>Pestaña SCL-90-R:</strong> Cargue puntajes directos (con validación de consistencia IGS = PST·PSDI/90) o puntajes T del protocolo (se convierten a PD con el baremo de la población elegida). La tabla del baremo muestra los datos normativos (Casullo – Pérez).</li>
+                <li><strong>Config Axioma 2 (V47, solo visual):</strong> botón junto a «Cintas 3D»: alterna (a) <em>superposición</em> —soportes de las bandas S e I unidos (unión conexa, Σ contingente)— y (b) <em>trecho</em> —la banda S se desfasa y queda separada de I (soportes disjuntos, Σ exigida). No altera el cálculo.</li>
                 <li><strong>Animación de Deformación:</strong> Presione el botón de destello o <em>Animar Transición (0 ➔ δ)</em> para ver la metamorfosis continua del toro a 60 FPS.</li>
                 <li><strong>Pestaña Resumen:</strong> Métricas de energía de Willmore, área superficial, tensión diferencial e informe psicométrico formal.</li>
                 <li><strong>Pestaña Python:</strong> Código autocontenido listo para ejecutar localmente con `matplotlib` y `numpy`.</li>

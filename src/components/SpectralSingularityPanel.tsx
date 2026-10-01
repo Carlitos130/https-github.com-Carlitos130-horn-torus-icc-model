@@ -200,6 +200,9 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
           <p className="text-[10px] text-amber-300/90 leading-tight font-mono">
             Curvatura en la marca; la angustia surge por proximidad (AXIOMA).
           </p>
+          <p className="text-[10px] text-slate-400/90 leading-tight">
+            Lectura (V47, LECTURA del modelo): la reactivación traumática se calcula como el paso de la cinta S dentro de la vecindad A_cr de alguna marca de fantasía; la integridad estructural cruza esa proximidad con la curvatura de la marca. Es homología, no inferencia de estructura; en (a) la reactivación no dispersa ni eyecta (Corolario II condicional a (b)).
+          </p>
         </div>
 
         {/* Card 4: Cusp Distortion */}
@@ -709,7 +712,7 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
       <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-lg text-xs text-slate-400 space-y-1">
         <h4 className="font-semibold text-cyan-300 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-          Fundamentación: la superficie del Icc, la voz y el Prcc (tesis V22)
+          Fundamentación: la superficie del Icc, la voz y el Prcc (tesis V44–V47)
         </h4>
         <p className="leading-relaxed text-[11px]">
           Toda la superficie del horn torus es el <strong>Icc</strong> y su pared es la <strong>censura</strong> Icc/Prcc. El punto de autotangencia p ($v = \pm\pi$) es el único orificio fijo y es de doble sentido: por él <strong>entra lo oído</strong> —el campo <strong>Prcc</strong>, concentrado en el embudo del eje y sin borde (GW XIII, cap. II)— y <strong>sale la voz</strong>. La <strong>Cc</strong> es un umbral de sobreinvestidura dentro de ese campo (GW X, secc. VI). La <strong>fantasía</strong> son marcas Icc de trauma sobre la cara interna; la angustia surge por proximidad a ellas (Axioma 4). La curvatura es geometría exacta de la superficie; su lectura clínica es homología del modelo (AXIOMA), no inferencia de estructura.
