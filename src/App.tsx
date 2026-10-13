@@ -8,6 +8,7 @@ import { ModelSummaryModal } from './components/ModelSummaryModal';
 import { PythonCodeExport } from './components/PythonCodeExport';
 import { TheoreticalManual } from './components/TheoreticalManualModal';
 import { SpectralSingularityPanel } from './components/SpectralSingularityPanel';
+import { EstatutoNotice } from './components/EstatutoNotice';
 import {
   Boxes,
   Sliders,
@@ -25,6 +26,7 @@ import {
   Activity,
   Radio,
   Scan,
+  ScrollText,
   BookOpen
 } from 'lucide-react';
 import type { RuptureVisualState } from './types';
@@ -71,6 +73,9 @@ export default function App() {
 
   // UI Active Sidebar Tab
   const [activeTab, setActiveTab] = useState<'parameters' | 'singularities' | 'summary' | 'python' | 'manual' | 'gallery'>('parameters');
+
+  // V49: aviso de estatuto (prototipo de LECTURA, no instrumento de medición) — colapsable.
+  const [showEstatuto, setShowEstatuto] = useState<boolean>(true);
 
   // Captured snapshots gallery
   const [gallery, setGallery] = useState<{ type: string; url: string; time: string }[]>([]);
@@ -620,6 +625,20 @@ export default function App() {
               <span>Manual & Lacan</span>
             </button>
 
+            <button
+              id="tab-estatuto-btn"
+              onClick={() => setShowEstatuto((v) => !v)}
+              className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+                showEstatuto
+                  ? 'bg-amber-950 text-amber-300 font-semibold border border-amber-700/80'
+                  : 'text-slate-400 hover:text-amber-300'
+              }`}
+              title="Estatuto de este artefacto: prototipo de LECTURA, no instrumento de medición ni diagnóstico"
+            >
+              <ScrollText className={`w-3.5 h-3.5 ${showEstatuto ? 'text-amber-400' : 'text-amber-600'}`} />
+              <span>Estatuto</span>
+            </button>
+
             {gallery.length > 0 && (
               <button
                 id="tab-gallery-btn"
@@ -639,6 +658,10 @@ export default function App() {
 
           {/* Tab Content Display */}
           <div className="flex-1 overflow-y-auto max-h-[640px] pr-1 space-y-3">
+            {showEstatuto && (
+              <EstatutoNotice onClose={() => setShowEstatuto(false)} />
+            )}
+
             {activeTab === 'parameters' && (
               <Scl90rForm
                 sclData={sclData}
