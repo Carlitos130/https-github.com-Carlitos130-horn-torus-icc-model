@@ -17,12 +17,12 @@ La descripción completa, con qué es cita, qué es lectura y qué es axioma, es
 
 ## Carga del SCL-90-R
 
-Dos modos, con el baremo de **Casullo – Pérez** (UBA; adultos y adolescentes, por sexo):
+Entrada en **puntajes directos (PD)**, con el baremo de **Casullo – Pérez** (UBA; adultos y adolescentes, por sexo):
 
 - **Puntajes directos (PD):** dimensiones 0–4, PST 0–90, PSDI derivado. Valida la consistencia interna (IGS = PST·PSDI/90 y el rango de IGS compatible con las dimensiones).
-- **Puntajes T:** para protocolos que solo informan T. Se convierten a PD con el baremo elegido; por encima de T = 80 (fuera de la tabla publicada) se extrapola el último tramo y se marca "fuera de baremo".
+- **Puntajes T (derivados, no de entrada):** el T de cada escala se interpola del baremo elegido. Fuera de la tabla publicada (T 30–80) **no se extrapola**: se acota al extremo y se marca "fuera de baremo".
 
-Los presets en T incluyen un caso clínico **anonimizado**.
+Los presets incluyen un caso clínico **anonimizado**, cargado en PD.
 
 ## Cómo correrlo
 
@@ -31,7 +31,7 @@ npm install
 npm run dev
 ```
 
-Abre en http://localhost:3000. `npm run lint` corre el chequeo de tipos.
+Abre en http://localhost:3000. `npm run lint` corre el chequeo de tipos y `npm test` la suite de invariantes del motor.
 
 ## Estructura
 
@@ -44,6 +44,7 @@ Abre en http://localhost:3000. `npm run lint` corre el chequeo de tipos.
 | `src/components/SpectralSingularityPanel.tsx` | Curvatura gaussiana en puntos críticos |
 | `src/components/TheoreticalManualModal.tsx` | Manual teórico y de uso |
 | `public/horn_torus_icc_interactivo.html` | Visor HTML autónomo (Three.js por CDN) |
+| `tests/` | Suite de invariantes del motor (node:test): psicometría, baremos, familia de toros, curvatura y espectro |
 | `docs/` | Descripción del modelo y figuras |
 
 ## Privacidad
