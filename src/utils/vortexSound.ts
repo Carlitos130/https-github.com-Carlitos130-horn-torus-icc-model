@@ -113,9 +113,9 @@ export class VortexSynth {
 
   /** Intensidad del aparato (GSI): fundamental y apertura del filtro. */
   setIntensity(intensity: number): void {
-    const g = Math.max(0, Math.min(3, intensity));
+    const g = Math.max(0, Math.min(8, intensity));
     this.f0 = 110 * (g / 0.85);
-    this.cutoff = 250 + g * 780;
+    this.cutoff = Math.min(6000, 250 + g * 780);
     if (!this.running || !this.ctx) return;
     const now = this.ctx.currentTime;
     this.oscA?.frequency.setTargetAtTime(this.f0, now, 0.35);

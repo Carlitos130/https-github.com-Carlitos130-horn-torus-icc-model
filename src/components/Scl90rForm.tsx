@@ -6,7 +6,6 @@ import {
   checkScl90rConsistency,
   derivePsdi,
   pstRangeForGsi,
-  gsiRangeFromDimensions,
   BAREMOS,
   BAREMO_IDS,
   getBaremo,
@@ -26,18 +25,19 @@ export const Scl90rForm: React.FC<Scl90rFormProps> = ({
   sclData,
   onChangeSclData,
   params,
-  onChangeParams,
+  onChangeParams
 }) => {
   const [showExtended, setShowExtended] = useState(false);
   const [activePresetIndex, setActivePresetIndex] = useState<number>(0);
 
   // PSDI no es libre: se deriva de IGS y PST (IGS = PST·PSDI/90). Al mover el IGS,
-  // el PST se acota al rango que deja PSDI dentro de [1, 4].
+  // el PST se acota al rango que deja PSDI dentro de [1, 4] (o superior si IGS > 4).
   const handleSliderChange = (key: keyof SCL90RData, value: number) => {
     const next: SCL90RData = { ...sclData, [key]: parseFloat(value.toFixed(2)) };
     if (key === 'GSI' || key === 'PST') {
       const [pstMin, pstMax] = pstRangeForGsi(next["GSI"]);
-      next["PST"] = Math.round(Math.min(pstMax, Math.max(pstMin, next["PST"])));
+      const currentPst = next["PST"] > 0 ? next["PST"] : 45;
+      next["PST"] = Math.round(Math.min(pstMax, Math.max(pstMin, currentPst)));
       next["PSDI"] = parseFloat(derivePsdi(next["GSI"], next["PST"]).toFixed(2));
     }
     onChangeSclData(next);
@@ -46,23 +46,38 @@ export const Scl90rForm: React.FC<Scl90rFormProps> = ({
   const consistencyIssues = checkScl90rConsistency(sclData);
 
   // Escalas cuya PD excede el techo publicado del baremo de la población elegida
-  // (patología severa): el T no se extrapola, se acota a T=80 y se avisa acá.
-  const DIM_KEYS = ['Somatización', 'Obsesión-Compulsión', 'Sensibilidad Interpersonal', 'Depresión', 'Ansiedad', 'Hostilidad', 'Ansiedad Fóbica', 'Ideación Paranoide', 'Psicoticismo'] as const;
-  const fueraDeBaremo = DIM_KEYS
+  // (patología severa / caso límite): el IGS no tiene límite superior y puede salir del baremo.
+  const ALL_EVAL_KEYS = [
+    'GSI',
+    'Somatización',
+    'Obsesión-Compulsión',
+    'Sensibilidad Interpersonal',
+    'Depresión',
+    'Ansiedad',
+    'Hostilidad',
+    'Ansiedad Fóbica',
+    'Ideación Paranoide',
+    'Psicoticismo'
+  ] as const;
+
+  const fueraDeBaremo = ALL_EVAL_KEYS
     .map(key => {
-      const rango = publishedRange(params.baremoId, key);
+      const rango = publishedRange(params.baremoId, key as never);
       if (!rango) return null;
-      const [piso, techo] = rango;
-      const val = sclData[key] ?? 0;
+      const [, techo] = rango;
+      const val = sclData[key as keyof SCL90RData] ?? 0;
       return val > techo ? { key, val, techo } : null;
     })
-    .filter((x): x is { key: typeof DIM_KEYS[number]; val: number; techo: number } => x !== null);
+    .filter((x): x is { key: typeof ALL_EVAL_KEYS[number]; val: number; techo: number } => x !== null);
 
   const techoDe = (key: keyof SCL90RData): string | null => {
     const rango = publishedRange(params.baremoId, key as never);
     if (!rango) return null;
     const [, techo] = rango;
     const val = sclData[key] ?? 0;
+    if (key === 'GSI' && val > techo) {
+      return `${val.toFixed(2)} excede el techo publicado (${techo.toFixed(2)}, T=80) · IGS sin límite superior`;
+    }
     return val > techo ? `${val.toFixed(2)} excede el techo ${techo.toFixed(2)} (T=80)` : null;
   };
 
@@ -140,11 +155,15 @@ export const Scl90rForm: React.FC<Scl90rFormProps> = ({
     },
   ];
 
-  // Rango del slider por campo: PST es un conteo; PSDI es derivado (solo lectura).
-  const sliderRange = (key: keyof SCL90RData): { min: number; max: number; step: number } =>
-    key === 'PST' ? { min: 0, max: 90, step: 1 } : { min: 0, max: 4, step: 0.01 };
-
-  const [gsiMin, gsiMax] = gsiRangeFromDimensions(sclData);
+  // Rango del slider por campo: PST es un conteo (0–90); GSI sin límite superior; PSDI derivado.
+  const sliderRange = (key: keyof SCL90RData): { min: number; max: number; step: number } => {
+    if (key === 'PST') return { min: 0, max: 90, step: 1 };
+    if (key === 'GSI') {
+      const current = sclData["GSI"] ?? 1.0;
+      return { min: 0, max: Math.max(6.0, Math.ceil(current * 1.3)), step: 0.01 };
+    }
+    return { min: 0, max: 4, step: 0.01 };
+  };
 
   // Extended dimensions
   const extendedFields: { key: keyof SCL90RData; label: string }[] = [
@@ -343,15 +362,20 @@ export const Scl90rForm: React.FC<Scl90rFormProps> = ({
           <span className="text-[10px] text-slate-400 font-mono">scl90r_data</span>
         </div>
 
-        <p className="text-[10px] text-slate-400 font-mono">
-          IGS compatible con las dimensiones: {gsiMin.toFixed(2)} – {gsiMax.toFixed(2)}
-        </p>
+        <div className="flex flex-wrap items-center justify-between text-[10.5px] text-slate-400 font-mono gap-1">
+          <span>IGS: escala continua (sin límite superior · puede salir del baremo)</span>
+          {sclData["GSI"] > (publishedRange(params.baremoId, 'GSI')?.[1] ?? 2.22) && (
+            <span className="text-amber-400 font-semibold bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-700/60">
+              ⚠ IGS fuera de baremo (T &gt; 80)
+            </span>
+          )}
+        </div>
 
         {consistencyIssues.length > 0 && (
           <div id="scl-consistency-warning" className="bg-rose-950/50 border border-rose-700/70 rounded-lg p-2 space-y-1 text-[10.5px] text-rose-200">
-            <div className="flex items-center gap-1.5 font-semibold">
+            <div className="flex items-center gap-1.5 font-semibold text-rose-300">
               <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-              <span>Perfil SCL-90-R imposible</span>
+              <span>Aviso de validación</span>
             </div>
             <ul className="list-disc pl-4 space-y-0.5">
               {consistencyIssues.map((issue) => (
@@ -362,15 +386,16 @@ export const Scl90rForm: React.FC<Scl90rFormProps> = ({
         )}
 
         {fueraDeBaremo.length > 0 && (
-          <div id="scl-fuera-baremo-warning" className="bg-amber-950/50 border border-amber-700/70 rounded-lg p-2 space-y-1 text-[10.5px] text-amber-200">
-            <div className="flex items-center gap-1.5 font-semibold">
+          <div id="scl-fuera-baremo-warning" className="bg-amber-950/40 border border-amber-700/60 rounded-lg p-2.5 space-y-1 text-[10.5px] text-amber-200">
+            <div className="flex items-center gap-1.5 font-semibold text-amber-300">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              <span>Fuera de baremo (patología severa): el T se acota al techo publicado</span>
+              <span>Fuera de baremo (patología severa / caso límite): el IGS no tiene límite superior</span>
             </div>
-            <ul className="list-disc pl-4 space-y-0.5">
+            <ul className="list-disc pl-4 space-y-0.5 text-slate-300">
               {fueraDeBaremo.map(({ key, val, techo }) => (
                 <li key={key as string}>
-                  {key}: {val.toFixed(2)} &gt; {techo.toFixed(2)} — el baremo termina en T=80; el T real de este caso excede la tabla.
+                  <strong className="text-amber-200">{key}</strong>: {val.toFixed(2)} &gt; {techo.toFixed(2)} (techo T=80).
+                  {key === 'GSI' ? ' El IGS no tiene límite superior y puede aumentar libremente según el caso o la hipótesis explorada.' : ' En la tabla del baremo el T queda acotado a 80.'}
                 </li>
               ))}
             </ul>
@@ -387,16 +412,33 @@ export const Scl90rForm: React.FC<Scl90rFormProps> = ({
               >
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-slate-200 font-medium">{field.label}</span>
-                  <span
-                    className={`font-bold px-1.5 py-0.5 rounded border ${
-                      fueraDeBaremo.some(f => f.key === field.key)
-                        ? 'bg-amber-950 text-amber-300 border-amber-600'
-                        : 'bg-slate-800 text-cyan-300 border-slate-700'
-                    }`}
-                    title={techoDe(field.key)}
-                  >
-                    {val.toFixed(2)}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {field.key === 'GSI' && val > (publishedRange(params.baremoId, 'GSI')?.[1] ?? 2.22) && (
+                      <span className="text-[9px] px-1 py-0.5 bg-amber-900/60 text-amber-300 rounded border border-amber-600 font-sans" title="IGS fuera de baremo (sin límite superior)">
+                        &gt; Techo
+                      </span>
+                    )}
+                    <input
+                      id={`input-number-${field.key}`}
+                      type="number"
+                      step={field.key === 'PST' ? '1' : '0.01'}
+                      min="0"
+                      disabled={field.key === 'PSDI'}
+                      value={Number.isFinite(val) ? val : ''}
+                      onChange={(e) => {
+                        const parsed = parseFloat(e.target.value);
+                        if (!isNaN(parsed) && parsed >= 0) {
+                          handleSliderChange(field.key, parsed);
+                        }
+                      }}
+                      className={`w-18 px-1.5 py-0.5 text-right font-bold font-mono rounded border text-xs focus:outline-none focus:border-cyan-400 disabled:opacity-40 ${
+                        fueraDeBaremo.some(f => f.key === field.key)
+                          ? 'bg-amber-950 text-amber-300 border-amber-600'
+                          : 'bg-slate-900 text-cyan-300 border-slate-700'
+                      }`}
+                      title={techoDe(field.key) ?? undefined}
+                    />
+                  </div>
                 </div>
 
                 <input
@@ -446,9 +488,22 @@ export const Scl90rForm: React.FC<Scl90rFormProps> = ({
               const val = sclData[field.key] ?? 0.5;
               return (
                 <div key={field.key} className="bg-slate-950/30 p-2 rounded border border-slate-800/60 space-y-1">
-                  <div className="flex justify-between text-[11px] font-mono">
+                  <div className="flex justify-between items-center text-[11px] font-mono">
                     <span className="text-slate-300 truncate">{field.label}</span>
-                    <span className="text-amber-400 font-semibold">{val.toFixed(2)}</span>
+                    <input
+                      id={`input-number-ext-${field.key}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={Number.isFinite(val) ? val : ''}
+                      onChange={(e) => {
+                        const parsed = parseFloat(e.target.value);
+                        if (!isNaN(parsed) && parsed >= 0) {
+                          handleSliderChange(field.key, parsed);
+                        }
+                      }}
+                      className="w-16 px-1.5 py-0.5 text-right font-bold font-mono rounded border text-xs focus:outline-none focus:border-amber-400 bg-slate-900 text-amber-300 border-slate-700"
+                    />
                   </div>
                   <input
                     id={`slider-ext-${field.key}`}

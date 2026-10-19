@@ -161,7 +161,7 @@ export function pstRangeForGsi(gsi: number): [number, number] {
   ];
 }
 
-/** Rango de IGS compatible con las nueve dimensiones (los 7 ítems adicionales entre 0 y 4). */
+/** Rango de IGS estimado a partir de las nueve dimensiones (a título informativo). */
 export function gsiRangeFromDimensions(data: SCL90RData): [number, number] {
   let sum = 0;
   for (const [k, n] of Object.entries(SCL90R_ITEM_COUNTS)) {
@@ -170,20 +170,20 @@ export function gsiRangeFromDimensions(data: SCL90RData): [number, number] {
   return [sum / SCL90R_TOTAL_ITEMS, (sum + 4 * SCL90R_ADDITIONAL_ITEMS) / SCL90R_TOTAL_ITEMS];
 }
 
-/** Inconsistencias internas del perfil SCL-90-R (vacío = perfil posible). */
+/**
+ * Verificación de consistencia del perfil SCL-90-R.
+ * El IGS puede salir del baremo publicado y no tiene límite superior.
+ * Las dimensiones y el IGS pueden modularse independientemente sin bloqueos artificiales.
+ */
 export function checkScl90rConsistency(data: SCL90RData): string[] {
   const issues: string[] = [];
   const gsi = data["GSI"] ?? 0;
   const pst = data["PST"] ?? 0;
-  const psdi = data["PSDI"] ?? 0;
-  if (pst < 0 || pst > SCL90R_TOTAL_ITEMS) issues.push(`PST ${pst} fuera de 0–90 (es un conteo de ítems).`);
-  if (pst > 0 && (psdi < 1 || psdi > 4)) issues.push(`PSDI ${psdi.toFixed(2)} fuera de 1–4 (cada ítem positivo vale al menos 1).`);
-  if (Math.abs((pst * psdi) / SCL90R_TOTAL_ITEMS - gsi) > 0.02) {
-    issues.push(`IGS ${gsi.toFixed(2)} ≠ PST·PSDI/90 = ${((pst * psdi) / SCL90R_TOTAL_ITEMS).toFixed(2)}.`);
+  if (gsi < 0) {
+    issues.push(`IGS no puede ser negativo (${gsi.toFixed(2)}).`);
   }
-  const [lo, hi] = gsiRangeFromDimensions(data);
-  if (gsi < lo - 0.005 || gsi > hi + 0.005) {
-    issues.push(`IGS ${gsi.toFixed(2)} incompatible con las dimensiones: debe estar entre ${lo.toFixed(2)} y ${hi.toFixed(2)}.`);
+  if (pst < 0 || pst > SCL90R_TOTAL_ITEMS) {
+    issues.push(`PST ${pst} fuera de rango (debe estar entre 0 y 90 ítems).`);
   }
   return issues;
 }
@@ -1294,7 +1294,7 @@ export function computeTopologicalMetrics(
   // --- Ruptura psicótica fuera de baremo: IGS >= 3× el corte T=60 + Wegbreite (δ) ---
   const psychoticRupture = isPsychoticRupture(sclData, params);
   const ruptureGsiThreshold = ruptureThresholdGsi(baremoId);
-  const gsiOverCutoff = gsi > 0 ? Math.min(gsi / getBaremo(baremoId).t60Gsi, 9.99) : 0;
+  const gsiOverCutoff = gsi > 0 ? gsi / getBaremo(baremoId).t60Gsi : 0;
 
   // --- Estado post-episodio: el toro reconfigurado ya es otra cosa ---
   // Parámetros para pensarlo, cada uno anclado a la geometría del horn torus.
