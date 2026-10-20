@@ -36,7 +36,7 @@ export interface ModelParams {
   sigmaPantalla?: boolean;
   /** Configuración del Axioma 2 rearticulado (tesis V47): 'a' = soportes en
    *  superposición (unión conexa de las bandas de las series — Σ contingente);
-   *  'b' = soportes disjuntos (trecho entre bandas — Σ exigida). SOLO VISUAL:
+   *  'b' = soportes disjuntos (trecho entre bandas — Σ contingente, decisión del autor posterior a V52). SOLO VISUAL:
    *  desfasa el dibujo de la banda S; no altera angustia, rupturas ni umbrales. */
   configAxioma2?: 'a' | 'b';
 }

@@ -5,7 +5,7 @@ interface estatutoNoticeProps {
 }
 
 /**
- * Aviso de estatuto del artefacto (tesis V49 — Sección 3, y Cierre metodológico):
+ * Aviso de estatuto del artefacto (tesis V52 — Sección 3, y Cierre metodológico):
  * la app NO es un instrumento de medición psicométrica ni un dispositivo de diagnóstico
  * clínico: es el prototipo computacional de un modelo estructural cuya operación es
  * LECTURA (calcula, no mide). Los perfiles SCL-90-R son entrada axiomática (§6.2),
@@ -42,8 +42,9 @@ export const EstatutoNotice = ({ onClose }: estatutoNoticeProps) => {
             <span className="text-cyan-400 font-semibold">Qué hace.</span> Calcula invariantes
             topológicos y geométricos (χ, H₁, curvatura gaussiana en puntos críticos) sobre una
             superficie —horn torus— cuya deformación está regulada, por axioma, por el vector
-            SCL-90-R. Visualiza la rearticulación del Axioma 2 (V47) en sus dos configuraciones:
-            (a) superposición, Σ contingente; (b) trecho, Σ exigida.
+            SCL-90-R. Visualiza la rearticulación del Axioma 2 (V47; soportes en V52) en sus dos configuraciones:
+            (a) superposición, con correspondencia de origen S–I; (b) trecho, donde esa correspondencia falta.
+            Σ es contingente en ambas (decisión del autor posterior a V52).
           </p>
           <p>
             <span className="text-rose-400 font-semibold">Qué no hace.</span> No mide estructura
@@ -62,7 +63,7 @@ export const EstatutoNotice = ({ onClose }: estatutoNoticeProps) => {
             instrumento; esta app no los satisface ni pretende satisfacerlos.
           </p>
           <p className="text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-800">
-            Para uso empírico, remitirse a la tesis: tesis_rsi_poincare V49.docx, §6.2 (BME) y
+            Para uso empírico, remitirse a la tesis: tesis_rsi_poincare V52.docx, §6.2 (BME) y
             §6.3 (Joyce como paradigma de la LECTURA).
           </p>
         </div>

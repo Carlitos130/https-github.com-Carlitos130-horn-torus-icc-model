@@ -8,14 +8,34 @@ Descripción pública del modelo que implementa la app. Sigue la disciplina del 
 
 La geometría es exacta; su lectura psicoanalítica es, salvo indicación, **AXIOMA**. Nada de lo que muestra la app es un diagnóstico.
 
-## 1. Dos modelos
+Este documento sigue la tesis en su versión **V52** (15 de octubre de 2026), con las decisiones del autor posteriores a esa versión señaladas como tales. Las referencias de versión dentro de la app (V47, V49) se actualizan aparte.
 
-![Los dos modelos](figuras/dos_modelos.png)
+## 1. El modelo: el horn torus del Icc
 
-- **Modelo del nudo** — el complemento del enlace S ∪ I ∪ Σ en S³. Allí se calculan los invariantes del nudo (invariante de Milnor, forma cuspidal) y se definen las configuraciones del enlace.
-- **Modelo del Icc** — el horn torus con su interior. Es lo que dibuja la app.
+![El modelo del Icc](figuras/dos_modelos.png)
 
-Los dos modelos no se reducen a uno: tres curvas cerradas disjuntas sobre el horn torus solo pueden ser círculos coaxiales alrededor del eje, que no están enlazados. Sobre la superficie la propiedad borromea no puede realizarse. La correspondencia entre ambos modelos es **AXIOMA**.
+El modelo es el par **(U, X)**: el horn torus X con su interior U. Es lo que dibuja la app.
+
+- **S e I** son **marcas de representaciones (VR) sobre la cara interna** del horn torus, ligadas a la pulsión: la serie significante y la serie imaginaria, inscriptas una por una sobre la superficie.
+- **Σ** une **algunos** de esos puntos, y es **contingente**: que una VR se active y encadene a otras no está garantizado.
+
+Decisión del autor, posterior a la V52 — **AXIOMA**: el modelo del nudo (el complemento de un nudo borromeo estándar, L6a4, M_L = S³∖N(L)) **ya no se usa**. La propiedad borromea no se aplica sobre el horn torus —tres curvas cerradas disjuntas sobre X solo pueden ser círculos coaxiales, que no están enlazados (§4.7, punto 4)—, y la tesis, desde la V50 (§4.8), argumenta que preguntar si S, I y Σ forman un borromeo es un error de categoría. La identificación L = S ∪ I ∪ Σ quedó retirada. La app nunca calculó nada de ese modelo.
+
+Queda a definir qué estatuto tienen, sin M_L, el invariante de Milnor, la forma cuspidal y el objeto a como el punto −i, que en la V52 se formalizaban allí.
+
+### Configuraciones (Axioma 2, rearticulado en V47) — AXIOMA
+
+En la V52, la distinción entre dos configuraciones de origen se define por la relación entre los **soportes** de las dos series (las zonas de la superficie donde se inscriben S e I) y por el estatuto modal de Σ. Con la decisión del autor posterior a la V52 —Σ siempre contingente— la distinción queda así:
+
+- **(a)** hay **correspondencia de origen** entre la serie significante (S) y la imaginaria (I): en la V52, los soportes se superponen y su unión es conexa. Se asocia a la neurosis.
+- **(b)** la correspondencia de origen **falta**: en la V52, los soportes son disjuntos y entre ellos media un trecho de superficie. Se asocia al Border (psicosis no desencadenada).
+- En ambas, Σ es **contingente**: une algunos puntos y puede o no suplir la correspondencia que falta en (b). Ya no se lo describe como «exigido» en (b), como hacía la V52.
+- Sobre (b), según lo indicado por el autor — **AXIOMA**: es el caso de la psicosis no desencadenada. Se lo entendió así: mientras Σ liga, aunque sea de manera contingente, el sujeto se sostiene; el Corolario II (ruptura) se abre solo cuando Σ deja de ligar y un cruce llega a una marca con anchura suficiente. Esta lectura quedó pendiente de confirmación por el autor.
+- Sobre (a), confirmado por el autor — **AXIOMA**: con correspondencia de origen, la ruptura del Corolario II **no se abre**. Un pasaje por una marca puede ser traumático (Axioma 4), pero no dispersa ni eyecta la cinta. El Corolario II queda condicional a (b), como en la V52.
+
+Pendiente de definir: si el criterio geométrico de la V52 (superposición o trecho entre soportes) sigue siendo lo que expresa la presencia o ausencia de correspondencia de origen, y qué consecuencia tiene eso para el Corolario II, que la V52 deja condicional a (b).
+
+Que la suplencia de (b) resuene con el sinthome es **LECTURA**, no identidad; el sinthome sigue sin definirse, y el autor lo toma como **contingente** (AXIOMA), lo que queda en tensión con el §4.8 de la tesis (V50), que lo describe como la modalidad exigida de Σ. En la app, el botón «Config Axioma 2» alterna (a) y (b) y separa o junta visualmente las bandas.
 
 ## 2. La superficie
 
@@ -25,7 +45,7 @@ El horn torus es el toro de revolución con R = r: el círculo interno colapsa a
 
 - **Toda la superficie es el Icc** — AXIOMA.
 - **La pared es la censura Icc/Prcc**: un límite nítido, con adelgazamientos variables que son vías de salida (palabra deformada, Agieren, sublimación) — AXIOMA.
-- **Cinta S-I-Σ** desplegada en pinceladas sobre la cara interna; el hilo pulsional (Trieb, Drang constante) corre pegado al borde de I, la imagen del cuerpo — AXIOMA.
+- **S, I y Σ** desplegados sobre la cara interna (la app los dibuja como cintas); el hilo pulsional (Trieb, Drang constante) corre pegado al borde de I, la imagen del cuerpo — AXIOMA.
 
 ## 3. La voz y el Prcc
 
@@ -80,9 +100,13 @@ Con IGS ≥ 3× el corte T=60 de la población y anchura suficiente, la cinta sa
 
 **Esta secuencia no infiere estructura clínica.** Un Psicoticismo alto no es forclusión, y un IGS extremo no es un diagnóstico.
 
+**Diferencia entre la tesis y la app.** En la tesis (V52, y confirmado por el autor), este mecanismo —el Corolario II (Umbau)— queda **condicional a la configuración (b)**: en (a) la reactivación no dispersa ni eyecta. La app **todavía no implementa esa condición**: la secuencia de ruptura depende de IGS y de δ, no de (a) o (b); la configuración solo cambia la disposición visual de las bandas.
+
 ## 7. Pregunta abierta: Σ como pantalla
 
-No está decidido si Σ opera como **pantalla** que aleja los cruces de las marcas o como **mero anudamiento** que no incide en dónde se producen. La app lo hace conmutable ("Σ como pantalla") y compara el área de la zona de angustia en los dos regímenes.
+No está decidido si Σ opera como **pantalla** que aleja los cruces de las marcas o si opera sin incidir en dónde se producen los cruces. La app lo hace conmutable («Σ como pantalla») y compara el área de la zona de angustia en los dos regímenes.
+
+Nota de versión: la tesis (V52, §6.4) todavía formula la segunda opción como «anudando a S e I en M_L». Esa formulación quedó en tensión con el §4.8 (V50) y con el abandono de M_L, que retiran el anudamiento como estructura de enlace; la pregunta sigue abierta, pero su segunda rama debe releerse como «Σ sin incidir en la ubicación de los cruces», y su reformulación en la tesis está pendiente.
 
 ## 8. SCL-90-R
 
@@ -94,4 +118,6 @@ No está decidido si Σ opera como **pantalla** que aleja los cruces de las marc
 
 - Paginación exacta de las citas de GW XIII (caps. II y V) y GW X (secc. VI), y cotejo con Amorrortu.
 - Cotejo del *Seminario XI* con la edición Paidós.
+- Que la app condicione la secuencia de ruptura (Corolario II) a la configuración (b), como pide la tesis V52, o que se decida mantenerla independiente y se declare.
+- Reformulación, en la tesis, de la pregunta «Σ como pantalla o mero anudamiento» (§6.4) a la luz del §4.8.
 - Revisión, por un topólogo, de dos cálculos propios: que el exterior del horn torus es simplemente conexo, y que tres curvas disjuntas sobre él no pueden formar un nudo borromeo.

@@ -40,7 +40,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               Tratado Teórico & Manual Clínico
             </h2>
             <p className="text-[10.5px] text-slate-400">
-              Topología del Inconsciente, Metapsicología Freudiana y Estructura Lacaniana · alineado a la tesis V47 (Axioma 2 rearticulado)
+              Topología del Inconsciente, Metapsicología Freudiana y Estructura Lacaniana · alineado a la tesis V52 (Axioma 2 rearticulado en V47), con decisiones del autor posteriores
             </p>
           </div>
         </div>
@@ -231,7 +231,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                   <strong>1. La voz y lo oído:</strong> el oído es, para Lacan, el único orificio del campo del inconsciente que no puede cerrarse (Seminario XI, 20 de mayo de 1964). En el horn torus ese orificio es p $(v = \pi)$, de doble sentido: por él entra lo oído —las representaciones-palabra que forman el Prcc (GW XIII, cap. II)— y sale la voz. El superyó procede de lo oído, pero su energía viene del ello (GW XIII, cap. V).
                 </p>
                 <p>
-                  <strong>2. Los $V_R$ (Vorstellungsrepräsentanz) sobre los soportes de las dos series (tesis V44/V46):</strong> las VR se inscriben una por una sobre la cara interna de Ding —las de S sobre su banda, las de I sobre la suya (Axioma 1)— y cada inscripción repite el trayecto A→a' del esquema L. <strong>Configuración (Axioma 2 rearticulado, V47):</strong> (a) <em>neurosis</em> — soportes en <strong>superposición</strong> (unión conexa; trayecto A→a' sin trecho; correspondencia de origen): Σ es <strong>contingente</strong>; (b) <em>Border</em> (psicosis no desencadenada) — soportes <strong>disjuntos</strong> (trecho; la correspondencia de origen falta): Σ es <strong>exigida</strong>. Σ no se redefine: cambia el estatuto modal de su operación (contingente / exigida). El botón «Config Axioma 2» de la app desfasa el dibujo de la banda S en (b), sin tocar el cálculo.
+                  <strong>2. Los $V_R$ (Vorstellungsrepräsentanz) sobre los soportes de las dos series (tesis V44/V46):</strong> las VR se inscriben una por una sobre la cara interna de Ding —las de S sobre su banda, las de I sobre la suya (Axioma 1)— y cada inscripción repite el trayecto A→a' del esquema L. <strong>Configuración (Axioma 2 rearticulado, V47):</strong> (a) <em>neurosis</em> — soportes en <strong>superposición</strong> (unión conexa; trayecto A→a' sin trecho; correspondencia de origen): Σ es <strong>contingente</strong>; (b) <em>Border</em> (psicosis no desencadenada) — soportes <strong>disjuntos</strong> (trecho; la correspondencia de origen falta). Σ es <strong>contingente en ambas</strong> (decisión del autor posterior a V52; la V52 la declara exigida en (b)). El botón «Config Axioma 2» de la app desfasa el dibujo de la banda S en (b), sin tocar el cálculo.
                 </p>
               </div>
             </div>
@@ -384,7 +384,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 <span>El Sinthome como Prótesis Topológica (Seminario XXIII)</span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Lacan propuso que James Joyce evitó el brote psicótico gracias a su escritura como <strong>cuarto nudo (Sinthome)</strong>. En la tesis V47 el sinthome sigue <strong>sin definirse</strong> (la cita del Seminario XXIII queda como material en espera) y Joyce se conserva como <strong>paradigma de la configuración (b)</strong>: la consistencia la sostiene la operación Σ exigida en acto —por la modalidad de la operación, no por un borromeo—. La formalización como lazo de corrección sobre la singularidad del Horn Torus queda como material secundario en espera (L = S∪I∪Σ, PENDIENTE).
+                Lacan propuso que James Joyce evitó el brote psicótico gracias a su escritura como <strong>cuarto nudo (Sinthome)</strong>. El sinthome es <strong>contingente</strong> (decisión del autor posterior a V52; la cita del Seminario XXIII queda como material en espera) y Joyce se conserva como <strong>paradigma de la configuración (b)</strong>: la consistencia no se apoya en un borromeo sino en una operación contingente, Σ, sobre las marcas VR. La formalización como lazo de corrección sobre la singularidad del Horn Torus queda como material secundario en espera (L = S∪I∪Σ, PENDIENTE).
               </p>
             </div>
 
@@ -463,7 +463,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               </h4>
               <ul className="list-disc pl-5 space-y-1 text-[11px] text-slate-400">
                 <li><strong>Pestaña SCL-90-R:</strong> Cargue puntajes directos (con validación de consistencia IGS = PST·PSDI/90) o puntajes T del protocolo (se convierten a PD con el baremo de la población elegida). La tabla del baremo muestra los datos normativos (Casullo – Pérez).</li>
-                <li><strong>Config Axioma 2 (V47, solo visual):</strong> botón junto a «Cintas 3D»: alterna (a) <em>superposición</em> —soportes de las bandas S e I unidos (unión conexa, Σ contingente)— y (b) <em>trecho</em> —la banda S se desfasa y queda separada de I (soportes disjuntos, Σ exigida). No altera el cálculo.</li>
+                <li><strong>Config Axioma 2 (V47, solo visual):</strong> botón junto a «Cintas 3D»: alterna (a) <em>superposición</em> —soportes de las bandas S e I unidos (unión conexa, correspondencia de origen)— y (b) <em>trecho</em> —la banda S se desfasa y queda separada de I (soportes disjuntos, falta la correspondencia de origen; Σ contingente en ambas). No altera el cálculo.</li>
                 <li><strong>Animación de Deformación:</strong> Presione el botón de destello o <em>Animar Transición (0 ➔ δ)</em> para ver la metamorfosis continua del toro a 60 FPS.</li>
                 <li><strong>Pestaña Resumen:</strong> Métricas de energía de Willmore, área superficial, tensión diferencial e informe psicométrico formal.</li>
                 <li><strong>Pestaña Python:</strong> Código autocontenido listo para ejecutar localmente con `matplotlib` y `numpy`.</li>

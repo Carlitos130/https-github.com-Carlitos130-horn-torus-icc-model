@@ -419,7 +419,7 @@ export default function App() {
                   ? 'bg-indigo-950/80 text-indigo-300 border-indigo-700'
                   : 'bg-slate-950 text-slate-400 border-slate-800'
               }`}
-              title="Configuración del Axioma 2 rearticulado (tesis V47): (a) superposición — unión conexa de los soportes de las series, Σ contingente · (b) trecho — soportes disjuntos, Σ exigida. Solo visual: no altera el cálculo."
+              title="Configuración del Axioma 2 rearticulado (tesis V47): (a) superposición — unión conexa de los soportes de las series, Σ contingente · (b) trecho — soportes disjuntos, falta la correspondencia de origen; Σ contingente en ambas (decisión del autor posterior a V52). Solo visual: no altera el cálculo."
             >
               {params.configAxioma2 === 'b' ? 'Config Axioma 2: (b) trecho' : 'Config Axioma 2: (a) superposición'}
             </button>

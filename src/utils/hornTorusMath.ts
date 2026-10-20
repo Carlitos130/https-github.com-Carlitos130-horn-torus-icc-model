@@ -1502,7 +1502,7 @@ Umbral Crítico de Angustia (A_cr): ${params.a_critical.toFixed(4)} rad (π / 4)
   * Σ (Síntoma, serie de VR): u_Σ = ${lac.u_Sigma.toFixed(4)} rad | v_Σ = ${lac.v_Sigma.toFixed(4)} rad
     -> Función (tesis V47): Σ = que una VR (S2, Sem. XI, 3 y 10/6/1964) se activa y encadena a otras sobre el soporte de la cinta (V46: la cinta es el soporte de las series, no tres objetos anudados) — Asignación (AXIOMA): Psicoticismo (${sclData["Psicoticismo"].toFixed(2)}) + Hostilidad (${sclData["Hostilidad"].toFixed(2)})
     -> Color en Visualizador: AZUL COBALTO (Cobalt Ribbon)
-    -> Configuración (Axioma 2 rearticulado, V47): ${params.configAxioma2 === 'b' ? '(b) trecho entre soportes — Σ exigida' : '(a) superposición de soportes — Σ contingente'} (solo visual, sin cambio de cálculo)
+    -> Configuración (Axioma 2 rearticulado, V47): ${params.configAxioma2 === 'b' ? '(b) trecho entre soportes — Σ contingente' : '(a) superposición de soportes — Σ contingente'} (solo visual, sin cambio de cálculo)
 
   * Marcas de Fantasía [la angustia surge por proximidad — AXIOMA · Resumen §8: N marcas, una por trauma]: ${lac.fantasyMarks.length}
 ${lac.fantasyMarks.map((m, i) => `    -> Marca ${i + 1}: (u, v) = (${m.u.toFixed(3)}, ${m.v.toFixed(3)}) · 3D: (${lac.fantasyMarks3D[i][0].toFixed(4)}, ${lac.fantasyMarks3D[i][1].toFixed(4)}, ${lac.fantasyMarks3D[i][2].toFixed(4)})`).join('\n')}
