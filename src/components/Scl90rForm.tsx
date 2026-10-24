@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { SCL90RData, ModelParams } from '../types';
 import {
   CLINICAL_PRESETS,
@@ -29,6 +29,50 @@ export const Scl90rForm: React.FC<Scl90rFormProps> = ({
 }) => {
   const [showExtended, setShowExtended] = useState(false);
   const [activePresetIndex, setActivePresetIndex] = useState<number>(0);
+  const [isAnimatingDeform, setIsAnimatingDeform] = useState(false);
+  const animDeformRef = useRef<number | null>(null);
+
+  // Animación de Deformación a 60 FPS (0 ➔ δ)
+  const handleAnimateTransition = () => {
+    if (isAnimatingDeform) {
+      if (animDeformRef.current) cancelAnimationFrame(animDeformRef.current);
+      setIsAnimatingDeform(false);
+      return;
+    }
+
+    const targetDeform = params.deformation_factor > 0.05 ? params.deformation_factor : 0.30;
+    const duration = 2400; // ms
+    const startTime = performance.now();
+    setIsAnimatingDeform(true);
+
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Suave ease-in-out
+      const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      const currentVal = targetDeform * eased;
+
+      onChangeParams({
+        ...params,
+        deformation_factor: parseFloat(currentVal.toFixed(3))
+      });
+
+      if (progress < 1) {
+        animDeformRef.current = requestAnimationFrame(step);
+      } else {
+        setIsAnimatingDeform(false);
+        animDeformRef.current = null;
+      }
+    };
+
+    animDeformRef.current = requestAnimationFrame(step);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (animDeformRef.current) cancelAnimationFrame(animDeformRef.current);
+    };
+  }, []);
 
   // PSDI no es libre: se deriva de IGS y PST (IGS = PST·PSDI/90). Al mover el IGS,
   // el PST se acota al rango que deja PSDI dentro de [1, 4] (o superior si IGS > 4).
@@ -269,11 +313,26 @@ export const Scl90rForm: React.FC<Scl90rFormProps> = ({
             <p className="text-[9px] text-slate-400 font-mono">1.0 = horn torus (límite) · &lt; 1.0 = toro liso, H1 = Z²⟨μ, λ⟩</p>
           </div>
 
-          {/* deformation_factor slider */}
+          {/* deformation_factor slider & 60 FPS animation button */}
           <div className="space-y-1">
-            <div className="flex justify-between text-[11px] font-mono">
-              <span className="text-slate-300">Wegbreite — deformation_factor (δ):</span>
-              <span className="text-amber-400 font-bold">{params.deformation_factor.toFixed(2)}</span>
+            <div className="flex justify-between items-center text-[11px] font-mono">
+              <span className="text-slate-300">Wegbreite — δ:</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  id="btn-animate-deform-transition"
+                  onClick={handleAnimateTransition}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 border transition-all ${
+                    isAnimatingDeform
+                      ? 'bg-amber-950 text-amber-200 border-amber-500 animate-pulse'
+                      : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700'
+                  }`}
+                  title="Animación de Deformación: Presione para ver la metamorfosis continua del toro a 60 FPS (0 ➔ δ)"
+                >
+                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                  <span>{isAnimatingDeform ? '0 ➔ δ...' : 'Animar (0 ➔ δ)'}</span>
+                </button>
+                <span className="text-amber-400 font-bold">{params.deformation_factor.toFixed(2)}</span>
+              </div>
             </div>
             <input
               id="slider-deformation-factor"

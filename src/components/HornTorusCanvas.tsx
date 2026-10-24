@@ -465,15 +465,20 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     }
   }, [ruptureClockProp, rupturePlaying]);
 
-  // Camera spherical angles
+  // Camera spherical angles & target for orbit and pan
   const rotationAngles = useRef({ theta: 0.65, phi: 0.75, radius: 9.0 });
+  const cameraTarget = useRef(new THREE.Vector3(0, 0, 0));
   const isDragging = useRef(false);
+  const isRightDrag = useRef(false);
   const previousMousePosition = useRef({ x: 0, y: 0 });
+  const touchDistance = useRef<number | null>(null);
+  const touchCenter = useRef<{ x: number; y: number } | null>(null);
 
   // Camera adjustment for interior mode
   useEffect(() => {
     if (viewMode === 'interior_icc') {
       rotationAngles.current = { theta: 0.38, phi: 0.55, radius: 7.5 };
+      cameraTarget.current.set(0, 0, 0);
       updateCameraPosition();
     }
   }, [viewMode]);
@@ -880,10 +885,30 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     const clampedTheta = Math.max(0.05, Math.min(Math.PI - 0.05, theta));
     rotationAngles.current.theta = clampedTheta;
 
-    cameraRef.current.position.x = radius * Math.sin(clampedTheta) * Math.sin(phi);
-    cameraRef.current.position.y = radius * Math.cos(clampedTheta);
-    cameraRef.current.position.z = radius * Math.sin(clampedTheta) * Math.cos(phi);
-    cameraRef.current.lookAt(0, 0, 0);
+    const target = cameraTarget.current;
+    cameraRef.current.position.x = target.x + radius * Math.sin(clampedTheta) * Math.sin(phi);
+    cameraRef.current.position.y = target.y + radius * Math.cos(clampedTheta);
+    cameraRef.current.position.z = target.z + radius * Math.sin(clampedTheta) * Math.cos(phi);
+    cameraRef.current.lookAt(target);
+  };
+
+  /** Presets de Cámara del Manual: Frente (X-Z), Corte (X-Y), Superior (X-Y) */
+  const setCameraPreset = (preset: 'frente' | 'corte' | 'superior') => {
+    userCameraRef.current = true;
+    setIsRotating(false);
+    cameraTarget.current.set(0, 0, 0);
+    const r = rotationAngles.current.radius || 9.0;
+    if (preset === 'frente') {
+      // Frente (X-Z): horizonte a nivel, mirada frontal
+      rotationAngles.current = { theta: Math.PI / 2, phi: 0, radius: r };
+    } else if (preset === 'corte') {
+      // Corte (X-Y): vista lateral perfil
+      rotationAngles.current = { theta: Math.PI / 2, phi: Math.PI / 2, radius: r };
+    } else if (preset === 'superior') {
+      // Superior (X-Y): vista cenital mirando orificio central
+      rotationAngles.current = { theta: 0.06, phi: 0, radius: r };
+    }
+    updateCameraPosition();
   };
 
   // Auto-encuadre de ruptura: distancia que contiene el vértice más lejano al origen
@@ -912,6 +937,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     const aScene = calculateLacanianParameters(sclDataRef.current, paramsRef.current).a * 25.0;
     if (preRuptureRadiusRef.current === null) preRuptureRadiusRef.current = rotationAngles.current.radius;
     rotationAngles.current.radius = Math.max(6.0, Math.min(120, aScene * 3.2));
+    cameraTarget.current.set(0, 0, 0);
     userCameraRef.current = true;
     updateCameraPosition();
   };
@@ -1096,10 +1122,17 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
       // Add surface to scene
       if (viewMode === 'standard' || isInteriorMode) {
+        stdMesh.position.x = 0;
         scene.add(stdMesh);
       } else if (viewMode === 'deformed' || viewMode === 'cross_section') {
+        defMesh.position.x = 0;
         scene.add(defMesh);
       } else if (viewMode === 'comparison') {
+        // Dual: ventanas contiguas para comparación directa
+        const aScale = calculateLacanianParameters(sclData, params).a * 25.0;
+        const offset = Math.max(3.8, aScale * 2.2);
+        stdMesh.position.x = -offset;
+        defMesh.position.x = offset;
         scene.add(stdMesh);
         scene.add(defMesh);
       }
@@ -1374,9 +1407,10 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     }
   }, [ccOpacity, viewMode]);
 
-  // Mouse Interaction handlers
+  // Mouse & Touch Interaction handlers (Manual Sección 5.A: Rotación, Paneo, Zoom)
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
+    isRightDrag.current = e.button === 2; // Botón derecho para paneo
     previousMousePosition.current = { x: e.clientX, y: e.clientY };
   };
 
@@ -1385,15 +1419,100 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
     const deltaX = e.clientX - previousMousePosition.current.x;
     const deltaY = e.clientY - previousMousePosition.current.y;
 
-    rotationAngles.current.phi += deltaX * 0.007;
-    rotationAngles.current.theta -= deltaY * 0.007;
-    updateCameraPosition();
+    if (isRightDrag.current) {
+      // Paneo / Traslación: botón derecho
+      userCameraRef.current = true;
+      const panSpeed = (rotationAngles.current.radius || 9.0) * 0.0018;
+      const cam = cameraRef.current;
+      if (cam) {
+        const right = new THREE.Vector3();
+        const up = new THREE.Vector3();
+        cam.matrix.extractBasis(right, up, new THREE.Vector3());
+        cameraTarget.current.addScaledVector(right, -deltaX * panSpeed);
+        cameraTarget.current.addScaledVector(up, deltaY * panSpeed);
+        updateCameraPosition();
+      }
+    } else {
+      // Rotación / Órbita: botón izquierdo
+      rotationAngles.current.phi += deltaX * 0.007;
+      rotationAngles.current.theta -= deltaY * 0.007;
+      updateCameraPosition();
+    }
 
     previousMousePosition.current = { x: e.clientX, y: e.clientY };
   };
 
   const handleMouseUp = () => {
     isDragging.current = false;
+    isRightDrag.current = false;
+  };
+
+  // Touch handlers for mobile and tablets
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      isDragging.current = true;
+      isRightDrag.current = false;
+      previousMousePosition.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2) {
+      isDragging.current = true;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchDistance.current = Math.hypot(dx, dy);
+      touchCenter.current = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+      };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    if (e.touches.length === 1) {
+      // 1 dedo: Rotación / Órbita
+      const deltaX = e.touches[0].clientX - previousMousePosition.current.x;
+      const deltaY = e.touches[0].clientY - previousMousePosition.current.y;
+      rotationAngles.current.phi += deltaX * 0.007;
+      rotationAngles.current.theta -= deltaY * 0.007;
+      updateCameraPosition();
+      previousMousePosition.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2) {
+      // 2 dedos en paralelo: Paneo / Traslación y Pellizco para zoom
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const newDist = Math.hypot(dx, dy);
+      const newCenter = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+      };
+
+      if (touchDistance.current !== null) {
+        const pinchDelta = touchDistance.current - newDist;
+        const newRadius = rotationAngles.current.radius + pinchDelta * 0.02;
+        rotationAngles.current.radius = Math.max(3.5, Math.min(200.0, newRadius));
+      }
+
+      if (touchCenter.current !== null && cameraRef.current) {
+        const panX = newCenter.x - touchCenter.current.x;
+        const panY = newCenter.y - touchCenter.current.y;
+        const panSpeed = (rotationAngles.current.radius || 9.0) * 0.0018;
+        const right = new THREE.Vector3();
+        const up = new THREE.Vector3();
+        cameraRef.current.matrix.extractBasis(right, up, new THREE.Vector3());
+        cameraTarget.current.addScaledVector(right, -panX * panSpeed);
+        cameraTarget.current.addScaledVector(up, panY * panSpeed);
+      }
+
+      touchDistance.current = newDist;
+      touchCenter.current = newCenter;
+      userCameraRef.current = true;
+      updateCameraPosition();
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDragging.current = false;
+    touchDistance.current = null;
+    touchCenter.current = null;
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -1406,6 +1525,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
 
   const handleResetCamera = () => {
     rotationAngles.current = { theta: 0.65, phi: 0.75, radius: 9.0 };
+    cameraTarget.current.set(0, 0, 0);
     updateCameraPosition();
     // Durante la ruptura, 'Centrar vista' re-encuadra (el radio 9 quedaría dentro del modelo)
     if (rupturePhaseRef.current !== 'idle') {
@@ -1461,12 +1581,16 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
       <div
         id="horn-torus-canvas-container"
         ref={containerRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing flex-1"
+        className="w-full h-full cursor-grab active:cursor-grabbing flex-1 touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onContextMenu={(e) => e.preventDefault()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       />
 
       {/* Top Floating Action Bar */}
@@ -1712,6 +1836,35 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
+
+          {/* Presets de Cámara (Manual Sección 5.A) */}
+          <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded border border-slate-700/60 text-[10px] font-mono">
+            <span className="text-slate-400 px-1 hidden sm:inline">Cámara:</span>
+            <button
+              id="camera-preset-frente-btn"
+              onClick={() => setCameraPreset('frente')}
+              className="px-1.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-cyan-300 transition-colors"
+              title="Preset Frente (X-Z): perspectiva frontal instantánea"
+            >
+              Frente (X-Z)
+            </button>
+            <button
+              id="camera-preset-corte-btn"
+              onClick={() => setCameraPreset('corte')}
+              className="px-1.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-cyan-300 transition-colors"
+              title="Preset Corte (X-Y): vista lateral / sección"
+            >
+              Corte (X-Y)
+            </button>
+            <button
+              id="camera-preset-superior-btn"
+              onClick={() => setCameraPreset('superior')}
+              className="px-1.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-cyan-300 transition-colors"
+              title="Preset Superior (X-Y): vista cenital del toroide"
+            >
+              Superior (X-Y)
+            </button>
+          </div>
 
           <div className="w-[1px] h-4 bg-slate-700 mx-0.5" />
 

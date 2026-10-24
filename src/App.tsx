@@ -154,6 +154,15 @@ export default function App() {
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">
                   SCL-90-R & Lacan
                 </span>
+                <button
+                  id="btn-quick-open-manual"
+                  onClick={() => setActiveTab('manual')}
+                  className="px-2 py-0.5 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-300 border border-cyan-700/60 text-[10.5px] font-medium flex items-center gap-1 transition-colors ml-1 shadow-sm"
+                  title="Abrir 5. Manual de Uso Completo del Programa"
+                >
+                  <BookOpen className="w-3 h-3 text-cyan-400" />
+                  <span>Manual de Uso</span>
+                </button>
               </div>
               <p className="text-[11px] text-slate-400">
                 Superficie Icc: S, I, Hilo Pulsional (pegado a I), Σ y marca de fantasía — Cc = espacio exterior
@@ -161,7 +170,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* View Mode Switcher Pills */}
+          {/* View Mode Switcher Pills (Manual Sección 5.B) */}
           <div className="flex flex-wrap items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-medium">
             <button
               id="btn-view-standard"
@@ -174,10 +183,41 @@ export default function App() {
                   ? 'bg-cyan-900/80 text-cyan-200 shadow-sm border border-cyan-700/60 font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Vista exterior del Horn Torus: la superficie completa es Icc; la Cc (consciente) es el espacio exterior"
+              title="Estándar: Geometría pura del Horn Torus (δ = 0, R = r = a) sin perturbación psicométrica"
             >
               <Eye className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Exterior</span>
+              <span>Estándar</span>
+            </button>
+
+            <button
+              id="btn-view-deformed"
+              onClick={() => setViewMode('deformed')}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+                viewMode === 'deformed'
+                  ? 'bg-amber-950/80 text-amber-200 shadow-sm border border-amber-700/60 font-semibold'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Deformado: Aplicación de la perturbación armónica 1.0 + δ · deform basada en el vector SCL-90-R"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Deformado (δ={params.deformation_factor})</span>
+            </button>
+
+            <button
+              id="btn-view-interior-icc"
+              onClick={() => {
+                setViewMode('interior_icc');
+                if (ccOpacity > 0.3) setCcOpacity(0.20);
+              }}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+                viewMode === 'interior_icc'
+                  ? 'bg-amber-950/90 text-amber-200 shadow-sm border border-amber-600 font-semibold ring-1 ring-amber-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Vórtice Central (Icc): La cámara se orienta hacia el orificio singular central donde penetra la pulsión Voz, revelando cintas S, I, Σ y marcas de fantasía"
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-400" />
+              <span>Vórtice Central (Icc)</span>
             </button>
 
             <button
@@ -197,41 +237,10 @@ export default function App() {
                   ? 'bg-cyan-950/90 text-cyan-200 shadow-md border border-cyan-400 font-semibold ring-2 ring-cyan-500/40'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Rayos X: piel externa de la superficie Icc semitransparente que revela la banda Prcc y las cintas"
+              title="Rayos X Icc: Aplica transparencia selectiva al toro para observar la red de significantes y el flujo de los VR"
             >
               <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-              <span>Rayos X</span>
-            </button>
-
-            <button
-              id="btn-view-interior-icc"
-              onClick={() => {
-                setViewMode('interior_icc');
-                if (ccOpacity > 0.3) setCcOpacity(0.20);
-              }}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
-                viewMode === 'interior_icc'
-                  ? 'bg-amber-950/90 text-amber-200 shadow-sm border border-amber-600 font-semibold ring-1 ring-amber-500/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Ver el interior de la superficie Icc: cintas entrecruzadas, pulsión pegada a I y marca de fantasía"
-            >
-              <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span>Interior</span>
-            </button>
-
-            <button
-              id="btn-view-deformed"
-              onClick={() => setViewMode('deformed')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
-                viewMode === 'deformed'
-                  ? 'bg-amber-950/80 text-amber-200 shadow-sm border border-amber-700/60 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="model.plot_deformed_model(deformation_factor=0.3)"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Deformado (δ={params.deformation_factor})</span>
+              <span>Rayos X Icc</span>
             </button>
 
             <button
@@ -242,10 +251,10 @@ export default function App() {
                   ? 'bg-indigo-950/80 text-indigo-200 shadow-sm border border-indigo-700/60 font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Superposición de Toro Estándar y Deformado"
+              title="Dual: Renderiza ambos estados morfológicos en ventanas contiguas para comparación directa"
             >
               <Layers className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Comparación</span>
+              <span>Dual</span>
             </button>
 
             <button
@@ -256,15 +265,15 @@ export default function App() {
                   ? 'bg-rose-950/80 text-rose-200 shadow-sm border border-rose-700/60 font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Corte sagital a través de la singularidad central"
+              title="Corte Cúspide: Corte sagital a través de la singularidad central"
             >
               <Scissors className="w-3.5 h-3.5 text-rose-400" />
               <span>Corte Cúspide</span>
             </button>
           </div>
 
-          {/* ColorMap Mode Switcher */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+          {/* ColorMap Mode Switcher & Control A_cr contiguo (Manual Sección 5.C) */}
+          <div className="flex flex-wrap items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
             <button
               id="btn-colormap-angustia"
               onClick={() => setColorMap('angustia')}
@@ -273,11 +282,30 @@ export default function App() {
                   ? 'bg-rose-950 text-rose-300 border border-rose-700 font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Campo de Angustia A(u, v) y Umbral Crítico A_cr=π/4"
+              title="Angustia (A(u,v)): Muestra el gradiente de angustia y vecindades críticas"
             >
               <Flame className="w-3 h-3 text-rose-400" />
               <span>Angustia</span>
             </button>
+
+            {/* Control A_cr contiguo */}
+            <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-[10.5px] font-mono" title="A_cr contiguo: umbral crítico en tiempo real (por defecto π/4 ≈ 0.785 rad)">
+              <span className="text-amber-400 font-semibold">A_cr:</span>
+              <input
+                id="input-a-critical-slider"
+                type="range"
+                min="0.10"
+                max="1.57"
+                step="0.01"
+                value={params.a_critical}
+                onChange={(e) => setParams(p => ({ ...p, a_critical: parseFloat(e.target.value) }))}
+                className="w-14 accent-amber-400 h-1 cursor-pointer"
+                title="Ajuste el umbral crítico A_cr contiguo en tiempo real"
+              />
+              <span className="text-slate-300 w-11 text-right text-[10px]">
+                {params.a_critical.toFixed(2)}
+              </span>
+            </div>
 
             <button
               id="btn-colormap-diff-stress"
@@ -287,10 +315,10 @@ export default function App() {
                   ? 'bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-700 font-semibold shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Differential Stress: Compara la superficie de energía del toro estándar vs. deformado"
+              title="Tensión Diferencial: Refleja el estrés mecánico acumulado por la distorsión sintomática"
             >
               <Activity className="w-3 h-3 text-fuchsia-400" />
-              <span>Diff Stress</span>
+              <span>Tensión Diferencial</span>
             </button>
 
             <button
@@ -301,10 +329,24 @@ export default function App() {
                   ? 'bg-amber-950 text-amber-300 border border-amber-700 font-semibold'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
-              title="Estrés por deformación psicométrica"
+              title="Desplazamiento Normal: Señala hacia dónde se infla o deprime la superficie"
             >
               <Palette className="w-3 h-3 text-amber-400" />
-              <span>Estrés</span>
+              <span>Desplazamiento Normal</span>
+            </button>
+
+            <button
+              id="btn-colormap-elevation"
+              onClick={() => setColorMap('elevation')}
+              className={`px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${
+                colorMap === 'elevation'
+                  ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 font-semibold'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Profundidad Z: Gradiente espectral de cota altimétrica"
+            >
+              <Scan className="w-3 h-3 text-cyan-400" />
+              <span>Profundidad Z</span>
             </button>
           </div>
         </div>
@@ -615,9 +657,10 @@ export default function App() {
                   ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
+              title="Manual de Uso Completo del Programa: Guía práctica para la manipulación interactiva de las herramientas, visores y controles"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>Manual & Lacan</span>
+              <span>Manual de Uso</span>
             </button>
 
             {gallery.length > 0 && (
@@ -678,6 +721,7 @@ export default function App() {
             {activeTab === 'manual' && (
               <TheoreticalManual
                 onTriggerPsychoticBreak={launchPsychoticRupture}
+                initialSection="user_manual"
               />
             )}
 

@@ -20,14 +20,16 @@ import {
 
 interface TheoreticalManualProps {
   onTriggerPsychoticBreak?: () => void;
+  initialSection?: 'theoretical_basis' | 'lacan_torus' | 'psychotic_break' | 'freud_innovations' | 'user_manual';
 }
 
 export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
   onTriggerPsychoticBreak,
+  initialSection = 'theoretical_basis'
 }) => {
   const [activeSection, setActiveSection] = useState<
     'theoretical_basis' | 'lacan_torus' | 'psychotic_break' | 'freud_innovations' | 'user_manual'
-  >('theoretical_basis');
+  >(initialSection);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-xl space-y-4 text-slate-200">
@@ -469,6 +471,53 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                 <li><strong>Pestaña Python:</strong> Código autocontenido listo para ejecutar localmente con `matplotlib` y `numpy`.</li>
                 <li><strong>Captura PNG:</strong> Guarde instantáneas en alta resolución (`mi_modelo.png` y `mi_modelo_deformado.png`) directamente al disco.</li>
               </ul>
+            </div>
+
+            {/* Invariantes del Pie de Página Activo */}
+            <div className="bg-slate-950/80 border border-slate-800 p-3 rounded-lg space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-cyan-300 border-b border-slate-800 pb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                  <span>Invariantes del Pie de Página Activo & Estado del Manifold</span>
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono">
+                  En tiempo real
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                La franja inferior permanente de la ventana renderiza continuamente los parámetros topológicos cardinales de la variedad y la clínica:
+              </p>
+              <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 font-mono text-[11px] space-y-2 text-slate-300">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-slate-400 font-bold">Horn Torus Icc:</span>
+                  <span className="text-cyan-400 font-semibold">R = r = a = a_scale · GSI</span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-rose-400 font-semibold">Fantasía: (π, 3π/4) · cara interna</span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-amber-400 font-semibold">A_cr = π/4</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-[10.5px] border-t border-slate-800/80 pt-1.5 text-slate-300">
+                  <span className="flex items-center gap-1">
+                    <span className="text-slate-400">Ruptura:</span>
+                    <span className="text-rose-400 font-bold">1.7%</span>
+                  </span>
+                  <span className="text-slate-600">•</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-slate-400">ΔE Tensión:</span>
+                    <span className="text-fuchsia-400 font-bold">43.3%</span>
+                  </span>
+                  <span className="text-slate-600">•</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-slate-400">Willmore W:</span>
+                    <span className="text-amber-400 font-bold">∞</span>
+                  </span>
+                  <span className="text-slate-600">•</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-slate-400">Índice ICC (AXIOMA):</span>
+                    <span className="text-cyan-400 font-bold">...%</span>
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
