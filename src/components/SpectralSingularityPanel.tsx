@@ -200,9 +200,17 @@ export const SpectralSingularityPanel: React.FC<SpectralSingularityPanelProps> =
           <p className="text-[10px] text-amber-300/90 leading-tight font-mono">
             Curvatura en la marca; la angustia surge por proximidad (AXIOMA).
           </p>
-          <p className="text-[10px] text-slate-400/90 leading-tight">
-            Lectura (V47, LECTURA del modelo): la reactivación traumática se calcula como el paso de la cinta S dentro de la vecindad A_cr de alguna marca de fantasía; la integridad estructural cruza esa proximidad con la curvatura de la marca. Es homología, no inferencia de estructura; en (a) la reactivación no dispersa ni eyecta (Corolario II condicional a (b)).
-          </p>
+          <div className="text-[10px] text-slate-400/90 leading-tight space-y-1">
+            <p>
+              <strong>Lectura (V47, LECTURA del modelo):</strong> La reactivación traumática se calcula como el paso de la cinta S dentro de la vecindad A_cr de alguna marca de fantasía. Es homología topológica, no inferencia diagnóstica directa.
+            </p>
+            <p className="border-l-2 border-cyan-500/60 pl-1.5 text-cyan-200/90">
+              <strong>Rama Axioma 2(a) [Neurosis / Represión]:</strong> La correspondencia de origen no pasa por Σ; la reactivación <em>no dispersa ni eyecta</em> cadenas (el Corolario II está restringido a la rama b).
+            </p>
+            <p className="border-l-2 border-rose-500/60 pl-1.5 text-rose-200/90">
+              <strong>Rama Axioma 2(b) [Psicosis / Forclusión P0]:</strong> El Corolario II opera plenamente: sin punto de basta paterno, la reactivación <em>eyecta la cinta por el orificio de la voz (v = ±π)</em> y el IGS simulado diverge fuera de baremo (IGS → ∞).
+            </p>
+          </div>
         </div>
 
         {/* Card 4: Cusp Distortion */}

@@ -1,15 +1,15 @@
 """
-icc_dinamica.py — Módulo de Simulación Dinámica del Inconsciente (Horn Torus & Lacan)
+icc_dinamica.py — Módulo de Simulación Dinámica del Inconsciente (Horn Torus)
 
 Uso estándar solicitado:
     from icc_dinamica import correr_caso, scl90r_a_parametros
     res = correr_caso(tu_scl90r_data, estructura="neurotico")  # -> res["IGS_sim"], res["Q_total"]
 
-Estructuras soportadas:
+Estructuras Psíquicas soportadas:
     - "neurotico"  : Represión primaria operante (S1 -> S2), ligadura significante.
     - "psicotico"  : Forclusión del Nombre del Padre (P0), divergencia en cúspide p (v=pi).
     - "perverso"   : Desmentida (Verleugnung), pantalla fetichista contingente.
-    - "fronterizo" : Escisión (Spaltung), oscilador caótico bimodal.
+    - "borderline" / "fronterizo" : Estructura psíquica Borderline (Spaltung / Escisión yoica bimodal).
 """
 
 import math
@@ -197,17 +197,25 @@ def correr_caso(scl90r_data, estructura="neurotico", t_max=20.0, dt=0.05, guarda
         igs_sim = max(igs_sim, 3.30)  # Fuera de baremo (3x corte T=60)
 
     if estructura == "neurotico":
+        axioma = "Axioma 2(a) — Superposición conexa (Represión S1->S2 / Sin dispersión ni eyección)"
+        h2_cond = "H2 (Neurosis): Relajación asintótica a atractor acotado (< 3.0), sin ruptura topológica."
         regimen = "Atractor puntual metaestable (Represión lograda)" if desborde_pct < 10 else "Ciclo límite neurótico sintomático"
-        interp = "Represión primaria operante (S1 -> S2); la pulsión se metaboliza en síntoma sin ruptura topológica."
+        interp = "Represión primaria operante (S1 -> S2); la pulsión se metaboliza en síntoma sin dispersión ni eyección."
     elif estructura == "psicotico":
-        regimen = "Bifurcación divergente / Desencadenamiento psicótico" if ruptura else "Compensación pre-psicótica"
-        interp = "Forclusión del significante del Nombre del Padre (P0); la carga se precipita hacia el orificio singular p (la voz)."
+        axioma = "Axioma 2(b) — Trecho disjunto / Forclusión P0 (Corolario II operante: Eyección por p)"
+        h2_cond = "H2 (Psicosis): IGS_sim no relaja a asíntota; diverge o mantiene picos fuera de baremo (≥ 3.30, eyección por la voz v=±π)."
+        regimen = "Bifurcación divergente / Desencadenamiento psicótico (Corolario II)" if ruptura else "Compensación pre-psicótica"
+        interp = "Forclusión del Nombre del Padre (P0); al no haber metáfora paterna, el afecto traumático es eyectado por p (la voz) fuera de baremo."
     elif estructura == "perverso":
+        axioma = "Axioma 2(a) modificado — Desmentida (Pantalla fetichista / Sin eyección)"
+        h2_cond = "H2 (Perversión): Ciclo periódico sostenido acotado por fetiche sin eyección exterior."
         regimen = "Régimen perverso de pantalla fetichista"
-        interp = "Desmentida (Verleugnung); el fetiche desvía la proximidad a la marca de trauma."
+        interp = "Desmentida (Verleugnung); el fetiche desvía la proximidad a la marca de trauma en ciclo estable."
     else:
-        regimen = "Oscilador caótico bimodal (Escisión fronteriza)"
-        interp = "Escisión yoica (Spaltung) con alternancia afectiva abrupta."
+        axioma = "Axioma 2(a)/2(b) lábil — Escisión yoica (Spaltung / Estatuto Borderline)"
+        h2_cond = "H2 (Borderline): Saltos caóticos bimodales sin punto fijo pero sin eyección terminal permanente."
+        regimen = "Oscilador caótico bimodal (Estructura psíquica Borderline)"
+        interp = "Estructura psíquica borderline (Spaltung) con alternancia afectiva abrupta sin eyección catastrófica."
 
     res = {
         "IGS_sim": round(float(igs_sim), 3),
@@ -221,6 +229,8 @@ def correr_caso(scl90r_data, estructura="neurotico", t_max=20.0, dt=0.05, guarda
         "Q_t": [round(float(v), 4) for v in Q_traj],
         "angustia_t": [round(float(v), 4) for v in A_traj],
         "regimen": regimen,
+        "axioma_operante": axioma,
+        "condicion_protocolo_h2": h2_cond,
         "interpretacion_clinica": interp,
         "parametros": p,
         "estructura": estructura
@@ -273,11 +283,13 @@ if __name__ == '__main__':
     print("SIMULACIÓN DINÁMICA DEL INCONSCIENTE (HORN TORUS)")
     print("=" * 65)
 
-    for est in ["neurotico", "psicotico", "perverso", "fronterizo"]:
+    for est in ["neurotico", "psicotico", "perverso", "borderline"]:
         res = correr_caso(tu_scl90r_data, estructura=est)
-        print(f"\nEstructura: {est.upper()}")
-        print(f"  • res['IGS_sim'] : {res['IGS_sim']}")
-        print(f"  • res['Q_total'] : {res['Q_total']}")
-        print(f"  • res['Q_max']   : {res['Q_max']}")
-        print(f"  • res['regimen'] : {res['regimen']}")
-        print(f"  • Desborde       : {res['desborde']} ({res['desborde_pct']}%)")
+        print(f"\nEstructura Psíquica: {est.upper()}")
+        print(f"  • Axioma operante : {res['axioma_operante']}")
+        print(f"  • Condición H2    : {res['condicion_protocolo_h2']}")
+        print(f"  • res['IGS_sim']  : {res['IGS_sim']}")
+        print(f"  • res['Q_total']  : {res['Q_total']}")
+        print(f"  • res['Q_max']    : {res['Q_max']}")
+        print(f"  • res['regimen']  : {res['regimen']}")
+        print(f"  • Desborde        : {res['desborde']} ({res['desborde_pct']}%)")

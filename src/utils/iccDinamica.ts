@@ -1,9 +1,10 @@
 import { SCL90RData } from '../types';
 
-export type EstructuraClinica = 'neurotico' | 'psicotico' | 'perverso' | 'fronterizo';
+export type EstructuraPsiquica = 'neurotico' | 'psicotico' | 'perverso' | 'fronterizo' | 'borderline';
+export type EstructuraClinica = EstructuraPsiquica;
 
 export interface IccParametrosDinamicos {
-  estructura: EstructuraClinica;
+  estructura: EstructuraPsiquica;
   /** Carga pulsional inicial Q(0) */
   Q0: number;
   /** Constante de disipación / ligadura somática gamma */
@@ -62,12 +63,16 @@ export interface ResultadoSimulacionIcc {
   trayectoria_uv: { u: number; v: number }[];
   /** Régimen de atractor dinámico */
   regimen: string;
+  /** Declaración axiomática explícita (Axioma 2(a) vs Axioma 2(b)) */
+  axioma_operante: string;
+  /** Condición empírica contrastable del protocolo clínico (Hipótesis H2) */
+  condicion_protocolo_h2: string;
   /** Descripción e interpretación clínica lacaniana */
   interpretacion_clinica: string;
   /** Parámetros dinámicos calculados */
   parametros: IccParametrosDinamicos;
-  /** Estructura clínica evaluada */
-  estructura: EstructuraClinica;
+  /** Estructura psíquica evaluada */
+  estructura: EstructuraPsiquica;
 }
 
 /**
@@ -78,7 +83,7 @@ export interface ResultadoSimulacionIcc {
  */
 export function scl90r_a_parametros(
   scl90r_data: SCL90RData | Record<string, number>,
-  estructura: EstructuraClinica = 'neurotico'
+  estructura: EstructuraPsiquica = 'neurotico'
 ): IccParametrosDinamicos {
   const getVal = (key: string, def: number): number => {
     const v = (scl90r_data as Record<string, number>)[key];
@@ -155,7 +160,8 @@ export function scl90r_a_parametros(
       break;
 
     case 'fronterizo':
-      // Escisión (Spaltung). Estados lábiles, alternancia bimodal de cargas.
+    case 'borderline':
+      // Estructura Psíquica Borderline: Escisión (Spaltung). Estados lábiles, alternancia bimodal de cargas.
       K_rep = 0.35;
       lambda_bar = 1.05;
       gamma = gamma_base * 0.70;
@@ -202,7 +208,7 @@ export function scl90r_a_parametros(
  */
 export function correr_caso(
   tu_scl90r_data: SCL90RData | Record<string, number>,
-  estructura: EstructuraClinica = 'neurotico',
+  estructura: EstructuraPsiquica = 'neurotico',
   opciones: SimulationOptions = {}
 ): ResultadoSimulacionIcc {
   const p = scl90r_a_parametros(tu_scl90r_data, estructura);
@@ -355,38 +361,58 @@ export function correr_caso(
   const desborde = desbordeCount > 0;
   const desborde_pct = parseFloat((desbordeFraction * 100).toFixed(1));
 
-  // Clasificación del Atractor Dinámico
+  // Clasificación del Atractor Dinámico y Declaración Axiomática
   let regimen: string;
+  let axioma_operante: string;
+  let condicion_protocolo_h2: string;
   let interpretacion_clinica: string;
 
   if (p.estructura === 'neurotico') {
+    // Rama Axioma 2(a): Superposición conexa, represión primaria (S1 -> S2).
+    // Corolario II NO aplica a (a): no hay dispersión de significantes ni eyección fuera del toro.
+    axioma_operante = 'Axioma 2(a) — Superposición conexa (Represión S1➔S2 / Sin dispersión ni eyección)';
+    condicion_protocolo_h2 =
+      'Condición H2 (Neurosis): IGS_sim relaja asintóticamente a un atractor puntual o ciclo límite acotado dentro de baremo clínico (IGS_sim < 3.0), sin ruptura topológica.';
+
     if (desborde_pct < 10) {
       regimen = 'Atractor puntual metaestable (Represión lograda)';
       interpretacion_clinica =
-        'Estructura neurótica con barra de represión operante (S1 ➔ S2). El Drang pulsional se liga metabólicamente en síntoma significante sin inundar la vecindad crítica de angustia (A < A_cr).';
+        'Estructura neurótica con barra de represión operante (S1 ➔ S2). Axioma 2(a): la correspondencia de origen no pasa por Σ; el Drang se metaboliza en síntoma significante sin dispersar ni eyectar la cinta fuera del horn torus.';
     } else {
       regimen = 'Ciclo límite neurótico sintomático (Angustia de señal)';
       interpretacion_clinica =
-        'Estructura neurótica bajo sobrecarga: el retorno de lo reprimido produce oscilaciones periódicas que rozan la marca de trauma en la cara interna, activando angustia de señal compensada.';
+        'Estructura neurótica bajo sobrecarga: el retorno de lo reprimido produce oscilaciones periódicas que rozan la marca de trauma en la cara interna, activando angustia de señal compensada. Axioma 2(a) garantiza contención sin eyección.';
     }
   } else if (p.estructura === 'psicotico') {
+    // Rama Axioma 2(b): Trecho disjunto, forclusión del Nombre del Padre (P0).
+    // Corolario II operante: la falta de punto de basta induce eyección por la cúspide singular p (v = ±π).
+    axioma_operante = 'Axioma 2(b) — Trecho disjunto / Forclusión P0 (Corolario II operante: Eyección por p)';
+    condicion_protocolo_h2 =
+      'Condición H2 (Psicosis): IGS_sim NO relaja a asíntota; diverge o mantiene picos fuera de baremo (IGS_sim ≥ 3.30, eyección por la voz v=±π), firma observable contrastable contra trayectorias longitudinales.';
+
     if (rupturaPsicotica || IGS_sim >= 3.0) {
-      regimen = 'Bifurcación divergente / Desencadenamiento psicótico';
+      regimen = 'Bifurcación divergente / Desencadenamiento psicótico (Corolario II)';
       interpretacion_clinica =
-        'Forclusión del significante del Nombre del Padre (P0): al carecer de la mediación metafórica paterna, la carga pulsional no se anuda y es eyectada directamente por el orificio de autotangencia p (cúspide v=π, la voz), rompiendo la contención del horn torus.';
+        'Forclusión del Nombre del Padre (P0, Axioma 2b): al carecer de la metáfora paterna, el afecto traumático no se anuda y es eyectado por el orificio de autotangencia p (cúspide v=±π, la voz), desencadenando el Corolario II con picos persistentes fuera de baremo (IGS → ∞).';
     } else {
       regimen = 'Régimen pre-psicótico de compensación imaginaria';
       interpretacion_clinica =
-        'Estructura psicótica no desencadenada: compensación por suplencia imaginaria, pero con impedancia crítica ante reactivaciones del Drang.';
+        'Estructura psicótica no desencadenada (Axioma 2b): compensación por suplencia imaginaria, pero con impedancia crítica ante reactivaciones del Drang (riesgo latente de eyección por p).';
     }
   } else if (p.estructura === 'perverso') {
+    axioma_operante = 'Axioma 2(a) modificado — Desmentida (Fetiche pantalla / Contención sin eyección)';
+    condicion_protocolo_h2 =
+      'Condición H2 (Perversión): IGS_sim se estabiliza en un ciclo periódico sostenido acotado por la pantalla fetichista, neutralizando la proximidad al trauma sin eyección exterior.';
     regimen = 'Régimen perverso de pantalla fetichista';
     interpretacion_clinica =
-      'Desmentida (Verleugnung): el fetiche opera como pantalla contingente sobre la marca de castración/trauma. Mantiene la satisfacción pulsional en un ciclo estable evitando la eclosión de angustia franca.';
+      'Desmentida (Verleugnung): el fetiche opera como pantalla contingente sobre la marca de trauma. Mantiene la satisfacción pulsional en un ciclo estable evitando la eclosión de angustia franca.';
   } else {
-    regimen = 'Oscilador caótico bimodal (Escisión fronteriza)';
+    axioma_operante = 'Axioma 2(a)/2(b) lábil — Escisión yoica (Spaltung / Estatuto Borderline)';
+    condicion_protocolo_h2 =
+      'Condición H2 (Borderline): En la estructura psíquica borderline, IGS_sim exhibe saltos caóticos bimodales entre desborde y repliegue sin convergencia a punto fijo pero sin eyección terminal permanente.';
+    regimen = 'Oscilador caótico bimodal (Estructura psíquica Borderline)';
     interpretacion_clinica =
-      'Escisión yoica (Spaltung): la trayectoria salta bruscamente entre picos de desbordamiento de angustia y vacíos afectivos, sin estabilización en un atractor único.';
+      'Estructura psíquica borderline (Spaltung): la dinámica oscila bruscamente entre picos de desbordamiento de angustia y vacíos afectivos, sin estabilización en un atractor único ni eyección exterior catastrófica.';
   }
 
   return {
@@ -404,6 +430,8 @@ export function correr_caso(
     defensa_t,
     trayectoria_uv,
     regimen,
+    axioma_operante,
+    condicion_protocolo_h2,
     interpretacion_clinica,
     parametros: p,
     estructura,
@@ -441,11 +469,11 @@ Uso estándar:
     from icc_dinamica import correr_caso, scl90r_a_parametros
     res = correr_caso(tu_scl90r_data, estructura="neurotico")  # -> res["IGS_sim"], res["Q_total"]
 
-Estructuras soportadas:
+Estructuras Psíquicas soportadas:
     - "neurotico"  : Represión primaria operante (S1 -> S2), ligadura significante
     - "psicotico"  : Forclusión del Nombre del Padre (P0), divergencia en cúspide p (v=pi)
     - "perverso"   : Desmentida (Verleugnung), pantalla fetichista contingente
-    - "fronterizo" : Escisión (Spaltung), oscilador caótico bimodal
+    - "borderline" : Estructura psíquica Borderline (Spaltung / Escisión yoica bimodal)
 """
 
 import math
@@ -632,17 +660,25 @@ def correr_caso(scl90r_data, estructura="neurotico", t_max=20.0, dt=0.05, guarda
         igs_sim = max(igs_sim, 3.30)  # Fuera de baremo (3x corte T=60)
 
     if estructura == "neurotico":
+        axioma = "Axioma 2(a) — Superposición conexa (Represión S1->S2 / Sin dispersión ni eyección)"
+        h2_cond = "H2 (Neurosis): Relajación asintótica a atractor acotado (< 3.0), sin ruptura topológica."
         regimen = "Atractor puntual metaestable (Represión lograda)" if desborde_pct < 10 else "Ciclo límite neurótico sintomático"
-        interp = "Represión primaria operante (S1 -> S2); la pulsión se metaboliza en síntoma sin ruptura topológica."
+        interp = "Represión primaria operante (S1 -> S2); la pulsión se metaboliza en síntoma sin dispersión ni eyección."
     elif estructura == "psicotico":
-        regimen = "Bifurcación divergente / Desencadenamiento psicótico" if ruptura else "Compensación pre-psicótica"
-        interp = "Forclusión del significante del Nombre del Padre (P0); la carga se precipita hacia el orificio singular p (la voz)."
+        axioma = "Axioma 2(b) — Trecho disjunto / Forclusión P0 (Corolario II operante: Eyección por p)"
+        h2_cond = "H2 (Psicosis): IGS_sim no relaja a asíntota; diverge o mantiene picos fuera de baremo (≥ 3.30, eyección por la voz v=±π)."
+        regimen = "Bifurcación divergente / Desencadenamiento psicótico (Corolario II)" if ruptura else "Compensación pre-psicótica"
+        interp = "Forclusión del Nombre del Padre (P0); al no haber metáfora paterna, el afecto traumático es eyectado por p (la voz) fuera de baremo."
     elif estructura == "perverso":
+        axioma = "Axioma 2(a) modificado — Desmentida (Pantalla fetichista / Sin eyección)"
+        h2_cond = "H2 (Perversión): Ciclo periódico sostenido acotado por fetiche sin eyección exterior."
         regimen = "Régimen perverso de pantalla fetichista"
-        interp = "Desmentida (Verleugnung); el fetiche desvía la proximidad a la marca de trauma."
+        interp = "Desmentida (Verleugnung); el fetiche desvía la proximidad a la marca de trauma en ciclo estable."
     else:
-        regimen = "Oscilador caótico bimodal (Escisión fronteriza)"
-        interp = "Escisión yoica (Spaltung) con alternancia afectiva abrupta."
+        axioma = "Axioma 2(a)/2(b) lábil — Escisión yoica (Spaltung / Estatuto Borderline)"
+        h2_cond = "H2 (Borderline): Saltos caóticos bimodales sin punto fijo pero sin eyección terminal permanente."
+        regimen = "Oscilador caótico bimodal (Estructura psíquica Borderline)"
+        interp = "Estructura psíquica borderline (Spaltung) con alternancia afectiva abrupta sin eyección catastrófica."
 
     res = {
         "IGS_sim": round(float(igs_sim), 3),
@@ -656,6 +692,8 @@ def correr_caso(scl90r_data, estructura="neurotico", t_max=20.0, dt=0.05, guarda
         "Q_t": [round(float(v), 4) for v in Q_traj],
         "angustia_t": [round(float(v), 4) for v in A_traj],
         "regimen": regimen,
+        "axioma_operante": axioma,
+        "condicion_protocolo_h2": h2_cond,
         "interpretacion_clinica": interp,
         "parametros": p,
         "estructura": estructura

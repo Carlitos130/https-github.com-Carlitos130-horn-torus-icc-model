@@ -1764,7 +1764,7 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
                   ? 'bg-rose-950 text-rose-200 border border-rose-500 font-semibold ring-1 ring-rose-500/40'
                   : 'text-rose-300 hover:text-white bg-slate-800 border border-rose-900/60 hover:border-rose-600'
               }`}
-              title={`Ruptura psicótica fuera de baremo: IGS = ${ruptureThresholdGsi(params.baremoId).toFixed(2)} (3× el corte T=60 de la población elegida) + Wegbreite suficiente (Corolario I: δ ≥ π/6). S, I y Pulsión se eyectan por el orificio (v=π), sale la voz y las cadenas de S e I se reenganchan en un orden nuevo (Corolario II, Umbau) con las cintas cubriendo toda la superficie.`}
+              title={`Ruptura psicótica fuera de baremo [Rama Axioma 2(b): Forclusión P0]: IGS = ${ruptureThresholdGsi(params.baremoId).toFixed(2)} (3× el corte T=60 de la población elegida) + Wegbreite suficiente (Corolario I: δ ≥ π/6). S, I y Pulsión se eyectan por el orificio singular (v=±π), sale la voz y opera el Corolario II (Umbau/Eyección) rompiendo la contención del manifold.`}
             >
               <Flame className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
               <span>Ruptura 3×</span>

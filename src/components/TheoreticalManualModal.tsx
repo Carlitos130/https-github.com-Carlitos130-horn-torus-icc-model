@@ -280,9 +280,23 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
             <p>
               En Lacan (Seminario III), el desencadenamiento psicótico se piensa desde la <strong>forclusión del Nombre-del-Padre</strong>.
               Este modelo <strong>no infiere estructura clínica</strong> a partir del SCL-90-R: un Psicoticismo alto no es forclusión, y un
-              IGS extremo no es un diagnóstico. La «ruptura» de la app es una secuencia del modelo (Corolario II, AXIOMA): se dispara con
-              IGS ≥ 3× el corte T=60 de la población y Wegbreite suficiente; la cinta S-I-Σ sale por la voz (p) y se reconfigura sobre la superficie. <strong>V47:</strong> el Corolario II queda <strong>condicional a la configuración (b)</strong> del Axioma 2 rearticulado —en (a) la correspondencia de origen no pasa por Σ y el pasaje traumático ni dispersa las cadenas ni eyecta la cinta—; el caso Joyce se conserva como paradigma de (b).
+              IGS extremo no es un diagnóstico. La «ruptura» de la app es una consecuencia del modelo formal (Corolario II, AXIOMA): se dispara con
+              IGS ≥ 3× el corte T=60 de la población y Wegbreite suficiente.
             </p>
+            <div className="bg-slate-900/90 border border-slate-700/80 p-2.5 rounded text-[11px] space-y-1.5 font-sans">
+              <div className="font-semibold text-rose-300 font-mono">
+                Declaración Axiomática de Ramas (Axioma 2 y Corolario II):
+              </div>
+              <p className="border-l-2 border-cyan-500 pl-2 text-cyan-200">
+                <strong>Rama Axioma 2(a) [Neurosis / Represión]:</strong> Soportes de S e I en superposición conexa ($S_1 \to S_2$). La correspondencia de origen no pasa por Σ; el pasaje traumático <em>no dispersa las cadenas ni eyecta la cinta</em> fuera de la superficie tórica. La dinámica relaja asintóticamente a un atractor acotado dentro de baremo clínico.
+              </p>
+              <p className="border-l-2 border-rose-500 pl-2 text-rose-200">
+                <strong>Rama Axioma 2(b) [Psicosis / Forclusión P0]:</strong> Soportes de S e I disjuntos (trecho). Al no operar el significante del Nombre del Padre como punto de basta, la reactivación traumática desata plenamente el <strong>Corolario II (Umbau/Eyección)</strong>: la cinta S-I-Σ y el afecto pulsional son <em>eyectados a través de la singularidad de la voz ($p$, $v = \pm\pi$)</em>.
+              </p>
+              <p className="border-l-2 border-amber-500 pl-2 text-amber-200 font-medium">
+                <strong>Protocolo Empírico (Hipótesis H2):</strong> La eyección proporciona una firma cuantitativa nítida: en estructura psicótica el IGS simulado <em>no relaja a asíntota sino que diverge o mantiene picos fuera de baremo (IGS_sim ≥ 3.30)</em>, lo cual es empíricamente contrastable y falsable frente a las trayectorias longitudinales reales de casos clínicos.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2.5">
@@ -486,7 +500,8 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                     res = correr_caso(tu_scl90r_data, estructura="neurotico") # -&gt; res["IGS_sim"], res["Q_total"]
                   </code>
                 </li>
-                <li><strong>Estructuras Lacanianas:</strong> Soporta <code>"neurotico"</code> (represión primaria S1 ➔ S2), <code>"psicotico"</code> (forclusión P0 con eyección por la cúspide p), <code>"perverso"</code> (desmentida / pantalla fetichista) y <code>"fronterizo"</code> (escisión yoica / Spaltung bimodal).</li>
+                <li><strong>Estructura Psíquica y Declaración Axiomática:</strong> El selector de <em>Estructura Psíquica</em> formaliza el estatuto metapsicológico de las cuatro organizaciones: <code>"neurotico"</code> (Axioma 2a: superposición conexa, represión primaria S1 ➔ S2, sin dispersión ni eyección), <code>"psicotico"</code> (Axioma 2b: trecho disjunto, forclusión P0 con eyección por la cúspide p y Corolario II operante), <code>"perverso"</code> (Axioma 2a modificado: desmentida / pantalla fetichista sin eyección) y <code>"borderline"</code> (estatuto formal de estructura psíquica borderline: escisión yoica Spaltung bimodal).</li>
+                <li><strong>Protocolo de Contrastación Empírica (H2):</strong> En estructura psicótica (b), el IGS simulado no relaja a una asíntota regular sino que diverge o sostiene picos fuera de baremo (IGS_sim ≥ 3.30, eyección por la voz v = ±π). Esta firma observable cuantitativa es directamente contrastable con trayectorias longitudinales empíricas de casos reales. En estructura neurótica (a), el sistema relaja asintóticamente a ciclo límite o atractor acotado sin eyección.</li>
                 <li><strong>Variables de Estado:</strong> Integra la carga pulsional Q(t), la proximidad a marcas de fantasía A(t), la barrera de censura λ_bar y la reactivación del trauma.</li>
                 <li><strong>Plano de Fase (Q vs A):</strong> Grafica en tiempo real los ciclos límite, atractores metaestables y zonas de desborde crítico (A &gt; A_cr).</li>
                 <li><strong>Acoplar a 3D:</strong> El botón <em>Acoplar a 3D</em> permite retroalimentar el IGS simulado (IGS_sim) directamente al radio y deformación del Horn Torus.</li>

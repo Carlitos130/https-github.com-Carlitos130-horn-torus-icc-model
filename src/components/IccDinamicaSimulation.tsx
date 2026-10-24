@@ -18,7 +18,8 @@ import {
   Info,
   TrendingUp,
   Flame,
-  Code
+  Code,
+  Sparkles
 } from 'lucide-react';
 
 interface IccDinamicaSimulationProps {
@@ -248,15 +249,15 @@ print("Régimen :", res["regimen"])`;
         </div>
       </div>
 
-      {/* Structure Selector (Lacanian Structures) */}
+      {/* Structure Selector (Estructura Psíquica) */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs text-slate-300">
-          <span className="font-medium text-slate-300">Estructura Clínica Lacaniana:</span>
+          <span className="font-medium text-slate-300">Estructura Psíquica:</span>
           <span className="text-[11px] text-cyan-400 font-mono">
             {estructura === 'neurotico' && 'Represión (S1 ➔ S2)'}
             {estructura === 'psicotico' && 'Forclusión (P0 en cúspide p)'}
             {estructura === 'perverso' && 'Desmentida (Fetiche Pantalla)'}
-            {estructura === 'fronterizo' && 'Escisión Yoica (Spaltung)'}
+            {estructura === 'fronterizo' && 'Escisión Yoica (Spaltung / Borderline)'}
           </span>
         </div>
 
@@ -299,8 +300,71 @@ print("Régimen :", res["regimen"])`;
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
             }`}
           >
-            Fronterizo
+            Borderline
           </button>
+        </div>
+      </div>
+
+      {/* Sección: Declaración de Axioma Clínico */}
+      <div
+        id="seccion-declaracion-axioma-clinico"
+        className={`p-2.5 rounded-lg border text-xs font-mono transition-all ${
+          estructura === 'psicotico'
+            ? 'bg-rose-950/40 border-rose-600/80 text-rose-200 shadow-sm shadow-rose-950/30'
+            : estructura === 'neurotico'
+            ? 'bg-cyan-950/40 border-cyan-600/80 text-cyan-200 shadow-sm shadow-cyan-950/30'
+            : estructura === 'perverso'
+            ? 'bg-purple-950/40 border-purple-600/80 text-purple-200'
+            : 'bg-amber-950/40 border-amber-600/80 text-amber-200'
+        }`}
+      >
+        <div className="flex items-center justify-between text-[11px] mb-1 font-semibold">
+          <span className="flex items-center gap-1.5 text-slate-200">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Declaración de Axioma Clínico</span>
+          </span>
+          <span
+            className={`text-[9.5px] px-2 py-0.5 rounded font-bold uppercase border ${
+              estructura === 'psicotico'
+                ? 'bg-rose-900/80 text-rose-100 border-rose-500'
+                : estructura === 'neurotico'
+                ? 'bg-cyan-900/80 text-cyan-100 border-cyan-500'
+                : estructura === 'perverso'
+                ? 'bg-purple-900/80 text-purple-100 border-purple-500'
+                : 'bg-amber-900/80 text-amber-100 border-amber-500'
+            }`}
+          >
+            {estructura === 'psicotico'
+              ? 'Rama Forclusión'
+              : estructura === 'neurotico'
+              ? 'Rama Neurosis'
+              : estructura === 'perverso'
+              ? 'Rama Perversión'
+              : 'Rama Borderline'}
+          </span>
+        </div>
+
+        <div className="text-[12px] font-bold tracking-tight">
+          {estructura === 'psicotico' && (
+            <span className="text-rose-300">
+              Forclusión: eyección de significantes (S, I) fuera de baremo (IGS → ∞)
+            </span>
+          )}
+          {estructura === 'neurotico' && (
+            <span className="text-cyan-300">
+              Represión: significante incluido en la superficie del toro
+            </span>
+          )}
+          {estructura === 'perverso' && (
+            <span className="text-purple-300">
+              Desmentida: fetiche como pantalla contingente, contención sin eyección exterior
+            </span>
+          )}
+          {estructura === 'fronterizo' && (
+            <span className="text-amber-300">
+              Escisión yoica (Spaltung): alternancia bimodal de cargas sin eyección catastrófica
+            </span>
+          )}
         </div>
       </div>
 
@@ -349,31 +413,64 @@ print("Régimen :", res["regimen"])`;
         </div>
       </div>
 
-      {/* Régimen and Interpretation */}
-      <div className={`p-2.5 rounded-lg border text-xs leading-relaxed space-y-1 ${
+      {/* Régimen and Axiom Declaration */}
+      <div className={`p-3 rounded-lg border text-xs leading-relaxed space-y-2 ${
         resultado.ruptura_psicotica
           ? 'bg-rose-950/40 border-rose-700/80 text-rose-200'
           : resultado.desborde
           ? 'bg-amber-950/40 border-amber-700/80 text-amber-200'
           : 'bg-cyan-950/30 border-cyan-800/60 text-cyan-200'
       }`}>
-        <div className="font-semibold font-mono flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <TrendingUp className="w-3.5 h-3.5" />
+        <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800/80 pb-1.5">
+          <div className="flex items-center gap-1.5 font-semibold font-mono text-[11px]">
+            <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
             <span>Régimen: {resultado.regimen}</span>
-          </span>
+          </div>
           {resultado.ruptura_psicotica && (
             <button
               onClick={onTriggerPsychoticBreak}
               className="px-2 py-0.5 bg-rose-900 hover:bg-rose-800 text-rose-100 rounded text-[10px] font-mono border border-rose-600 transition-colors"
             >
-              Ver en 3D
+              Ver Ruptura 3D
             </button>
           )}
         </div>
+
+        {/* Explicit Axiom Badge */}
+        <div className="flex items-center gap-1.5 text-[10.5px] font-mono">
+          <span className="text-slate-400 font-sans">Axioma operante:</span>
+          <span className={`px-2 py-0.5 rounded font-bold border ${
+            estructura === 'psicotico'
+              ? 'bg-rose-900/60 text-rose-200 border-rose-500'
+              : 'bg-cyan-900/60 text-cyan-200 border-cyan-500'
+          }`}>
+            {resultado.axioma_operante}
+          </span>
+        </div>
+
         <p className="text-[11px] text-slate-300 opacity-90">
           {resultado.interpretacion_clinica}
         </p>
+
+        {/* Empirical Validation Protocol / H2 Hypothesis */}
+        <div className="mt-2 pt-2 border-t border-slate-800/80 bg-slate-950/50 p-2 rounded text-[10.5px] space-y-1">
+          <div className="font-semibold text-amber-300 font-mono flex items-center justify-between">
+            <span>Protocolo Clínico (Hipótesis H2 — Firma Observable Contrastable):</span>
+            <span className="text-[9.5px] text-slate-400 font-normal">Falsable vs casos reales</span>
+          </div>
+          <p className="text-slate-300 leading-snug">
+            {resultado.condicion_protocolo_h2}
+          </p>
+          <p className="text-[9.5px] text-slate-400">
+            {estructura === 'psicotico'
+              ? 'En estructura psicótica (Axioma 2b), la no-relajación y la persistencia de picos fuera de baremo (IGS ≥ 3.30) constituyen una firma cuantitativa nítida contrastable con los registros evolutivos de pacientes.'
+              : estructura === 'neurotico'
+              ? 'En estructura neurótica (Axioma 2a), la reactivación no dispersa ni eyecta la cinta; el sistema disipa energía hacia un atractor acotado.'
+              : estructura === 'perverso'
+              ? 'En estructura perversa, la pantalla fetichista circunscribe la órbita de carga en un ciclo límite estable.'
+              : 'En la estructura psíquica borderline, la escisión yoica produce oscilaciones bimodales de desborde intermitente sin convergencia puntual.'}
+          </p>
+        </div>
       </div>
 
       {/* Sub Tabs: Gráficas de Tiempo, Plano de Fase, Código Python, Parámetros */}
@@ -520,8 +617,36 @@ print("Régimen :", res["regimen"])`;
         </div>
       )}
 
+      {/* Declaración de Axioma Clínico (Controles de Simulación) */}
+      <div className="pt-2 border-t border-slate-800/90 flex flex-wrap items-center justify-between gap-1.5 text-[11px] font-mono bg-slate-950/40 px-3 py-1.5 rounded-lg border border-slate-800/70">
+        <span className="text-slate-400 font-sans font-medium flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <span>Axioma Clínico Activo:</span>
+        </span>
+        <span
+          className={`font-semibold ${
+            estructura === 'psicotico'
+              ? 'text-rose-300'
+              : estructura === 'neurotico'
+              ? 'text-cyan-300'
+              : estructura === 'perverso'
+              ? 'text-purple-300'
+              : 'text-amber-300'
+          }`}
+        >
+          {estructura === 'psicotico' &&
+            'Forclusión: eyección de significantes (S, I) fuera de baremo (IGS → ∞)'}
+          {estructura === 'neurotico' &&
+            'Represión: significante incluido en la superficie del toro'}
+          {estructura === 'perverso' &&
+            'Desmentida: fetiche como pantalla contingente, contención sin eyección exterior'}
+          {estructura === 'fronterizo' &&
+            'Escisión yoica (Spaltung): alternancia bimodal de cargas sin eyección catastrófica'}
+        </span>
+      </div>
+
       {/* Bottom Controls: Horizonte Temporal e Impulso */}
-      <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-400">
         <div className="flex items-center gap-2">
           <span>Tiempo T:</span>
           <input
