@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { SCL90RData, ModelParams } from '../types';
 import { generatePythonScript, generateInteractiveHTMLScript } from '../utils/hornTorusMath';
-import { Code, Download, Copy, Check, FileCode, Globe } from 'lucide-react';
+import { generateIccDinamicaPythonScript } from '../utils/iccDinamica';
+import { Code, Download, Copy, Check, FileCode, Globe, Zap } from 'lucide-react';
 
 interface PythonCodeExportProps {
   sclData: SCL90RData;
@@ -13,13 +14,21 @@ export const PythonCodeExport: React.FC<PythonCodeExportProps> = ({
   params,
 }) => {
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedDinamica, setCopiedDinamica] = useState(false);
   const [copiedHtml, setCopiedHtml] = useState(false);
   const [copiedReqs, setCopiedReqs] = useState(false);
-  const [activeTab, setActiveTab] = useState<'python' | 'html' | 'requirements'>('python');
+  const [activeTab, setActiveTab] = useState<'dinamica' | 'python' | 'html' | 'requirements'>('dinamica');
 
+  const iccDinamicaScript = generateIccDinamicaPythonScript(sclData);
   const pythonScript = generatePythonScript(sclData, params);
   const htmlScript = generateInteractiveHTMLScript(sclData, params);
-  const requirementsText = `numpy>=1.21.0\nmatplotlib>=3.5.0\nscipy>=1.7.0\n`;
+  const requirementsText = `numpy>=1.21.0\nscipy>=1.7.0\nmatplotlib>=3.5.0\n`;
+
+  const handleCopyDinamica = () => {
+    navigator.clipboard.writeText(iccDinamicaScript);
+    setCopiedDinamica(true);
+    setTimeout(() => setCopiedDinamica(false), 2000);
+  };
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(pythonScript);
@@ -37,6 +46,18 @@ export const PythonCodeExport: React.FC<PythonCodeExportProps> = ({
     navigator.clipboard.writeText(requirementsText);
     setCopiedReqs(true);
     setTimeout(() => setCopiedReqs(false), 2000);
+  };
+
+  const handleDownloadDinamica = () => {
+    const blob = new Blob([iccDinamicaScript], { type: 'text/x-python;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'icc_dinamica.py';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleDownloadPython = () => {
@@ -81,22 +102,36 @@ export const PythonCodeExport: React.FC<PythonCodeExportProps> = ({
         <div className="flex items-center gap-2">
           <Code className="w-4 h-4 text-cyan-400" />
           <h3 className="font-semibold text-sm text-white">
-            Exportación de Scripts (Python, HTML Interactivo 3D)
+            Exportación de Módulos (Python &amp; WebGL)
           </h3>
         </div>
 
         {/* Tabs */}
         <div className="flex flex-wrap items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs font-mono">
           <button
+            id="tab-icc-dinamica"
+            onClick={() => setActiveTab('dinamica')}
+            className={`px-2.5 py-1 rounded transition-colors flex items-center gap-1 ${
+              activeTab === 'dinamica'
+                ? 'bg-cyan-950 text-cyan-300 border border-cyan-700 font-semibold shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Módulo cinético ODE: correr_caso y scl90r_a_parametros"
+          >
+            <Zap className="w-3 h-3 text-cyan-400" />
+            icc_dinamica.py
+          </button>
+          <button
             id="tab-python-code"
             onClick={() => setActiveTab('python')}
             className={`px-2.5 py-1 rounded transition-colors flex items-center gap-1 ${
               activeTab === 'python'
-                ? 'bg-cyan-950 text-cyan-300 border border-cyan-800 font-semibold'
+                ? 'bg-blue-950 text-blue-300 border border-blue-800 font-semibold shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
+            title="Visualizador 3D Matplotlib del Horn Torus"
           >
-            <FileCode className="w-3 h-3 text-cyan-400" />
+            <FileCode className="w-3 h-3 text-blue-400" />
             horn_torus_icc_model.py
           </button>
           <button
@@ -104,9 +139,10 @@ export const PythonCodeExport: React.FC<PythonCodeExportProps> = ({
             onClick={() => setActiveTab('html')}
             className={`px-2.5 py-1 rounded transition-colors flex items-center gap-1 ${
               activeTab === 'html'
-                ? 'bg-amber-950 text-amber-300 border border-amber-800 font-semibold'
+                ? 'bg-amber-950 text-amber-300 border border-amber-800 font-semibold shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
+            title="Visor Three.js independiente en HTML"
           >
             <Globe className="w-3 h-3 text-amber-400" />
             horn_torus_icc_interactivo.html
@@ -125,7 +161,40 @@ export const PythonCodeExport: React.FC<PythonCodeExportProps> = ({
         </div>
       </div>
 
-      {activeTab === 'python' ? (
+      {activeTab === 'dinamica' ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+            <span>
+              Importable directamente: <code className="text-cyan-300">from icc_dinamica import correr_caso, scl90r_a_parametros</code>
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                id="btn-copy-dinamica-code"
+                onClick={handleCopyDinamica}
+                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-mono flex items-center gap-1 transition-colors border border-slate-700"
+              >
+                {copiedDinamica ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                <span>{copiedDinamica ? 'Copiado' : 'Copiar'}</span>
+              </button>
+              <button
+                id="btn-download-dinamica-code"
+                onClick={handleDownloadDinamica}
+                className="px-2.5 py-1 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 rounded text-xs font-mono flex items-center gap-1.5 transition-colors border border-cyan-700 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Descargar icc_dinamica.py</span>
+              </button>
+            </div>
+          </div>
+
+          <pre
+            id="code-dinamica-view"
+            className="w-full max-h-[360px] overflow-auto bg-slate-950 text-cyan-200/90 font-mono text-[11px] leading-relaxed p-3 rounded-lg border border-slate-800"
+          >
+            {iccDinamicaScript}
+          </pre>
+        </div>
+      ) : activeTab === 'python' ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs font-mono text-slate-400">
             <span>Ejecutable directamente con: <code className="text-cyan-300">python horn_torus_icc_model.py</code></span>
@@ -141,7 +210,7 @@ export const PythonCodeExport: React.FC<PythonCodeExportProps> = ({
               <button
                 id="btn-download-python-code"
                 onClick={handleDownloadPython}
-                className="px-2.5 py-1 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 rounded text-xs font-mono flex items-center gap-1.5 transition-colors border border-cyan-700"
+                className="px-2.5 py-1 bg-blue-950 hover:bg-blue-900 text-blue-300 rounded text-xs font-mono flex items-center gap-1.5 transition-colors border border-blue-700"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Descargar .py</span>
@@ -161,17 +230,6 @@ export const PythonCodeExport: React.FC<PythonCodeExportProps> = ({
           <div className="flex items-center justify-between text-xs font-mono text-slate-400">
             <span>Abrir directamente en navegador: <code className="text-amber-300">horn_torus_icc_interactivo.html</code></span>
             <div className="flex items-center gap-1.5">
-              <a
-                id="btn-open-html-tab"
-                href="/horn_torus_icc_interactivo.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-300 rounded text-xs font-mono flex items-center gap-1.5 transition-colors border border-slate-700"
-                title="Abrir visor interactivo Three.js en pestaña independiente"
-              >
-                <Globe className="w-3.5 h-3.5 text-sky-400" />
-                <span>Abrir en Pestaña</span>
-              </a>
               <button
                 id="btn-copy-html-code"
                 onClick={handleCopyHtml}
@@ -233,4 +291,3 @@ export const PythonCodeExport: React.FC<PythonCodeExportProps> = ({
     </div>
   );
 };
-

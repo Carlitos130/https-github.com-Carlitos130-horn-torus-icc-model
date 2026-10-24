@@ -8,6 +8,7 @@ import { ModelSummaryModal } from './components/ModelSummaryModal';
 import { PythonCodeExport } from './components/PythonCodeExport';
 import { TheoreticalManual } from './components/TheoreticalManualModal';
 import { SpectralSingularityPanel } from './components/SpectralSingularityPanel';
+import { IccDinamicaSimulation } from './components/IccDinamicaSimulation';
 import {
   Boxes,
   Sliders,
@@ -25,7 +26,8 @@ import {
   Activity,
   Radio,
   Scan,
-  BookOpen
+  BookOpen,
+  Zap
 } from 'lucide-react';
 import type { RuptureVisualState } from './types';
 
@@ -70,7 +72,7 @@ export default function App() {
   const [scrubTime, setScrubTime] = useState(0);
 
   // UI Active Sidebar Tab
-  const [activeTab, setActiveTab] = useState<'parameters' | 'singularities' | 'summary' | 'python' | 'manual' | 'gallery'>('parameters');
+  const [activeTab, setActiveTab] = useState<'parameters' | 'dinamica' | 'singularities' | 'summary' | 'python' | 'manual' | 'gallery'>('parameters');
 
   // Captured snapshots gallery
   const [gallery, setGallery] = useState<{ type: string; url: string; time: string }[]>([]);
@@ -596,13 +598,13 @@ export default function App() {
         {/* Right Column: Interactive Controls, Terminal Summary, Python Script */}
         <aside className="w-full lg:w-[440px] flex flex-col gap-3">
           {/* Sub Navigation Tabs */}
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl text-xs">
+          <div className="flex flex-wrap items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl text-xs">
             <button
               id="tab-parameters-btn"
               onClick={() => setActiveTab('parameters')}
-              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 min-w-[70px] py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
                 activeTab === 'parameters'
-                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -611,11 +613,25 @@ export default function App() {
             </button>
 
             <button
+              id="tab-dinamica-btn"
+              onClick={() => setActiveTab('dinamica')}
+              className={`flex-1 min-w-[85px] py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+                activeTab === 'dinamica'
+                  ? 'bg-cyan-950 text-cyan-300 font-bold border border-cyan-700 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Simulación Dinámica del Inconsciente (icc_dinamica: correr_caso y scl90r_a_parametros)"
+            >
+              <Zap className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Dinámica Icc</span>
+            </button>
+
+            <button
               id="tab-singularities-btn"
               onClick={() => setActiveTab('singularities')}
-              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 min-w-[75px] py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
                 activeTab === 'singularities'
-                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -626,9 +642,9 @@ export default function App() {
             <button
               id="tab-summary-btn"
               onClick={() => setActiveTab('summary')}
-              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 min-w-[65px] py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
                 activeTab === 'summary'
-                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -639,9 +655,9 @@ export default function App() {
             <button
               id="tab-python-btn"
               onClick={() => setActiveTab('python')}
-              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 min-w-[60px] py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
                 activeTab === 'python'
-                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -652,22 +668,22 @@ export default function App() {
             <button
               id="tab-manual-btn"
               onClick={() => setActiveTab('manual')}
-              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 min-w-[60px] py-1.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
                 activeTab === 'manual'
-                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80'
+                  ? 'bg-slate-800 text-cyan-300 font-semibold border border-slate-700/80 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
               title="Manual de Uso Completo del Programa: Guía práctica para la manipulación interactiva de las herramientas, visores y controles"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>Manual de Uso</span>
+              <span>Manual</span>
             </button>
 
             {gallery.length > 0 && (
               <button
                 id="tab-gallery-btn"
                 onClick={() => setActiveTab('gallery')}
-                className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1 transition-all ${
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition-all ${
                   activeTab === 'gallery'
                     ? 'bg-slate-800 text-amber-300 font-semibold border border-slate-700/80'
                     : 'text-slate-400 hover:text-slate-200'
@@ -688,6 +704,18 @@ export default function App() {
                 onChangeSclData={setSclData}
                 params={params}
                 onChangeParams={setParams}
+              />
+            )}
+
+            {activeTab === 'dinamica' && (
+              <IccDinamicaSimulation
+                sclData={sclData}
+                params={params}
+                onApplyIgsSim={(igsSim) => {
+                  setSclData(prev => ({ ...prev, GSI: igsSim }));
+                  showToast(`✓ IGS simulado (${igsSim.toFixed(2)}) acoplado al modelo 3D`);
+                }}
+                onTriggerPsychoticBreak={launchPsychoticRupture}
               />
             )}
 

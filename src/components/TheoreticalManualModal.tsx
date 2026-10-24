@@ -473,6 +473,26 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               </ul>
             </div>
 
+            <div className="bg-slate-950/50 border border-cyan-800/60 p-3 rounded-lg space-y-2">
+              <h4 className="font-semibold text-cyan-300 flex items-center gap-2">
+                <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                E. Simulación Dinámica Temporal (icc_dinamica.py y Pestaña Dinámica Icc)
+              </h4>
+              <ul className="list-disc pl-5 space-y-1 text-[11px] text-slate-400">
+                <li>
+                  <strong>Módulo Autónomo Python:</strong> Ejecute directamente con:
+                  <code className="text-cyan-300 block bg-slate-900 p-1.5 rounded my-1 font-mono text-[10.5px]">
+                    from icc_dinamica import correr_caso, scl90r_a_parametros<br />
+                    res = correr_caso(tu_scl90r_data, estructura="neurotico") # -&gt; res["IGS_sim"], res["Q_total"]
+                  </code>
+                </li>
+                <li><strong>Estructuras Lacanianas:</strong> Soporta <code>"neurotico"</code> (represión primaria S1 ➔ S2), <code>"psicotico"</code> (forclusión P0 con eyección por la cúspide p), <code>"perverso"</code> (desmentida / pantalla fetichista) y <code>"fronterizo"</code> (escisión yoica / Spaltung bimodal).</li>
+                <li><strong>Variables de Estado:</strong> Integra la carga pulsional Q(t), la proximidad a marcas de fantasía A(t), la barrera de censura λ_bar y la reactivación del trauma.</li>
+                <li><strong>Plano de Fase (Q vs A):</strong> Grafica en tiempo real los ciclos límite, atractores metaestables y zonas de desborde crítico (A &gt; A_cr).</li>
+                <li><strong>Acoplar a 3D:</strong> El botón <em>Acoplar a 3D</em> permite retroalimentar el IGS simulado (IGS_sim) directamente al radio y deformación del Horn Torus.</li>
+              </ul>
+            </div>
+
             {/* Invariantes del Pie de Página Activo */}
             <div className="bg-slate-950/80 border border-slate-800 p-3 rounded-lg space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-cyan-300 border-b border-slate-800 pb-1.5">
