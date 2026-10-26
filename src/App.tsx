@@ -412,7 +412,7 @@ export default function App() {
                   ? 'bg-blue-950/80 text-blue-300 border-blue-700'
                   : 'bg-slate-900 text-slate-500 border-slate-800 line-through'
               }`}
-              title="Cinta Σ (Síntoma, serie de VR — tesis V47): asignada a Psicoticismo + Hostilidad — AXIOMA"
+              title="Σ = banda sintomática. No es el Sinthome lacaniano (Σ: S¹ ↪ S³ del marco RSI, excluido de este proyecto [A]). Denota la banda del síntoma que intercepta la zona de angustia (Cap. 7: mero anudamiento de S e I)."
             >
               <span className="w-2 h-2 rounded-full bg-blue-500" />
               <span>Σ (Síntoma)</span>

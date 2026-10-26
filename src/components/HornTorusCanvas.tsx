@@ -1982,7 +1982,10 @@ export const HornTorusCanvas: React.FC<HornTorusCanvasProps> = ({
               <span className={`w-2.5 h-1.5 rounded-sm ${showPulsion ? 'bg-amber-400 shadow-sm animate-pulse' : 'bg-slate-700'}`} />
               <span>Pulsión (Flujo Vectorial)</span>
             </div>
-            <div className="flex items-center gap-1.5 text-blue-400">
+            <div
+              className="flex items-center gap-1.5 text-blue-400 cursor-help"
+              title="Σ = banda sintomática. No es el Sinthome lacaniano (Σ: S¹ ↪ S³ del marco RSI, excluido de este proyecto [A]). Denota la banda del síntoma que intercepta la zona de angustia (Cap. 7: mero anudamiento de S e I)."
+            >
               <span className="w-2.5 h-1.5 rounded-sm bg-blue-500 shadow-sm" />
               <span>Σ: Síntoma (VR)</span>
             </div>

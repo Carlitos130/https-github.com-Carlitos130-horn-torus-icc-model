@@ -30,9 +30,11 @@ export interface ModelParams {
    *  pared ni adelgazamientos — V35). Sin anchura suficiente el cruce se disipa
    *  aunque la cantidad (IGS) alcance el umbral. Default false. */
   wegbreiteAplicada?: boolean;
-  /** Pregunta abierta de la tesis (Cap. 7): ¿Σ opera como pantalla que aleja los
-   *  cruces de las marcas de fantasía (true) o como mero anudamiento que no incide
-   *  en dónde se producen los cruces (false, default)? */
+  /** Pregunta abierta registrada (Cap. 7): si Σ aleja los cruces de las marcas de
+   *  fantasía o solo anuda a S e I. Contrato: se refuta si en simulación la banda
+   *  sintomática no modifica la distancia de los cruces a las marcas en ningún
+   *  régimen de parámetros (entonces «pantalla» se rebaja a metáfora visual).
+   *  Métrica: distancia cruces↔marcas a registrar en corridas del banco 4a. */
   sigmaPantalla?: boolean;
   /** Configuración del Axioma 2 rearticulado (tesis V47): 'a' = soportes en
    *  superposición (unión conexa de las bandas de las series — Σ contingente);

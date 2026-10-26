@@ -20,7 +20,7 @@ import {
 
 interface TheoreticalManualProps {
   onTriggerPsychoticBreak?: () => void;
-  initialSection?: 'theoretical_basis' | 'lacan_torus' | 'psychotic_break' | 'freud_innovations' | 'user_manual';
+  initialSection?: 'theoretical_basis' | 'lacan_torus' | 'psychotic_break' | 'freud_innovations' | 'user_manual' | 'symbology';
 }
 
 export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
@@ -28,7 +28,7 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
   initialSection = 'theoretical_basis'
 }) => {
   const [activeSection, setActiveSection] = useState<
-    'theoretical_basis' | 'lacan_torus' | 'psychotic_break' | 'freud_innovations' | 'user_manual'
+    'theoretical_basis' | 'lacan_torus' | 'psychotic_break' | 'freud_innovations' | 'user_manual' | 'symbology'
   >(initialSection);
 
   return (
@@ -120,6 +120,19 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
         >
           <Activity className="w-3.5 h-3.5 text-emerald-400" />
           <span>5. Manual de la Aplicación</span>
+        </button>
+
+        <button
+          id="btn-manual-tab-symbology"
+          onClick={() => setActiveSection('symbology')}
+          className={`px-2.5 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
+            activeSection === 'symbology'
+              ? 'bg-blue-950 text-blue-200 border border-blue-600 font-semibold shadow-sm'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Target className="w-3.5 h-3.5 text-blue-400" />
+          <span>§ Simbología & Notación Σ</span>
         </button>
       </div>
 
@@ -508,6 +521,32 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
               </ul>
             </div>
 
+            {/* Subsection F: § Simbología y Notación Σ */}
+            <div className="bg-slate-950/50 border border-blue-800/60 p-3 rounded-lg space-y-2">
+              <h4 className="font-semibold text-blue-300 flex items-center gap-2">
+                <Target className="w-3.5 h-3.5 text-blue-400" />
+                F. § Simbología: Notación Σ y Contrato de Refutación
+              </h4>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                <strong>Notación Σ.</strong> En este modelo Σ designa la banda sintomática: el anudamiento de S (significante) e I (imagen del cuerpo) que opera como pantalla e intercepta la zona de angustia (unión de vecindades A_cr de las marcas de fantasía). Σ no es el Sinthome lacaniano del marco RSI-borromeo: ese concepto, y el enlace borromeo completo, quedan excluidos globalmente del proyecto [A] — el marco RSI no se unifica con el tronco freudiano («Poincaré no admite borromeo»). La coincidencia de símbolo es un artefacto de notación, no una readmisión encubierta [P].
+              </p>
+              <div className="bg-slate-900/90 border border-slate-800 p-2.5 rounded-lg text-[10.5px] space-y-1 font-mono">
+                <div className="text-amber-300 font-semibold flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Pregunta abierta registrada (Cap. 7):</span>
+                </div>
+                <p className="text-slate-300 font-sans">
+                  ¿Σ aleja los cruces de las marcas de fantasía o solo anuda a S e I?
+                </p>
+                <div className="p-1.5 rounded bg-blue-950/60 border border-blue-700/60 text-blue-200">
+                  <strong>Contrato:</strong> se refuta si en simulación la banda sintomática no modifica la distancia de los cruces a las marcas en ningún régimen de parámetros (entonces «pantalla» se rebaja a metáfora visual).
+                </div>
+                <p className="text-slate-400 text-[9.5px] font-sans italic pt-0.5">
+                  Nota: en la pregunta abierta le agregué el contrato de refutación «se refuta si…», siguiendo tu disciplina — es la forma en que esa pregunta del Cap. 7 deja de ser decorativa y se vuelve testeable en tu propio banco. La distancia cruces↔marcas queda como métrica a registrar en las corridas del banco 4a junto con los saltos.
+                </p>
+              </div>
+            </div>
+
             {/* Invariantes del Pie de Página Activo */}
             <div className="bg-slate-950/80 border border-slate-800 p-3 rounded-lg space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-cyan-300 border-b border-slate-800 pb-1.5">
@@ -553,6 +592,121 @@ export const TheoreticalManual: React.FC<TheoreticalManualProps> = ({
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Section 6: § Simbología & Notación Formal */}
+      {activeSection === 'symbology' && (
+        <div className="space-y-3.5 text-xs text-slate-300 leading-relaxed animate-in fade-in duration-150">
+          <div className="bg-blue-950/40 border border-blue-600/60 p-3 rounded-lg space-y-2">
+            <h3 className="text-sm font-semibold text-blue-200 flex items-center gap-2">
+              <Target className="w-4 h-4 text-blue-400" />
+              <span>§ Simbología, Notación Formal y Preguntas Abiertas</span>
+            </h3>
+            <p className="text-[11.5px] text-slate-300">
+              Definiciones axiomáticas, convenciones de símbolos y contratos de refutación empírica en el marco del proyecto.
+            </p>
+          </div>
+
+          {/* Primary Card: Notación Σ */}
+          <div className="bg-slate-950/70 border border-blue-800/80 p-3.5 rounded-lg space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs border-b border-blue-900/60 pb-2">
+              <span className="font-bold text-blue-300 font-mono text-sm flex items-center gap-2">
+                <span>Notación Σ (Banda Sintomática)</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] px-2 py-0.5 rounded bg-blue-900 text-blue-100 border border-blue-500 font-mono">
+                  [A] Axioma / Exclusión
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-600 font-mono">
+                  [P] Precaución Epistémica
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11.5px] text-slate-200 leading-relaxed font-sans">
+              <strong>Notación Σ.</strong> En este modelo Σ designa la banda sintomática: el anudamiento de S (significante) e I (imagen del cuerpo) que opera como pantalla e intercepta la zona de angustia (unión de vecindades A_cr de las marcas de fantasía). Σ no es el Sinthome lacaniano del marco RSI-borromeo: ese concepto, y el enlace borromeo completo, quedan excluidos globalmente del proyecto [A] — el marco RSI no se unifica con el tronco freudiano («Poincaré no admite borromeo»). La coincidencia de símbolo es un artefacto de notación, no una readmisión encubierta [P].
+            </p>
+
+            <div className="bg-amber-950/30 border border-amber-700/60 p-2.5 rounded-lg text-[11px] space-y-1.5 font-mono">
+              <div className="text-amber-300 font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                <span>Pregunta abierta registrada (Cap. 7):</span>
+              </div>
+              <p className="text-slate-300 font-sans">
+                ¿Σ aleja los cruces de las marcas de fantasía o solo anuda a S e I?
+              </p>
+              <div className="bg-slate-950/80 p-2 rounded border border-amber-800/60 text-slate-200 text-[10.5px]">
+                <strong className="text-amber-300">Contrato:</strong> se refuta si en simulación la banda sintomática no modifica la distancia de los cruces a las marcas en ningún régimen de parámetros (entonces «pantalla» se rebaja a metáfora visual).
+              </div>
+              <p className="text-[10px] text-slate-400 font-sans italic pt-0.5">
+                Nota: en la pregunta abierta le agregué el contrato de refutación «se refuta si…», siguiendo tu disciplina — es la forma en que esa pregunta del Cap. 7 deja de ser decorativa y se vuelve testeable en tu propio banco. Si la pegás, la distancia cruces↔marcas queda como métrica a registrar en las corridas del banco 4a junto con los saltos.
+              </p>
+            </div>
+          </div>
+
+          {/* Glosario de Símbolos Cardinales */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-lg space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded bg-red-500" />
+                <span className="font-mono font-bold text-red-400 text-xs">S (Significante)</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Serie de Vorstellungsrepräsentanzen ligadas simbólicamente. En configuración (a) conexa a I; en (b) separada por un trecho exigiendo Σ.
+              </p>
+            </div>
+
+            <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-lg space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded bg-emerald-500" />
+                <span className="font-mono font-bold text-emerald-400 text-xs">I (Imagen del Cuerpo)</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Soporte de la serie imaginaria de Vorstellungsrepräsentanzen. Lleva adherido a su borde el flujo del Hilo Pulsional (Trieb).
+              </p>
+            </div>
+
+            <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-lg space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded bg-amber-400" />
+                <span className="font-mono font-bold text-amber-300 text-xs">Pulsión (Trieb · Drang)</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Hilo pulsional vectorial íntimamente pegado al borde de I; empuje constante que no cesa de escribirse en el circuito toroidal continuo.
+              </p>
+            </div>
+
+            <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-lg space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded bg-purple-500" />
+                <span className="font-mono font-bold text-purple-400 text-xs">p (v = ±π, Orificio Singular)</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Cúspide de autotangencia del horn torus. Único orificio fijo: por él entra lo oído (campo Prcc) y sale la voz (pulsión).
+              </p>
+            </div>
+
+            <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-lg space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded bg-rose-500" />
+                <span className="font-mono font-bold text-rose-400 text-xs">Marcas de Fantasía (u, v)</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Marcas Icc de trauma sobre la cara interna. La angustia A(u,v) surge por proximidad angular a ellas (Axioma 4).
+              </p>
+            </div>
+
+            <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-lg space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded bg-cyan-400" />
+                <span className="font-mono font-bold text-cyan-300 text-xs">A_cr (Umbral Crítico)</span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Radio de la vecindad crítica de angustia (por defecto π/4 ≈ 0.785 rad). Define la zona roja de riesgo de desborde y reactivación.
+              </p>
             </div>
           </div>
         </div>
